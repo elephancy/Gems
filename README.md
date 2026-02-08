@@ -1,35 +1,7 @@
-# Gems
-a Minecraft mod that adds gems with unique powers for each holder.
+# Gems of Fate
 
-- Docs index: `docs/README.md`
-- Player guide: `gameplay.md`
-- Developer mechanics reference (source-of-truth): `checklist.md`
-- Server owner guide: `server-ops.md`
-- Balance/config reference: `balance.md`
-- Balancing: edit `config/gems/balance.json` (generated on first run) and run `/gems reloadBalance` (op level 2+) to apply.
+A standalone Minecraft 26.3 Fabric mod with collectible gems, powers, progression, and legendary items. It also powers the separate [Second Chance](https://github.com/mahmoudelfeelig/Second-Chance) adventure.
 
-## Server install
+Install the 2.0 Gems jar with Fabric Loader 0.19.5+, Fabric API 0.162.0+26.3, and Java 25. Start a fresh world. Mod Menu is optional.
 
-- Download the mod jar and place it in your server’s `mods/` folder (with Fabric Loader + Fabric API installed).
-- If you’re building from source: `./gradlew build` and use `build/libs/*.jar`.
-
-## In-game config UI
-
-- Install Mod Menu, then open the Gems config screen from Mod Menu.
-
-## Testing
-
-- Unit tests: `./gradlew test`
-- End-to-end integration (Fabric GameTest): `./gradlew gametest` (writes `build/reports/gametest.xml`, uses `run/gametest/`)
-
-## Developer setup
-
-- Prereqs: JDK 21, Git, and a recent Gradle wrapper (included).
-- Clone and open the project:
-  - `git clone <repo-url>`
-  - `cd Gems`
-- Run in dev:
-  - Client: `./gradlew runClient`
-  - Server: `./gradlew runServer`
-  - GameTest server: `./gradlew gametest`
-- Build a release jar: `./gradlew build` (output in `build/libs/`).
+Build with `./gradlew build` (`gradlew.bat build` on Windows). The jar is in `build-win/libs/` on Windows or `build-wsl/libs/` on Linux. Player rules are in [gameplay.md](gameplay.md); asset sources and licenses are in [credits.md](credits.md).

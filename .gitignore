@@ -1,57 +1,23 @@
-# Compiled class file
-*.class
-
-# Logs
+.gradle/
+.gradle-*/
+build/
+build-*/
+run/
+logs/
 *.log
-/logs
-
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
+*.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
-*.war
-*.nar
-*.ear
 *.zip
-*.tar.gz
+!tools/assets/*.zip
 *.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
-
-# Build/IDE
-/.gradle
-/.gradle-user-home
-/.gradle-home
-/.gradle-user
-/build
-/build-win
-/build-wsl
-/run
-/out
-/.idea
-/.vscode
+*.tar.gz
+.idea/
+.vscode/
 *.iml
-*.ipr
-*.iws
-/bin
-
-# Virtual environments
 .env/
 .venv/
-
-# CurseForge files
-CurseForge/
-
-# Local experiments
-experiments/
-
-# Assets
-/assets
+__pycache__/
+*.pyc
+hs_err_pid*
+replay_pid*
