@@ -9,8 +9,8 @@ import com.feel.gems.state.GemPlayerState;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 
 
@@ -33,10 +33,10 @@ public final class ServerClientConfigNetworking {
                     var player = context.player();
                     GemPlayerState.initIfNeeded(player);
                 GemLoadout current = LoadoutManager.createFromCurrent(player, payload.name());
-                List<net.minecraft.util.Identifier> abilities = payload.abilityOrder().isEmpty()
+                List<net.minecraft.resources.Identifier> abilities = payload.abilityOrder().isEmpty()
                     ? current.abilityOrder()
                     : payload.abilityOrder();
-                List<net.minecraft.util.Identifier> available = com.feel.gems.core.GemRegistry.definition(current.gem()).abilities();
+                List<net.minecraft.resources.Identifier> available = com.feel.gems.core.GemRegistry.definition(current.gem()).abilities();
                 abilities = GemLoadout.sanitizeAbilityOrder(abilities, available);
                 GemLoadout.HudLayout hud = new GemLoadout.HudLayout(
                     payload.hudPosition(),
@@ -79,9 +79,9 @@ public final class ServerClientConfigNetworking {
                 var player = context.player();
                 GemPlayerState.initIfNeeded(player);
                 if (!LoadoutManager.canUseLoadouts(player)) {
-                player.sendMessage(
-                    Text.translatable("gems.loadout.locked", GemsBalance.v().loadouts().unlockEnergy())
-                        .formatted(Formatting.RED),
+                player.sendSystemMessage(
+                    Component.translatable("gems.loadout.locked", GemsBalance.v().loadouts().unlockEnergy())
+                        .withStyle(ChatFormatting.RED),
                     true
                 );
                 return;
@@ -105,7 +105,7 @@ public final class ServerClientConfigNetworking {
                 int active = LoadoutManager.getActivePresetIndex(player, gem);
                 int unlock = GemsBalance.v().loadouts().unlockEnergy();
                 int maxPresets = GemsBalance.v().loadouts().maxPresetsPerGem();
-                List<net.minecraft.util.Identifier> abilityOrder = LoadoutManager.getAbilityOrder(player, gem);
+                List<net.minecraft.resources.Identifier> abilityOrder = LoadoutManager.getAbilityOrder(player, gem);
                 ServerPlayNetworking.send(player, new LoadoutScreenPayload(gem, unlock, maxPresets, active, abilityOrder, entries));
             }));
     }

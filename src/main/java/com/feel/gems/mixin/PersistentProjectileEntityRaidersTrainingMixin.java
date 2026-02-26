@@ -3,9 +3,9 @@ package com.feel.gems.mixin;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -15,19 +15,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 
 
-@Mixin(PersistentProjectileEntity.class)
+@Mixin(AbstractArrow.class)
 public abstract class PersistentProjectileEntityRaidersTrainingMixin {
     @Unique
     private boolean gems$scaled = false;
 
-    @Inject(method = "setVelocity(DDDFF)V", at = @At("RETURN"))
+    @Inject(method = "shoot(DDDFF)V", at = @At("RETURN"))
     private void gems$scaleAfterSetVelocity(double x, double y, double z, float speed, float divergence, CallbackInfo ci) {
         if (gems$scaled) {
             return;
         }
-        PersistentProjectileEntity self = (PersistentProjectileEntity) (Object) this;
+        AbstractArrow self = (AbstractArrow) (Object) this;
         Entity owner = self.getOwner();
-        if (!(owner instanceof ServerPlayerEntity player)) {
+        if (!(owner instanceof ServerPlayer player)) {
             return;
         }
         if (!GemPowers.isPassiveActive(player, PowerIds.PILLAGER_RAIDERS_TRAINING)) {
@@ -37,11 +37,11 @@ public abstract class PersistentProjectileEntityRaidersTrainingMixin {
         if (mult <= 1.0F) {
             return;
         }
-        var vel = self.getVelocity();
-        if (vel.lengthSquared() <= 1.0E-8D) {
+        var vel = self.getDeltaMovement();
+        if (vel.lengthSqr() <= 1.0E-8D) {
             return;
         }
         gems$scaled = true;
-        self.setVelocity(vel.multiply(mult));
+        self.setDeltaMovement(vel.scale(mult));
     }
 }

@@ -4,10 +4,10 @@ import com.feel.gems.config.GemsBalance;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 
 public final class MobBlacklist {
     private static List<Identifier> cachedList = List.of();
@@ -16,7 +16,7 @@ public final class MobBlacklist {
     private MobBlacklist() {
     }
 
-    public static boolean isBlacklisted(MobEntity mob) {
+    public static boolean isBlacklisted(Mob mob) {
         if (mob == null) {
             return false;
         }
@@ -27,7 +27,7 @@ public final class MobBlacklist {
         if (type == null) {
             return false;
         }
-        Identifier id = Registries.ENTITY_TYPE.getId(type);
+        Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
         return isBlacklisted(id);
     }
 

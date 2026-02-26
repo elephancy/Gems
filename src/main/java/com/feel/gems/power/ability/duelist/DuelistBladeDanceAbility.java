@@ -7,10 +7,10 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 public final class DuelistBladeDanceAbility implements GemAbility {
     public static final String BLADE_DANCE_ACTIVE_KEY = "duelist_blade_dance_active";
@@ -39,22 +39,22 @@ public final class DuelistBladeDanceAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.DUELIST, GemsBalance.v().duelist().bladeDanceDurationTicks());
-        long endTime = player.getEntityWorld().getTime() + durationTicks;
+        long endTime = player.level().getGameTime() + durationTicks;
 
         PlayerStateManager.setPersistent(player, BLADE_DANCE_ACTIVE_KEY, "true");
         PlayerStateManager.setPersistent(player, BLADE_DANCE_STACKS_KEY, "0");
-        PlayerStateManager.setPersistent(player, BLADE_DANCE_LAST_HIT_KEY, String.valueOf(player.getEntityWorld().getTime()));
+        PlayerStateManager.setPersistent(player, BLADE_DANCE_LAST_HIT_KEY, String.valueOf(player.level().getGameTime()));
         PlayerStateManager.setPersistent(player, BLADE_DANCE_END_KEY, String.valueOf(endTime));
 
-        AbilityFeedback.burstAt(player.getEntityWorld(), player.getEntityPos().add(0.0D, 1.0D, 0.0D),
+        AbilityFeedback.burstAt(player.level(), player.position().add(0.0D, 1.0D, 0.0D),
                 ParticleTypes.CRIT, 25, 0.5D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_PLAYER_ATTACK_STRONG, 1.0F, 1.5F);
+        AbilityFeedback.sound(player, SoundEvents.PLAYER_ATTACK_STRONG, 1.0F, 1.5F);
         return true;
     }
 
-    public static boolean isActive(ServerPlayerEntity player) {
+    public static boolean isActive(ServerPlayer player) {
         String active = PlayerStateManager.getPersistent(player, BLADE_DANCE_ACTIVE_KEY);
         if (!"true".equals(active)) {
             return false;
@@ -64,10 +64,10 @@ public final class DuelistBladeDanceAbility implements GemAbility {
             return false;
         }
         long endTime = Long.parseLong(endStr);
-        return player.getEntityWorld().getTime() < endTime;
+        return player.level().getGameTime() < endTime;
     }
 
-    public static float getDamageMultiplier(ServerPlayerEntity player) {
+    public static float getDamageMultiplier(ServerPlayer player) {
         if (!isActive(player)) {
             return 1.0F;
         }
@@ -77,7 +77,7 @@ public final class DuelistBladeDanceAbility implements GemAbility {
         if (lastHitStr != null) {
             long lastHit = Long.parseLong(lastHitStr);
             int resetTicks = GemsBalance.v().duelist().bladeDanceResetTicks();
-            if (player.getEntityWorld().getTime() - lastHit > resetTicks) {
+            if (player.level().getGameTime() - lastHit > resetTicks) {
                 // Reset stacks
                 PlayerStateManager.setPersistent(player, BLADE_DANCE_STACKS_KEY, "0");
             }
@@ -93,7 +93,7 @@ public final class DuelistBladeDanceAbility implements GemAbility {
         return Math.min(baseMultiplier + (stacks * increasePerHit), maxMultiplier);
     }
 
-    public static void onHit(ServerPlayerEntity player) {
+    public static void onHit(ServerPlayer player) {
         if (!isActive(player)) {
             return;
         }
@@ -103,16 +103,16 @@ public final class DuelistBladeDanceAbility implements GemAbility {
         stacks++;
 
         PlayerStateManager.setPersistent(player, BLADE_DANCE_STACKS_KEY, String.valueOf(stacks));
-        PlayerStateManager.setPersistent(player, BLADE_DANCE_LAST_HIT_KEY, String.valueOf(player.getEntityWorld().getTime()));
+        PlayerStateManager.setPersistent(player, BLADE_DANCE_LAST_HIT_KEY, String.valueOf(player.level().getGameTime()));
 
         // Visual feedback for stacks
         if (stacks % 3 == 0) {
-            AbilityFeedback.burstAt(player.getEntityWorld(), player.getEntityPos().add(0.0D, 1.5D, 0.0D),
+            AbilityFeedback.burstAt(player.level(), player.position().add(0.0D, 1.5D, 0.0D),
                     ParticleTypes.CRIT, 10, 0.3D);
         }
     }
 
-    public static void clear(ServerPlayerEntity player) {
+    public static void clear(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, BLADE_DANCE_ACTIVE_KEY);
         PlayerStateManager.clearPersistent(player, BLADE_DANCE_STACKS_KEY);
         PlayerStateManager.clearPersistent(player, BLADE_DANCE_LAST_HIT_KEY);

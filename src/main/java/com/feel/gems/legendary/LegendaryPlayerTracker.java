@@ -8,26 +8,26 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.datafixer.DataFixTypes;
-import net.minecraft.registry.RegistryKey;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Uuids;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.PersistentStateType;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
 
 
 
 
 public final class LegendaryPlayerTracker {
     private static final String STATE_KEY = "gems_legendary_player_tracker";
-    private static final PersistentStateType<State> STATE_TYPE =
-            new PersistentStateType<>(STATE_KEY, State::new, State.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<State> STATE_TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(STATE_KEY), State::new, State.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
 
     private static final String KEY_PLAYERS = "players";
     private static final String KEY_UUID = "uuid";
@@ -44,14 +44,14 @@ public final class LegendaryPlayerTracker {
     public static void tick(MinecraftServer server) {
         State state = state(server);
         long now = GemsTime.now(server);
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            state.players.put(player.getUuid(), Snapshot.fromPlayer(server, player, now));
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            state.players.put(player.getUUID(), Snapshot.fromPlayer(server, player, now));
         }
-        state.markDirty();
+        state.setDirty();
     }
 
     public static Snapshot snapshot(MinecraftServer server, UUID uuid) {
-        ServerPlayerEntity online = server.getPlayerManager().getPlayer(uuid);
+        ServerPlayer online = server.getPlayerList().getPlayer(uuid);
         if (online != null) {
             return Snapshot.fromPlayer(server, online, GemsTime.now(server));
         }
@@ -63,8 +63,8 @@ public final class LegendaryPlayerTracker {
     }
 
     private static State state(MinecraftServer server) {
-        PersistentStateManager mgr = server.getOverworld().getPersistentStateManager();
-        return mgr.getOrCreate(STATE_TYPE);
+        SavedDataStorage mgr = server.overworld().getDataStorage();
+        return mgr.computeIfAbsent(STATE_TYPE);
     }
 
     public record Snapshot(
@@ -77,7 +77,7 @@ public final class LegendaryPlayerTracker {
             long lastSeenTick
     ) {
         static final Codec<Snapshot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                Uuids.CODEC.fieldOf(KEY_UUID).forGetter(Snapshot::uuid),
+                UUIDUtil.AUTHLIB_CODEC.fieldOf(KEY_UUID).forGetter(Snapshot::uuid),
                 Codec.STRING.fieldOf(KEY_NAME).forGetter(Snapshot::name),
                 Identifier.CODEC.fieldOf(KEY_DIM).forGetter(Snapshot::dimension),
                 BlockPos.CODEC.fieldOf(KEY_POS).forGetter(Snapshot::pos),
@@ -86,33 +86,33 @@ public final class LegendaryPlayerTracker {
                 Codec.LONG.fieldOf(KEY_LAST_SEEN).forGetter(Snapshot::lastSeenTick)
         ).apply(instance, Snapshot::new));
 
-        static Snapshot fromPlayer(MinecraftServer server, ServerPlayerEntity player, long now) {
-            Identifier dim = player.getEntityWorld().getRegistryKey().getValue();
-            BlockPos pos = player.getBlockPos();
+        static Snapshot fromPlayer(MinecraftServer server, ServerPlayer player, long now) {
+            Identifier dim = player.level().dimension().identifier();
+            BlockPos pos = player.blockPosition();
 
-            var respawn = player.getRespawn();
+            var respawn = player.getRespawnConfig();
             var spawnPoint = respawn == null ? null : respawn.respawnData();
-            RegistryKey<World> respawnKey = spawnPoint == null ? null : spawnPoint.getDimension();
-            BlockPos respawnPos = spawnPoint == null ? null : spawnPoint.getPos();
+            ResourceKey<Level> respawnKey = spawnPoint == null ? null : spawnPoint.dimension();
+            BlockPos respawnPos = spawnPoint == null ? null : spawnPoint.pos();
             if (respawnKey == null || respawnPos == null) {
-                ServerWorld overworld = server.getOverworld();
-                respawnKey = World.OVERWORLD;
-                respawnPos = overworld.getSpawnPoint().getPos();
+                ServerLevel overworld = server.overworld();
+                respawnKey = Level.OVERWORLD;
+                respawnPos = overworld.getRespawnData().pos();
             }
 
             return new Snapshot(
-                    player.getUuid(),
+                    player.getUUID(),
                     player.getGameProfile().name(),
                     dim,
                     pos,
-                    respawnKey.getValue(),
+                    respawnKey.identifier(),
                     respawnPos,
                     now
             );
         }
     }
 
-    private static final class State extends PersistentState {
+    private static final class State extends SavedData {
         private final Map<UUID, Snapshot> players = new HashMap<>();
 
         static final Codec<State> CODEC = RecordCodecBuilder.create(instance -> instance.group(

@@ -2,17 +2,15 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-
 import com.feel.gems.util.GemsTeleport;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Warp Strike - Teleport behind target and strike.
@@ -42,19 +40,22 @@ public final class BonusWarpStrikeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Vec3d start = player.getEyePos();
-        Vec3d direction = player.getRotationVector();
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        Vec3 start = player.getEyePosition();
+        Vec3 direction = player.getLookAngle();
+        Vec3 end = start.add(direction.scale(RANGE));
 
         LivingEntity target = null;
-        for (LivingEntity entity : world.getEntitiesByClass(LivingEntity.class, 
-                player.getBoundingBox().expand(RANGE), e -> e != player && e.isAlive())) {
-            Vec3d toEntity = entity.getEyePos().subtract(start);
-            double dot = toEntity.normalize().dotProduct(direction);
-            if (dot > 0.9 && toEntity.length() < RANGE) {
+        double nearestHit = RANGE * RANGE;
+        for (LivingEntity entity : world.getEntitiesOfClass(LivingEntity.class,
+                player.getBoundingBox().inflate(RANGE), e -> e != player && e.isAlive())) {
+            var hit = entity.getBoundingBox().inflate(0.25D).clip(start, end);
+            if (hit.isEmpty()) continue;
+            double distance = start.distanceToSqr(hit.get());
+            if (distance < nearestHit) {
                 target = entity;
-                break;
+                nearestHit = distance;
             }
         }
 
@@ -63,26 +64,26 @@ public final class BonusWarpStrikeAbility implements GemAbility {
         }
 
         // Calculate position behind target
-        Vec3d targetFacing = Vec3d.fromPolar(0, target.getYaw()).normalize();
-        Vec3d behindPos = target.getEntityPos().subtract(targetFacing.multiply(2));
+        Vec3 targetFacing = Vec3.directionFromRotation(0, target.getYRot()).normalize();
+        Vec3 behindPos = target.position().subtract(targetFacing.scale(2));
 
         // Particles at start
-        world.spawnParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1, player.getZ(), 
+        world.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1, player.getZ(),
                 15, 0.3, 0.5, 0.3, 0.05);
 
         // Teleport behind target
-        GemsTeleport.teleport(player, world, behindPos.x, behindPos.y, behindPos.z, 
-                target.getYaw() + 180, player.getPitch());
+        GemsTeleport.teleport(player, world, behindPos.x, behindPos.y, behindPos.z,
+                target.getYRot() + 180, player.getXRot());
 
         // Deal damage
-        target.damage(world, world.getDamageSources().playerAttack(player), DAMAGE);
+        target.hurtServer(world, world.damageSources().playerAttack(player), DAMAGE);
 
         // Particles at end
-        world.spawnParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + targetFacing.x, 
+        world.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + targetFacing.x,
                 player.getY() + 1, player.getZ() + targetFacing.z, 1, 0, 0, 0, 0);
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 1.0f, 1.0f);
+                SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0f, 1.0f);
         return true;
     }
 }

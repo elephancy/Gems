@@ -23,30 +23,44 @@ import com.feel.gems.power.runtime.AbilityRuntime;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.stats.GemsStats;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.network.ServerPlayerEntity;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ResolvableProfile;
 import org.jetbrains.annotations.Nullable;
 
 public final class GemsPlayerDeath {
+    private static final List<Consumer<ServerPlayer>> DEATH_HEAD_CALLBACKS = new ArrayList<>();
+
     private GemsPlayerDeath() {
     }
 
-    public static void onDeathHead(ServerPlayerEntity victim, @Nullable DamageSource source) {
-        if (victim.getEntityWorld().isClient()) {
+    /** Optional addons can record their own death context without coupling Gems to them. */
+    public static void registerDeathHeadCallback(Consumer<ServerPlayer> callback) {
+        DEATH_HEAD_CALLBACKS.add(Objects.requireNonNull(callback));
+    }
+
+    public static void onDeathHead(ServerPlayer victim, @Nullable DamageSource source) {
+        if (victim.level().isClientSide()) {
             return;
+        }
+        for (Consumer<ServerPlayer> callback : DEATH_HEAD_CALLBACKS) {
+            callback.accept(victim);
         }
         ExperienceBladeItem.clearOnDeath(victim);
         SummonerSummons.discardAll(victim);
         GemKeepOnDeath.stash(victim);
     }
 
-    public static void onDeathTail(ServerPlayerEntity victim, DamageSource source) {
+    public static void onDeathTail(ServerPlayer victim, DamageSource source) {
         GemPlayerState.initIfNeeded(victim);
         AssassinState.initIfNeeded(victim);
         SpySystem.incrementDeaths(victim);
@@ -62,7 +76,7 @@ public final class GemsPlayerDeath {
         int assassinTriggerHearts = Math.max(GemPlayerState.minMaxHearts(), com.feel.gems.config.GemsBalance.v().systems().assassinTriggerHearts());
         boolean victimAtAssassinTrigger = !victimWasAssassin && victimHeartsBefore <= assassinTriggerHearts;
 
-        ServerPlayerEntity killer = resolveKiller(victim, source);
+        ServerPlayer killer = resolveKiller(victim, source);
         if (killer != null && killer != victim) {
             GemPlayerState.initIfNeeded(killer);
             AssassinState.initIfNeeded(killer);
@@ -95,7 +109,7 @@ public final class GemsPlayerDeath {
             HuntersTrophyNecklaceItem.onKillPlayer(killer, victim);
 
             // Using another player's active gem should never let you keep re-killing them.
-            GemOwnership.removeOwnedGemFromInventory(killer, victim.getUuid(), victimActiveGem);
+            GemOwnership.removeOwnedGemFromInventory(killer, victim.getUUID(), victimActiveGem);
 
             if (victimWasAssassin && killerWasAssassin) {
                 var cfg = com.feel.gems.config.GemsBalance.v().systems();
@@ -121,10 +135,10 @@ public final class GemsPlayerDeath {
                 }
             }
 
-            AssassinTeams.sync(victim.getEntityWorld().getServer(), killer);
+            AssassinTeams.sync(victim.level().getServer(), killer);
 
             if (killerEnergyBefore >= GemPlayerState.MAX_ENERGY && victimEnergyBefore > 0) {
-                victim.dropStack(victim.getEntityWorld(), new ItemStack(ModItems.ENERGY_UPGRADE));
+                victim.spawnAtLocation(victim.level(), new ItemStack(ModItems.ENERGY_UPGRADE));
             }
         }
 
@@ -136,20 +150,20 @@ public final class GemsPlayerDeath {
             } else if (!skipHeartDrop && victimHeartsBefore > GemPlayerState.minMaxHearts()) {
                 GemPlayerState.setMaxHearts(victim, victimHeartsBefore - 1);
                 ItemStack heart = new ItemStack(ModItems.HEART);
-                AbilityRuntime.setOwnerWithName(heart, victim.getUuid(), victim.getName().getString());
-                victim.dropStack(victim.getEntityWorld(), heart);
+                AbilityRuntime.setOwnerWithName(heart, victim.getUUID(), victim.getName().getString());
+                victim.spawnAtLocation(victim.level(), heart);
             }
         }
 
         ItemStack head = new ItemStack(Items.PLAYER_HEAD);
-        head.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(victim.getGameProfile()));
-        victim.dropStack(victim.getEntityWorld(), head);
+        head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(victim.getGameProfile()));
+        victim.spawnAtLocation(victim.level(), head);
 
         GemPlayerState.applyMaxHearts(victim);
         GemPowers.sync(victim);
         GemItemGlint.sync(victim);
         GemStateSync.send(victim);
-        AssassinTeams.sync(victim.getEntityWorld().getServer(), victim);
+        AssassinTeams.sync(victim.level().getServer(), victim);
 
         // Challenger's Gauntlet duels: return participants, transfer drops, and clean up arenas.
         LegendaryDuels.onDuelParticipantDeathTail(victim, source);
@@ -158,27 +172,27 @@ public final class GemsPlayerDeath {
         com.feel.gems.power.ability.duelist.DuelistMirrorMatchRuntime.onDeath(victim);
 
         // Sentinel intervention should not persist through death.
-        SentinelInterventionRuntime.cleanup(victim.getEntityWorld().getServer(), victim);
+        SentinelInterventionRuntime.cleanup(victim.level().getServer(), victim);
     }
 
     @Nullable
-    private static ServerPlayerEntity resolveKiller(ServerPlayerEntity victim, @Nullable DamageSource source) {
+    private static ServerPlayer resolveKiller(ServerPlayer victim, @Nullable DamageSource source) {
         if (source == null) {
             return null;
         }
-        Entity attacker = source.getAttacker();
-        if (attacker instanceof ServerPlayerEntity player) {
+        Entity attacker = source.getEntity();
+        if (attacker instanceof ServerPlayer player) {
             return player;
         }
-        Entity direct = source.getSource();
-        if (direct instanceof ServerPlayerEntity player) {
+        Entity direct = source.getDirectEntity();
+        if (direct instanceof ServerPlayer player) {
             return player;
         }
-        if (direct instanceof ProjectileEntity projectile && projectile.getOwner() instanceof ServerPlayerEntity player) {
+        if (direct instanceof Projectile projectile && projectile.getOwner() instanceof ServerPlayer player) {
             return player;
         }
-        Entity last = victim.getAttacker();
-        if (last instanceof ServerPlayerEntity player) {
+        Entity last = victim.getLastHurtByMob();
+        if (last instanceof ServerPlayer player) {
             return player;
         }
         return null;

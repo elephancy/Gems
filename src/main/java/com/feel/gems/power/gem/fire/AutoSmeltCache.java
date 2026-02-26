@@ -2,13 +2,13 @@ package com.feel.gems.power.gem.fire;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.Optional;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.RecipeEntry;
-import net.minecraft.recipe.RecipeType;
-import net.minecraft.recipe.input.SingleStackRecipeInput;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
 
 
 /**
@@ -26,11 +26,11 @@ public final class AutoSmeltCache {
         SMELT_CACHE.clear();
     }
 
-    public static ItemStack smeltResult(ServerWorld world, ItemStack input) {
+    public static ItemStack smeltResult(ServerLevel world, ItemStack input) {
         if (input == null || input.isEmpty()) {
             return null;
         }
-        if (input.contains(DataComponentTypes.CUSTOM_DATA) || input.contains(DataComponentTypes.BLOCK_ENTITY_DATA)) {
+        if (input.has(DataComponents.CUSTOM_DATA) || input.has(DataComponents.BLOCK_ENTITY_DATA)) {
             return null;
         }
 
@@ -40,16 +40,16 @@ public final class AutoSmeltCache {
             return cached.isEmpty() ? null : scaledCopy(cached, input.getCount());
         }
 
-        SingleStackRecipeInput recipeInput = new SingleStackRecipeInput(new ItemStack(item));
-        Optional<? extends RecipeEntry<? extends net.minecraft.recipe.Recipe<SingleStackRecipeInput>>> match =
-                world.getRecipeManager().getFirstMatch(RecipeType.SMELTING, recipeInput, world);
+        SingleRecipeInput recipeInput = new SingleRecipeInput(new ItemStack(item));
+        Optional<? extends RecipeHolder<? extends net.minecraft.world.item.crafting.Recipe<SingleRecipeInput>>> match =
+                world.recipeAccess().getRecipeFor(RecipeType.SMELTING, recipeInput, world);
 
         if (match.isEmpty()) {
             SMELT_CACHE.put(item, ItemStack.EMPTY);
             return null;
         }
 
-        ItemStack result = match.get().value().craft(recipeInput, world.getRegistryManager());
+        ItemStack result = match.get().value().assemble(recipeInput);
         if (result == null || result.isEmpty()) {
             SMELT_CACHE.put(item, ItemStack.EMPTY);
             return null;

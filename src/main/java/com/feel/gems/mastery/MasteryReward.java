@@ -1,6 +1,6 @@
 package com.feel.gems.mastery;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 /**
  * Represents a cosmetic reward unlocked through gem mastery.
@@ -17,6 +17,6 @@ public record MasteryReward(
     }
 
     public Identifier identifier() {
-        return Identifier.of("gems", id);
+        return Identifier.fromNamespaceAndPath("gems", id);
     }
 }

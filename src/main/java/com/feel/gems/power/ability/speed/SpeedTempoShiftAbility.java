@@ -7,12 +7,12 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.AbilityRuntime;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 
 public final class SpeedTempoShiftAbility implements GemAbility {
@@ -37,18 +37,18 @@ public final class SpeedTempoShiftAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.SPEED, GemsBalance.v().speed().tempoShiftDurationTicks());
         if (duration <= 0) {
-            player.sendMessage(Text.translatable("gems.message.ability_disabled_server"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.ability_disabled_server"), true);
             return false;
         }
 
         AbilityRuntime.startSpeedTempoShift(player, duration);
-        if (player.getEntityWorld() instanceof ServerWorld world) {
-            AbilityFeedback.ring(world, player.getEntityPos().add(0.0D, 0.1D, 0.0D), 3.0D, ParticleTypes.END_ROD, 24);
+        if (player.level() instanceof ServerLevel world) {
+            AbilityFeedback.ring(world, player.position().add(0.0D, 0.1D, 0.0D), 3.0D, ParticleTypes.END_ROD, 24);
         }
-        AbilityFeedback.sound(player, SoundEvents.ITEM_TRIDENT_RETURN, 0.8F, 1.6F);
+        AbilityFeedback.sound(player, SoundEvents.TRIDENT_RETURN, 0.8F, 1.6F);
         return true;
     }
 }

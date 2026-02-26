@@ -8,22 +8,22 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 
 
 
@@ -64,31 +64,31 @@ public final class VitalityVortexAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         VortexMode mode = detectMode(world, player);
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.LIFE, GemsBalance.v().life().vitalityVortexDurationTicks());
         int radius = GemsBalance.v().life().vitalityVortexRadiusBlocks();
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-            boolean ally = other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer);
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            boolean ally = other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer);
             if (ally) {
                 applyAlly(mode, other, duration);
             } else {
-                if (other instanceof ServerPlayerEntity otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
+                if (other instanceof ServerPlayer otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
                     continue;
                 }
                 applyEnemy(mode, other, duration);
             }
         }
 
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_BEACON_POWER_SELECT, 0.8F, 1.1F);
+        AbilityFeedback.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.8F, 1.1F);
         AbilityFeedback.burst(player, particleFor(mode), 20, 0.35D);
-        player.sendMessage(Text.translatable("gems.ability.life.vitality_vortex.mode", mode.label), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.life.vitality_vortex.mode", mode.label), true);
         return true;
     }
 
-    private static net.minecraft.particle.ParticleEffect particleFor(VortexMode mode) {
+    private static net.minecraft.core.particles.ParticleOptions particleFor(VortexMode mode) {
         return switch (mode) {
             case AQUATIC -> ParticleTypes.BUBBLE;
             case INFERNAL -> ParticleTypes.FLAME;
@@ -104,38 +104,38 @@ public final class VitalityVortexAbility implements GemAbility {
         switch (mode) {
             case AQUATIC -> {
                 target.heal(heal);
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.WATER_BREATHING, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.DOLPHINS_GRACE, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.WATER_BREATHING, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.DOLPHINS_GRACE, duration, 0, true, false, false));
             }
             case INFERNAL -> {
                 target.heal(heal);
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.STRENGTH, duration, 0, true, false, false));
             }
             case SCULK -> {
                 target.heal(heal);
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.NIGHT_VISION, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, duration, 0, true, false, false));
             }
             case VERDANT -> {
                 target.heal(heal);
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, duration, 1, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.SATURATION, 40, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, duration, 1, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.SATURATION, 40, 0, true, false, false));
             }
             case END -> {
                 target.heal(heal);
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, duration, 0, true, false, false));
             }
             default -> {
                 target.heal(heal);
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, duration, 1, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, duration, 1, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, 0, true, false, false));
             }
         }
     }
@@ -143,42 +143,42 @@ public final class VitalityVortexAbility implements GemAbility {
     private static void applyEnemy(VortexMode mode, LivingEntity target, int duration) {
         switch (mode) {
             case AQUATIC -> {
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, duration, 1, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.MINING_FATIGUE, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, duration, 1, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, duration, 0, true, false, false));
             }
             case INFERNAL -> {
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.WITHER, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.WITHER, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0, true, false, false));
             }
             case SCULK -> {
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.DARKNESS, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.MINING_FATIGUE, duration, 1, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.DARKNESS, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, duration, 1, true, false, false));
             }
             case VERDANT -> {
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.POISON, duration, 1, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.POISON, duration, 1, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, duration, 0, true, false, false));
             }
             case END -> {
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, duration, 1, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, duration, 1, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0, true, false, false));
             }
             default -> {
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.POISON, duration, 0, true, false, false));
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.POISON, duration, 0, true, false, false));
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0, true, false, false));
             }
         }
     }
 
-    private static VortexMode detectMode(ServerWorld world, ServerPlayerEntity player) {
-        if (world.getRegistryKey() == World.NETHER) {
+    private static VortexMode detectMode(ServerLevel world, ServerPlayer player) {
+        if (world.dimension() == Level.NETHER) {
             return VortexMode.INFERNAL;
         }
-        if (world.getRegistryKey() == World.END) {
+        if (world.dimension() == Level.END) {
             return VortexMode.END;
         }
 
-        BlockPos center = player.getBlockPos();
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos center = player.blockPosition();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
         int water = 0;
         int lava = 0;
@@ -192,9 +192,9 @@ public final class VitalityVortexAbility implements GemAbility {
                     pos.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
                     BlockState state = world.getBlockState(pos);
                     var fluid = state.getFluidState();
-                    if (fluid.isIn(FluidTags.LAVA)) {
+                    if (fluid.is(FluidTags.LAVA)) {
                         lava++;
-                    } else if (fluid.isIn(FluidTags.WATER)) {
+                    } else if (fluid.is(FluidTags.WATER)) {
                         water++;
                     }
 
@@ -210,7 +210,7 @@ public final class VitalityVortexAbility implements GemAbility {
         if (lava > 0) {
             return VortexMode.INFERNAL;
         }
-        if (water > 0 || player.isSubmergedInWater()) {
+        if (water > 0 || player.isUnderWater()) {
             return VortexMode.AQUATIC;
         }
         if (sculk > 0) {
@@ -223,21 +223,21 @@ public final class VitalityVortexAbility implements GemAbility {
     }
 
     private static boolean isSculk(BlockState state) {
-        return state.isOf(Blocks.SCULK)
-                || state.isOf(Blocks.SCULK_VEIN)
-                || state.isOf(Blocks.SCULK_SENSOR)
-                || state.isOf(Blocks.CALIBRATED_SCULK_SENSOR)
-                || state.isOf(Blocks.SCULK_SHRIEKER)
-                || state.isOf(Blocks.SCULK_CATALYST);
+        return state.is(Blocks.SCULK)
+                || state.is(Blocks.SCULK_VEIN)
+                || state.is(Blocks.SCULK_SENSOR)
+                || state.is(Blocks.CALIBRATED_SCULK_SENSOR)
+                || state.is(Blocks.SCULK_SHRIEKER)
+                || state.is(Blocks.SCULK_CATALYST);
     }
 
     private static boolean isVerdant(BlockState state) {
-        return state.isIn(BlockTags.LEAVES)
-                || state.isIn(BlockTags.FLOWERS)
-                || state.isOf(Blocks.GRASS_BLOCK)
-                || state.isOf(Blocks.TALL_GRASS)
-                || state.isOf(Blocks.FERN)
-                || state.isOf(Blocks.LARGE_FERN)
-                || state.isOf(Blocks.VINE);
+        return state.is(BlockTags.LEAVES)
+                || state.is(BlockTags.FLOWERS)
+                || state.is(Blocks.GRASS_BLOCK)
+                || state.is(Blocks.TALL_GRASS)
+                || state.is(Blocks.FERN)
+                || state.is(Blocks.LARGE_FERN)
+                || state.is(Blocks.VINE);
     }
 }

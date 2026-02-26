@@ -11,20 +11,20 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.particle.TintedParticleEffect;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ColorParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 
 /**
@@ -41,50 +41,50 @@ public final class SpaceAnomalies {
     private SpaceAnomalies() {
     }
 
-    public static void spawnBlackHole(ServerPlayerEntity caster, Vec3d pos) {
-        if (!(caster.getEntityWorld() instanceof ServerWorld world)) {
+    public static void spawnBlackHole(ServerPlayer caster, Vec3 pos) {
+        if (!(caster.level() instanceof ServerLevel world)) {
             return;
         }
         long now = GemsTime.now(world);
         int duration = AugmentRuntime.applyDurationMultiplier(caster, GemId.SPACE, GemsBalance.v().space().blackHoleDurationTicks());
-        ACTIVE.add(Anomaly.blackHole(caster.getUuid(), world.getRegistryKey(), pos, now, duration));
+        ACTIVE.add(Anomaly.blackHole(caster.getUUID(), world.dimension(), pos, now, duration));
 
         AbilityFeedback.burstAt(world, pos, ParticleTypes.REVERSE_PORTAL, 18, 0.35D);
         AbilityFeedback.ring(world, pos.add(0.0D, 0.15D, 0.0D), Math.min(6.0D, GemsBalance.v().space().blackHoleRadiusBlocks()), ParticleTypes.REVERSE_PORTAL, 28);
-        AbilityFeedback.sound(caster, SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.9F, 0.8F);
-        AbilityFeedback.sound(caster, SoundEvents.ENTITY_WARDEN_SONIC_CHARGE, 0.6F, 0.7F);
-        AbilityFeedback.soundAt(world, pos, SoundEvents.BLOCK_PORTAL_AMBIENT, 0.35F, 0.7F);
+        AbilityFeedback.sound(caster, SoundEvents.RESPAWN_ANCHOR_CHARGE, 0.9F, 0.8F);
+        AbilityFeedback.sound(caster, SoundEvents.WARDEN_SONIC_CHARGE, 0.6F, 0.7F);
+        AbilityFeedback.soundAt(world, pos, SoundEvents.PORTAL_AMBIENT, 0.35F, 0.7F);
     }
 
-    public static void spawnWhiteHole(ServerPlayerEntity caster, Vec3d pos) {
-        if (!(caster.getEntityWorld() instanceof ServerWorld world)) {
+    public static void spawnWhiteHole(ServerPlayer caster, Vec3 pos) {
+        if (!(caster.level() instanceof ServerLevel world)) {
             return;
         }
         long now = GemsTime.now(world);
         int duration = AugmentRuntime.applyDurationMultiplier(caster, GemId.SPACE, GemsBalance.v().space().whiteHoleDurationTicks());
-        ACTIVE.add(Anomaly.whiteHole(caster.getUuid(), world.getRegistryKey(), pos, now, duration));
+        ACTIVE.add(Anomaly.whiteHole(caster.getUUID(), world.dimension(), pos, now, duration));
 
         AbilityFeedback.burstAt(world, pos, ParticleTypes.END_ROD, 14, 0.35D);
         AbilityFeedback.burstAt(world, pos, ParticleTypes.CLOUD, 10, 0.45D);
         AbilityFeedback.ring(world, pos.add(0.0D, 0.15D, 0.0D), Math.min(6.0D, GemsBalance.v().space().whiteHoleRadiusBlocks()), ParticleTypes.END_ROD, 28);
-        AbilityFeedback.sound(caster, SoundEvents.BLOCK_BEACON_POWER_SELECT, 0.9F, 1.4F);
-        AbilityFeedback.sound(caster, SoundEvents.ENTITY_WARDEN_SONIC_CHARGE, 0.6F, 1.6F);
-        AbilityFeedback.soundAt(world, pos, SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME, 0.5F, 1.4F);
+        AbilityFeedback.sound(caster, SoundEvents.BEACON_POWER_SELECT, 0.9F, 1.4F);
+        AbilityFeedback.sound(caster, SoundEvents.WARDEN_SONIC_CHARGE, 0.6F, 1.6F);
+        AbilityFeedback.soundAt(world, pos, SoundEvents.AMETHYST_BLOCK_CHIME, 0.5F, 1.4F);
     }
 
-    public static void scheduleOrbitalLaser(ServerPlayerEntity caster, BlockPos target, boolean miningMode) {
-        if (!(caster.getEntityWorld() instanceof ServerWorld world)) {
+    public static void scheduleOrbitalLaser(ServerPlayer caster, BlockPos target, boolean miningMode) {
+        if (!(caster.level() instanceof ServerLevel world)) {
             return;
         }
         long now = GemsTime.now(world);
-        ACTIVE.add(Anomaly.laser(caster.getUuid(), world.getRegistryKey(), target, miningMode, now));
-        Vec3d center = Vec3d.ofCenter(target);
+        ACTIVE.add(Anomaly.laser(caster.getUUID(), world.dimension(), target, miningMode, now));
+        Vec3 center = Vec3.atCenterOf(target);
         AbilityFeedback.burstAt(world, center, ParticleTypes.END_ROD, 16, 0.35D);
         AbilityFeedback.burstAt(world, center, ParticleTypes.ELECTRIC_SPARK, 10, 0.35D);
         AbilityFeedback.ring(world, center.add(0.0D, 0.2D, 0.0D), 3.0D, ParticleTypes.END_ROD, 32);
         AbilityFeedback.ring(world, center.add(0.0D, 0.2D, 0.0D), 2.0D, ParticleTypes.ELECTRIC_SPARK, 18);
-        AbilityFeedback.sound(caster, SoundEvents.BLOCK_BEACON_ACTIVATE, 0.8F, miningMode ? 0.7F : 1.2F);
-        AbilityFeedback.soundAt(world, center, SoundEvents.BLOCK_AMETHYST_CLUSTER_HIT, 0.6F, miningMode ? 0.8F : 1.2F);
+        AbilityFeedback.sound(caster, SoundEvents.BEACON_ACTIVATE, 0.8F, miningMode ? 0.7F : 1.2F);
+        AbilityFeedback.soundAt(world, center, SoundEvents.AMETHYST_CLUSTER_HIT, 0.6F, miningMode ? 0.8F : 1.2F);
     }
 
     public static void tick(MinecraftServer server) {
@@ -102,17 +102,17 @@ public final class SpaceAnomalies {
                 continue;
             }
 
-            ServerWorld world = server.getWorld(a.dimension);
+            ServerLevel world = server.getLevel(a.dimension);
             if (world == null) {
                 it.remove();
                 continue;
             }
 
-            ServerPlayerEntity caster = server.getPlayerManager().getPlayer(a.caster);
+            ServerPlayer caster = server.getPlayerList().getPlayer(a.caster);
             if (caster == null) {
                 // GameTests can spawn "mock" players that aren't registered in the PlayerManager; fall back to
                 // resolving the caster from the world player list so anomaly behavior remains testable.
-                caster = world.getPlayers().stream().filter(p -> p.getUuid().equals(a.caster)).findFirst().orElse(null);
+                caster = world.players().stream().filter(p -> p.getUUID().equals(a.caster)).findFirst().orElse(null);
                 if (caster == null) {
                     it.remove();
                     continue;
@@ -123,12 +123,12 @@ public final class SpaceAnomalies {
                 if (a.strikeAtTick > now) {
                     // Telegraph a small pulse while waiting.
                     if ((now % 5) == 0) {
-                        Vec3d center = Vec3d.ofCenter(a.laserTarget);
+                        Vec3 center = Vec3.atCenterOf(a.laserTarget);
                         AbilityFeedback.burstAt(world, center, ParticleTypes.END_ROD, 2, 0.15D);
                         AbilityFeedback.burstAt(world, center, ParticleTypes.ELECTRIC_SPARK, 2, 0.15D);
                     }
                     if ((now % 20) == 0) {
-                        AbilityFeedback.soundAt(world, Vec3d.ofCenter(a.laserTarget), SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME, 0.35F, a.miningMode ? 0.7F : 1.2F);
+                        AbilityFeedback.soundAt(world, Vec3.atCenterOf(a.laserTarget), SoundEvents.AMETHYST_BLOCK_CHIME, 0.35F, a.miningMode ? 0.7F : 1.2F);
                     }
                     continue;
                 }
@@ -144,15 +144,15 @@ public final class SpaceAnomalies {
         }
     }
 
-    private static void strikeOrbitalLaser(ServerPlayerEntity caster, ServerWorld world, Anomaly a) {
+    private static void strikeOrbitalLaser(ServerPlayer caster, ServerLevel world, Anomaly a) {
         BlockPos target = a.laserTarget;
-        Vec3d center = Vec3d.ofCenter(target);
+        Vec3 center = Vec3.atCenterOf(target);
 
-        int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, target.getX(), target.getZ());
+        int topY = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, target.getX(), target.getZ());
         double fromY = topY + 24.0D;
-        Vec3d from = new Vec3d(center.x, fromY, center.z);
+        Vec3 from = new Vec3(center.x, fromY, center.z);
         AbilityFeedback.beam(world, from, center, ParticleTypes.END_ROD, 64);
-        AbilityFeedback.burstAt(world, center, TintedParticleEffect.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
+        AbilityFeedback.burstAt(world, center, ColorParticleOption.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
         AbilityFeedback.burstAt(world, center, ParticleTypes.ELECTRIC_SPARK, 22, 0.45D);
         AbilityFeedback.burstAt(world, center, ParticleTypes.SMOKE, 16, 0.55D);
         AbilityFeedback.ring(world, center.add(0.0D, 0.2D, 0.0D), 3.5D, ParticleTypes.END_ROD, 36);
@@ -160,11 +160,11 @@ public final class SpaceAnomalies {
         float thunderVol = a.miningMode ? 0.35F : 0.5F;
         float explodeVol = a.miningMode ? 0.25F : 0.4F;
         float pitch = a.miningMode ? 0.9F : 1.3F;
-        AbilityFeedback.sound(caster, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, thunderVol, pitch);
-        AbilityFeedback.sound(caster, SoundEvents.ENTITY_GENERIC_EXPLODE, explodeVol, a.miningMode ? 0.8F : 1.1F);
-        AbilityFeedback.soundAt(world, center, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, thunderVol, pitch);
-        AbilityFeedback.soundAt(world, center, SoundEvents.ENTITY_GENERIC_EXPLODE, explodeVol, a.miningMode ? 0.8F : 1.1F);
-        AbilityFeedback.soundAt(world, center, SoundEvents.BLOCK_BEACON_DEACTIVATE, 0.55F, a.miningMode ? 1.2F : 0.8F);
+        AbilityFeedback.sound(caster, SoundEvents.LIGHTNING_BOLT_THUNDER, thunderVol, pitch);
+        AbilityFeedback.sound(caster, SoundEvents.GENERIC_EXPLODE, explodeVol, a.miningMode ? 0.8F : 1.1F);
+        AbilityFeedback.soundAt(world, center, SoundEvents.LIGHTNING_BOLT_THUNDER, thunderVol, pitch);
+        AbilityFeedback.soundAt(world, center, SoundEvents.GENERIC_EXPLODE, explodeVol, a.miningMode ? 0.8F : 1.1F);
+        AbilityFeedback.soundAt(world, center, SoundEvents.BEACON_DEACTIVATE, 0.55F, a.miningMode ? 1.2F : 0.8F);
 
         if (a.miningMode) {
             mineAt(caster, world, target);
@@ -173,28 +173,28 @@ public final class SpaceAnomalies {
         }
     }
 
-    private static void damageAt(ServerPlayerEntity caster, ServerWorld world, Vec3d center) {
+    private static void damageAt(ServerPlayer caster, ServerLevel world, Vec3 center) {
         int radius = GemsBalance.v().space().orbitalLaserRadiusBlocks();
         float damage = GemsBalance.v().space().orbitalLaserDamage();
         if (radius <= 0 || damage <= 0.0F) {
             return;
         }
 
-        Box box = new Box(center, center).expand(radius);
-        List<LivingEntity> targets = world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != caster);
+        AABB box = new AABB(center, center).inflate(radius);
+        List<LivingEntity> targets = world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != caster);
         for (LivingEntity living : targets) {
-            if (living instanceof ServerPlayerEntity other && GemTrust.isTrusted(caster, other)) {
+            if (living instanceof ServerPlayer other && GemTrust.isTrusted(caster, other)) {
                 continue;
             }
-            if (living instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(caster, otherPlayer)) {
+            if (living instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(caster, otherPlayer)) {
                 continue;
             }
-            living.damage(world, caster.getDamageSources().indirectMagic(caster, caster), damage);
+            living.hurtServer(world, caster.damageSources().indirectMagic(caster, caster), damage);
         }
         AbilityFeedback.burstAt(world, center, ParticleTypes.ELECTRIC_SPARK, 18, 0.4D);
     }
 
-    private static void mineAt(ServerPlayerEntity caster, ServerWorld world, BlockPos target) {
+    private static void mineAt(ServerPlayer caster, ServerLevel world, BlockPos target) {
         int radius = GemsBalance.v().space().orbitalLaserMiningRadiusBlocks();
         int maxBlocks = GemsBalance.v().space().orbitalLaserMiningMaxBlocks();
         float hardnessCap = GemsBalance.v().space().orbitalLaserMiningHardnessCap();
@@ -203,7 +203,7 @@ public final class SpaceAnomalies {
         }
 
         int mined = 0;
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
@@ -215,13 +215,13 @@ public final class SpaceAnomalies {
                     if (!isMiningAllowed(state)) {
                         continue;
                     }
-                    float hardness = state.getHardness(world, pos);
+                    float hardness = state.getDestroySpeed(world, pos);
                     if (hardness < 0.0F || hardness > hardnessCap) {
                         continue;
                     }
-                    if (world.breakBlock(pos, true, caster)) {
+                    if (world.destroyBlock(pos, true, caster)) {
                         mined++;
-                        AbilityFeedback.burstAt(world, Vec3d.ofCenter(pos), ParticleTypes.CLOUD, 2, 0.15D);
+                        AbilityFeedback.burstAt(world, Vec3.atCenterOf(pos), ParticleTypes.CLOUD, 2, 0.15D);
                         if (mined >= maxBlocks) {
                             return;
                         }
@@ -234,33 +234,33 @@ public final class SpaceAnomalies {
     private static boolean isMiningAllowed(BlockState state) {
         // Mining mode should be useful on most blocks (and can mine hard blocks like obsidian),
         // but it must not break special/protected blocks.
-        if (state.isOf(Blocks.BEDROCK) || state.isOf(Blocks.BARRIER)) {
+        if (state.is(Blocks.BEDROCK) || state.is(Blocks.BARRIER)) {
             return false;
         }
-        if (state.isOf(Blocks.END_PORTAL) || state.isOf(Blocks.END_PORTAL_FRAME)) {
+        if (state.is(Blocks.END_PORTAL) || state.is(Blocks.END_PORTAL_FRAME)) {
             return false;
         }
-        if (state.isOf(Blocks.NETHER_PORTAL)) {
+        if (state.is(Blocks.NETHER_PORTAL)) {
             return false;
         }
-        if (state.isOf(Blocks.COMMAND_BLOCK) || state.isOf(Blocks.CHAIN_COMMAND_BLOCK) || state.isOf(Blocks.REPEATING_COMMAND_BLOCK)) {
+        if (state.is(Blocks.COMMAND_BLOCK) || state.is(Blocks.CHAIN_COMMAND_BLOCK) || state.is(Blocks.REPEATING_COMMAND_BLOCK)) {
             return false;
         }
-        if (state.isOf(Blocks.STRUCTURE_BLOCK) || state.isOf(Blocks.JIGSAW)) {
+        if (state.is(Blocks.STRUCTURE_BLOCK) || state.is(Blocks.JIGSAW)) {
             return false;
         }
         return true;
     }
 
-    private static void tickHole(ServerPlayerEntity caster, ServerWorld world, Anomaly a, long now) {
+    private static void tickHole(ServerPlayer caster, ServerLevel world, Anomaly a, long now) {
         int radius = a.radiusBlocks;
         if (radius <= 0) {
             return;
         }
 
-        Vec3d center = a.center;
-        Box box = new Box(center, center).expand(radius);
-        List<LivingEntity> targets = world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive());
+        Vec3 center = a.center;
+        AABB box = new AABB(center, center).inflate(radius);
+        List<LivingEntity> targets = world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive());
 
         float strength = a.strengthMultiplier * GRAVITY_WELL_STRENGTH;
         int vfxTargets = 0;
@@ -268,21 +268,21 @@ public final class SpaceAnomalies {
             if (living == caster) {
                 continue;
             }
-            if (living instanceof ServerPlayerEntity other && GemTrust.isTrusted(caster, other)) {
+            if (living instanceof ServerPlayer other && GemTrust.isTrusted(caster, other)) {
                 continue;
             }
-            if (living instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(caster, otherPlayer)) {
+            if (living instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(caster, otherPlayer)) {
                 continue;
             }
-            Vec3d delta = (a.kind == Kind.BLACK_HOLE) ? center.subtract(living.getEntityPos()) : living.getEntityPos().subtract(center);
-            Vec3d push = delta.normalize().multiply(strength);
-            living.setVelocity(living.getVelocity().add(push));
-            living.velocityDirty = true;
+            Vec3 delta = (a.kind == Kind.BLACK_HOLE) ? center.subtract(living.position()) : living.position().subtract(center);
+            Vec3 push = delta.normalize().scale(strength);
+            living.setDeltaMovement(living.getDeltaMovement().add(push));
+            living.needsSync = true;
 
             // Bounded per-tick VFX to hint the direction of force without spamming on large mobs clusters.
             if ((now % HOLE_VFX_TICK_STRIDE) == 0 && vfxTargets < 6) {
                 var trail = (a.kind == Kind.BLACK_HOLE) ? ParticleTypes.REVERSE_PORTAL : ParticleTypes.CLOUD;
-                AbilityFeedback.burstAt(world, living.getEntityPos().add(0.0D, living.getHeight() * 0.6D, 0.0D), trail, 1, 0.08D);
+                AbilityFeedback.burstAt(world, living.position().add(0.0D, living.getBbHeight() * 0.6D, 0.0D), trail, 1, 0.08D);
                 vfxTargets++;
             }
         }
@@ -295,13 +295,13 @@ public final class SpaceAnomalies {
                     if (living == caster) {
                         continue;
                     }
-                    if (living instanceof ServerPlayerEntity other && GemTrust.isTrusted(caster, other)) {
+                    if (living instanceof ServerPlayer other && GemTrust.isTrusted(caster, other)) {
                         continue;
                     }
-                    if (living instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(caster, otherPlayer)) {
+                    if (living instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(caster, otherPlayer)) {
                         continue;
                     }
-                    living.damage(world, caster.getDamageSources().indirectMagic(caster, caster), dmg);
+                    living.hurtServer(world, caster.damageSources().indirectMagic(caster, caster), dmg);
                 }
             }
         }
@@ -318,11 +318,11 @@ public final class SpaceAnomalies {
             if (a.kind == Kind.BLACK_HOLE) {
                 AbilityFeedback.ring(world, center.add(0.0D, 0.15D, 0.0D), ringRadius, ParticleTypes.PORTAL, 18);
                 AbilityFeedback.ring(world, center.add(0.0D, 0.15D, 0.0D), Math.max(0.8D, ringRadius * 0.55D), ParticleTypes.SMOKE, 14);
-                AbilityFeedback.soundAt(world, center, SoundEvents.BLOCK_PORTAL_AMBIENT, 0.22F, 0.65F);
+                AbilityFeedback.soundAt(world, center, SoundEvents.PORTAL_AMBIENT, 0.22F, 0.65F);
             } else {
                 AbilityFeedback.ring(world, center.add(0.0D, 0.15D, 0.0D), ringRadius, ParticleTypes.END_ROD, 18);
                 AbilityFeedback.ring(world, center.add(0.0D, 0.15D, 0.0D), Math.max(0.8D, ringRadius * 0.55D), ParticleTypes.ELECTRIC_SPARK, 14);
-                AbilityFeedback.soundAt(world, center, SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME, 0.22F, 1.45F);
+                AbilityFeedback.soundAt(world, center, SoundEvents.AMETHYST_BLOCK_CHIME, 0.22F, 1.45F);
             }
         }
     }
@@ -336,8 +336,8 @@ public final class SpaceAnomalies {
     private static final class Anomaly {
         final Kind kind;
         final UUID caster;
-        final net.minecraft.registry.RegistryKey<World> dimension;
-        final Vec3d center;
+        final net.minecraft.resources.ResourceKey<Level> dimension;
+        final Vec3 center;
         final long startTick;
         final long untilTick;
         final int durationTicks;
@@ -352,7 +352,7 @@ public final class SpaceAnomalies {
         final boolean miningMode;
         final long strikeAtTick;
 
-        private Anomaly(Kind kind, UUID caster, net.minecraft.registry.RegistryKey<World> dimension, Vec3d center, long startTick, long untilTick,
+        private Anomaly(Kind kind, UUID caster, net.minecraft.resources.ResourceKey<Level> dimension, Vec3 center, long startTick, long untilTick,
                         int durationTicks, int radiusBlocks, float strengthMultiplier, float damagePerSecond, long nextDamageTick,
                         BlockPos laserTarget, boolean miningMode, long strikeAtTick) {
             this.kind = kind;
@@ -372,23 +372,23 @@ public final class SpaceAnomalies {
             this.strikeAtTick = strikeAtTick;
         }
 
-        static Anomaly blackHole(UUID caster, net.minecraft.registry.RegistryKey<World> dim, Vec3d center, long now, int duration) {
+        static Anomaly blackHole(UUID caster, net.minecraft.resources.ResourceKey<Level> dim, Vec3 center, long now, int duration) {
             int radius = GemsBalance.v().space().blackHoleRadiusBlocks();
             float strength = GemsBalance.v().space().blackHolePullStrength();
             float dmg = GemsBalance.v().space().blackHoleDamagePerSecond();
             return new Anomaly(Kind.BLACK_HOLE, caster, dim, center, now, now + duration, duration, radius, strength, dmg, now + 20, null, false, 0);
         }
 
-        static Anomaly whiteHole(UUID caster, net.minecraft.registry.RegistryKey<World> dim, Vec3d center, long now, int duration) {
+        static Anomaly whiteHole(UUID caster, net.minecraft.resources.ResourceKey<Level> dim, Vec3 center, long now, int duration) {
             int radius = GemsBalance.v().space().whiteHoleRadiusBlocks();
             float strength = GemsBalance.v().space().whiteHolePushStrength();
             float dmg = GemsBalance.v().space().whiteHoleDamagePerSecond();
             return new Anomaly(Kind.WHITE_HOLE, caster, dim, center, now, now + duration, duration, radius, strength, dmg, now + 20, null, false, 0);
         }
 
-        static Anomaly laser(UUID caster, net.minecraft.registry.RegistryKey<World> dim, BlockPos target, boolean miningMode, long now) {
+        static Anomaly laser(UUID caster, net.minecraft.resources.ResourceKey<Level> dim, BlockPos target, boolean miningMode, long now) {
             int delay = GemsBalance.v().space().orbitalLaserDelayTicks();
-            return new Anomaly(Kind.ORBITAL_LASER, caster, dim, Vec3d.ofCenter(target), now, now + delay + 200, 0, 0, 0.0F, 0.0F, 0, target, miningMode, now + delay);
+            return new Anomaly(Kind.ORBITAL_LASER, caster, dim, Vec3.atCenterOf(target), now, now + delay + 200, 0, 0, 0.0F, 0.0F, 0, target, miningMode, now + delay);
         }
     }
 }

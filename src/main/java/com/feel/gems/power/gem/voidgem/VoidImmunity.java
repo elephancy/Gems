@@ -5,8 +5,8 @@ import com.feel.gems.mastery.GemMastery;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.GemPlayerState;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 
 /**
  * Utility for checking Void gem immunity.
@@ -24,7 +24,7 @@ public final class VoidImmunity {
      * - Active gem is VOID
      * - Energy level >= 1 (to have passives active)
      */
-    public static boolean hasImmunity(ServerPlayerEntity player) {
+    public static boolean hasImmunity(ServerPlayer player) {
         if (player == null) {
             return false;
         }
@@ -45,7 +45,7 @@ public final class VoidImmunity {
      * @param targetPlayer The player being targeted
      * @return true if the effect should be blocked
      */
-    public static boolean shouldBlockEffect(ServerPlayerEntity sourcePlayer, ServerPlayerEntity targetPlayer) {
+    public static boolean shouldBlockEffect(ServerPlayer sourcePlayer, ServerPlayer targetPlayer) {
         if (targetPlayer == null) {
             return false;
         }
@@ -74,7 +74,7 @@ public final class VoidImmunity {
      * @param target The entity being targeted (can be player or mob)
      * @return true if the target CAN be affected, false if they have Void immunity
      */
-    public static boolean canBeTargeted(ServerPlayerEntity sourcePlayer, LivingEntity target) {
+    public static boolean canBeTargeted(ServerPlayer sourcePlayer, LivingEntity target) {
         if (target == null) {
             return false;
         }
@@ -84,7 +84,7 @@ public final class VoidImmunity {
         if (target == sourcePlayer) {
             return true; // Can always target self
         }
-        if (target instanceof ServerPlayerEntity targetPlayer) {
+        if (target instanceof ServerPlayer targetPlayer) {
             return !hasImmunity(targetPlayer);
         }
         return true; // Mobs can always be targeted

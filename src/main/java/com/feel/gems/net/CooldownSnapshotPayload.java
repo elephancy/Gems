@@ -1,11 +1,11 @@
 package com.feel.gems.net;
 
 import com.feel.gems.GemsMod;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 
 
@@ -17,21 +17,21 @@ public record CooldownSnapshotPayload(
         int activeGemOrdinal,
         java.util.List<Integer> remainingAbilityCooldownTicks,
         java.util.List<Integer> maxAbilityCooldownTicks
-) implements CustomPayload {
-    public static final Id<CooldownSnapshotPayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "cooldown_snapshot"));
+) implements CustomPacketPayload {
+    public static final Type<CooldownSnapshotPayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "cooldown_snapshot"));
 
-    public static final PacketCodec<RegistryByteBuf, CooldownSnapshotPayload> CODEC = PacketCodec.tuple(
-            PacketCodecs.VAR_INT.cast(),
+    public static final StreamCodec<RegistryFriendlyByteBuf, CooldownSnapshotPayload> CODEC = StreamCodec.composite(
+            ByteBufCodecs.VAR_INT.cast(),
             CooldownSnapshotPayload::activeGemOrdinal,
-            PacketCodecs.collection((int size) -> (java.util.List<Integer>) new java.util.ArrayList<Integer>(size), PacketCodecs.VAR_INT).cast(),
+            ByteBufCodecs.collection((int size) -> (java.util.List<Integer>) new java.util.ArrayList<Integer>(size), ByteBufCodecs.VAR_INT).cast(),
             CooldownSnapshotPayload::remainingAbilityCooldownTicks,
-            PacketCodecs.collection((int size) -> (java.util.List<Integer>) new java.util.ArrayList<Integer>(size), PacketCodecs.VAR_INT).cast(),
+            ByteBufCodecs.collection((int size) -> (java.util.List<Integer>) new java.util.ArrayList<Integer>(size), ByteBufCodecs.VAR_INT).cast(),
             CooldownSnapshotPayload::maxAbilityCooldownTicks,
             CooldownSnapshotPayload::new
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

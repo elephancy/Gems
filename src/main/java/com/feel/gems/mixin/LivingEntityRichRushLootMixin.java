@@ -1,16 +1,16 @@
 package com.feel.gems.mixin;
 
 import com.feel.gems.power.runtime.AbilityRuntime;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.boss.wither.WitherBoss;
+import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.entity.monster.skeleton.WitherSkeleton;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import com.feel.gems.config.GemsBalance;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.mob.ShulkerEntity;
-import net.minecraft.entity.boss.WitherEntity;
-import net.minecraft.entity.mob.WitherSkeletonEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.server.network.ServerPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -27,17 +27,17 @@ public abstract class LivingEntityRichRushLootMixin {
     private static final ThreadLocal<Boolean> gems$inDoubleLoot = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     @Shadow
-    protected abstract void dropLoot(ServerWorld world, DamageSource damageSource, boolean causedByPlayer);
+    protected abstract void dropFromLootTable(ServerLevel world, DamageSource damageSource, boolean causedByPlayer);
 
-    @Inject(method = "dropLoot(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;Z)V", at = @At("TAIL"))
-    private void gems$richRushDoubleLoot(ServerWorld world, DamageSource source, boolean causedByPlayer, CallbackInfo ci) {
+    @Inject(method = "dropFromLootTable(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;Z)V", at = @At("TAIL"))
+    private void gems$richRushDoubleLoot(ServerLevel world, DamageSource source, boolean causedByPlayer, CallbackInfo ci) {
         if (!causedByPlayer) {
             return;
         }
         if (Boolean.TRUE.equals(gems$inDoubleLoot.get())) {
             return;
         }
-        if (!(source.getAttacker() instanceof ServerPlayerEntity player)) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
             return;
         }
         if (!AbilityRuntime.isRichRushActive(player)) {
@@ -51,26 +51,26 @@ public abstract class LivingEntityRichRushLootMixin {
         try {
             gems$inDoubleLoot.set(Boolean.TRUE);
             for (int i = 1; i < rolls; i++) {
-                dropLoot(world, source, true);
+                dropFromLootTable(world, source, true);
             }
         } finally {
             gems$inDoubleLoot.set(Boolean.FALSE);
         }
-        if (self instanceof WitherSkeletonEntity) {
+        if (self instanceof WitherSkeleton) {
             int count = GemsBalance.v().wealth().richRushWitherSkullGuarantee();
             if (count > 0) {
-                self.dropStack(world, new ItemStack(Items.WITHER_SKELETON_SKULL, count));
+                self.spawnAtLocation(world, new ItemStack(Items.WITHER_SKELETON_SKULL, count));
             }
-        } else if (self instanceof ShulkerEntity) {
+        } else if (self instanceof Shulker) {
             int count = GemsBalance.v().wealth().richRushShulkerShellGuarantee();
             if (count > 0) {
-                self.dropStack(world, new ItemStack(Items.SHULKER_SHELL, count));
+                self.spawnAtLocation(world, new ItemStack(Items.SHULKER_SHELL, count));
             }
-        } else if (self instanceof WitherEntity) {
+        } else if (self instanceof WitherBoss) {
             int count = GemsBalance.v().wealth().richRushNetherStarGuarantee();
             int extra = Math.max(0, count - 1);
             if (extra > 0) {
-                self.dropStack(world, new ItemStack(Items.NETHER_STAR, extra));
+                self.spawnAtLocation(world, new ItemStack(Items.NETHER_STAR, extra));
             }
         }
     }

@@ -4,11 +4,11 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -35,19 +35,19 @@ public final class AirWindJumpAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         double up = GemsBalance.v().air().windJumpVerticalVelocity();
         double forward = GemsBalance.v().air().windJumpForwardVelocity();
         if (up <= 0.0D && forward <= 0.0D) {
             return false;
         }
-        Vec3d dir = player.getRotationVec(1.0F).normalize();
-        player.addVelocity(dir.x * forward, up, dir.z * forward);
-        player.velocityDirty = true;
+        Vec3 dir = player.getViewVector(1.0F).normalize();
+        player.push(dir.x * forward, up, dir.z * forward);
+        player.needsSync = true;
         player.fallDistance = 0.0F;
         AbilityFeedback.syncVelocity(player);
         AbilityFeedback.burst(player, ParticleTypes.GUST, 18, 0.3D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_BREEZE_WIND_BURST, 0.8F, 1.2F);
+        AbilityFeedback.sound(player, SoundEvents.BREEZE_WIND_CHARGE_BURST, 0.8F, 1.2F);
         return true;
     }
 }

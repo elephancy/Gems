@@ -6,13 +6,13 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.entity.TntEntity;
-import net.minecraft.block.BlockState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.level.block.state.BlockState;
 
 
 public final class TerrorRigRuntime {
@@ -21,8 +21,8 @@ public final class TerrorRigRuntime {
     private TerrorRigRuntime() {
     }
 
-    public static boolean arm(ServerPlayerEntity player, BlockPos pos) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public static boolean arm(ServerPlayer player, BlockPos pos) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         if (world.getBlockState(pos).isAir()) {
@@ -30,20 +30,20 @@ public final class TerrorRigRuntime {
         }
         int duration = GemsBalance.v().terror().rigDurationTicks();
         long until = duration > 0 ? GemsTime.now(player) + duration : 0L;
-        TrapKey key = new TrapKey(world.getRegistryKey().getValue(), pos.toImmutable());
+        TrapKey key = new TrapKey(world.dimension().identifier(), pos.immutable());
         RiggedTrap existing = ACTIVE.get(key);
-        if (existing != null && !existing.owner().equals(player.getUuid())) {
+        if (existing != null && !existing.owner().equals(player.getUUID())) {
             return false;
         }
-        ACTIVE.put(key, new RiggedTrap(player.getUuid(), until));
+        ACTIVE.put(key, new RiggedTrap(player.getUUID(), until));
         return true;
     }
 
-    public static boolean tryTriggerUse(ServerPlayerEntity player, BlockPos pos) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public static boolean tryTriggerUse(ServerPlayer player, BlockPos pos) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
-        TrapKey key = new TrapKey(world.getRegistryKey().getValue(), pos.toImmutable());
+        TrapKey key = new TrapKey(world.dimension().identifier(), pos.immutable());
         RiggedTrap trap = ACTIVE.get(key);
         if (trap == null) {
             return false;
@@ -52,11 +52,11 @@ public final class TerrorRigRuntime {
         return true;
     }
 
-    public static boolean tryTriggerBreak(ServerPlayerEntity player, BlockPos pos) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public static boolean tryTriggerBreak(ServerPlayer player, BlockPos pos) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
-        TrapKey key = new TrapKey(world.getRegistryKey().getValue(), pos.toImmutable());
+        TrapKey key = new TrapKey(world.dimension().identifier(), pos.immutable());
         RiggedTrap trap = ACTIVE.get(key);
         if (trap == null) {
             return false;
@@ -65,14 +65,14 @@ public final class TerrorRigRuntime {
         return true;
     }
 
-    public static boolean tryTriggerUpdate(ServerWorld world, BlockPos pos, BlockState before, BlockState after) {
+    public static boolean tryTriggerUpdate(ServerLevel world, BlockPos pos, BlockState before, BlockState after) {
         if (ACTIVE.isEmpty()) {
             return false;
         }
         if (before == after || before.equals(after)) {
             return false;
         }
-        TrapKey key = new TrapKey(world.getRegistryKey().getValue(), pos.toImmutable());
+        TrapKey key = new TrapKey(world.dimension().identifier(), pos.immutable());
         RiggedTrap trap = ACTIVE.get(key);
         if (trap == null) {
             return false;
@@ -81,23 +81,23 @@ public final class TerrorRigRuntime {
         return true;
     }
 
-    public static boolean hasTrap(ServerWorld world, BlockPos pos) {
+    public static boolean hasTrap(ServerLevel world, BlockPos pos) {
         if (ACTIVE.isEmpty()) {
             return false;
         }
-        TrapKey key = new TrapKey(world.getRegistryKey().getValue(), pos.toImmutable());
+        TrapKey key = new TrapKey(world.dimension().identifier(), pos.immutable());
         return ACTIVE.containsKey(key);
     }
 
-    public static void checkStep(ServerPlayerEntity player) {
+    public static void checkStep(ServerPlayer player) {
         if (ACTIVE.isEmpty()) {
             return;
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        BlockPos below = player.getBlockPos().down();
-        TrapKey key = new TrapKey(world.getRegistryKey().getValue(), below);
+        BlockPos below = player.blockPosition().below();
+        TrapKey key = new TrapKey(world.dimension().identifier(), below);
         RiggedTrap trap = ACTIVE.get(key);
         if (trap == null) {
             return;
@@ -120,14 +120,14 @@ public final class TerrorRigRuntime {
         }
     }
 
-    private static void trigger(ServerWorld world, BlockPos pos, TrapKey key, RiggedTrap trap) {
+    private static void trigger(ServerLevel world, BlockPos pos, TrapKey key, RiggedTrap trap) {
         ACTIVE.remove(key);
         int fuse = GemsBalance.v().terror().rigFuseTicks();
         int tntCount = GemsBalance.v().terror().rigTntCount();
         for (int i = 0; i < tntCount; i++) {
-            TntEntity tnt = new TntEntity(world, pos.getX() + 0.5D, pos.getY() + 0.1D, pos.getZ() + 0.5D, null);
+            PrimedTnt tnt = new PrimedTnt(world, pos.getX() + 0.5D, pos.getY() + 0.1D, pos.getZ() + 0.5D, null);
             tnt.setFuse(fuse);
-            world.spawnEntity(tnt);
+            world.addFreshEntity(tnt);
         }
     }
 

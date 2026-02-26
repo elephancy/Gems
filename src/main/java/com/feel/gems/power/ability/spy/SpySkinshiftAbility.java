@@ -8,9 +8,9 @@ import com.feel.gems.power.gem.spy.SpySystem;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.util.Targeting;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 public final class SpySkinshiftAbility implements GemAbility {
@@ -35,20 +35,20 @@ public final class SpySkinshiftAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int range = GemsBalance.v().spy().skinshiftRangeBlocks();
-        ServerPlayerEntity other = Targeting.raycastPlayer(player, range);
+        ServerPlayer other = Targeting.raycastPlayer(player, range);
         if (other == null || other == player) {
-            player.sendMessage(Text.translatable("gems.message.no_player_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_player_target"), true);
             return false;
         }
         if (!VoidImmunity.canBeTargeted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_immune"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.target_immune"), true);
             return false;
         }
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.SPY, GemsBalance.v().spy().skinshiftDurationTicks());
         if (duration <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.spy.skinshift.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.spy.skinshift.disabled"), true);
             return false;
         }
         return SpySystem.startSkinshift(player, other, duration);

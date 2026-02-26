@@ -1,12 +1,13 @@
 package com.feel.gems.mixin;
 
 import com.feel.gems.power.gem.wealth.EnchantmentAmplification;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.core.Holder;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemInstance;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,13 +18,13 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Mixin(EnchantmentHelper.class)
 public final class EnchantmentHelperAmplificationMixin {
     @Inject(
-            method = "getLevel(Lnet/minecraft/registry/entry/RegistryEntry;Lnet/minecraft/item/ItemStack;)I",
+            method = "getItemEnchantmentLevel(Lnet/minecraft/core/Holder;Lnet/minecraft/world/item/ItemInstance;)I",
             at = @At("RETURN"),
             cancellable = true
     )
     private static void gems$amplifyGetLevel(
-            RegistryEntry<Enchantment> enchantment,
-            ItemStack stack,
+            Holder<Enchantment> enchantment,
+            ItemInstance stack,
             CallbackInfoReturnable<Integer> cir
     ) {
         int bonus = EnchantmentAmplification.getBonusLevel(stack, enchantment);
@@ -33,18 +34,18 @@ public final class EnchantmentHelperAmplificationMixin {
     }
 
     @ModifyArgs(
-            method = "forEachEnchantment(Lnet/minecraft/item/ItemStack;Lnet/minecraft/enchantment/EnchantmentHelper$Consumer;)V",
+            method = "runIterationOnItem(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/enchantment/EnchantmentHelper$EnchantmentVisitor;)V",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/enchantment/EnchantmentHelper$Consumer;accept(Lnet/minecraft/registry/entry/RegistryEntry;I)V"
+                    target = "Lnet/minecraft/world/item/enchantment/EnchantmentHelper$EnchantmentVisitor;accept(Lnet/minecraft/core/Holder;I)V"
             )
     )
     private static void gems$amplifyForEach(
             Args args,
             ItemStack stack,
-            EnchantmentHelper.Consumer consumer
+            EnchantmentHelper.EnchantmentVisitor consumer
     ) {
-        RegistryEntry<Enchantment> enchantment = args.get(0);
+        Holder<Enchantment> enchantment = args.get(0);
         int level = args.get(1);
         int bonus = EnchantmentAmplification.getBonusLevel(stack, enchantment);
         if (bonus > 0) {
@@ -53,10 +54,10 @@ public final class EnchantmentHelperAmplificationMixin {
     }
 
     @ModifyArgs(
-            method = "forEachEnchantment(Lnet/minecraft/item/ItemStack;Lnet/minecraft/entity/EquipmentSlot;Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/enchantment/EnchantmentHelper$ContextAwareConsumer;)V",
+            method = "runIterationOnItem(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/EquipmentSlot;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/enchantment/EnchantmentHelper$EnchantmentInSlotVisitor;)V",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/enchantment/EnchantmentHelper$ContextAwareConsumer;accept(Lnet/minecraft/registry/entry/RegistryEntry;ILnet/minecraft/enchantment/EnchantmentEffectContext;)V"
+                    target = "Lnet/minecraft/world/item/enchantment/EnchantmentHelper$EnchantmentInSlotVisitor;accept(Lnet/minecraft/core/Holder;ILnet/minecraft/world/item/enchantment/EnchantedItemInUse;)V"
             )
     )
     private static void gems$amplifyForEachContext(
@@ -64,9 +65,9 @@ public final class EnchantmentHelperAmplificationMixin {
             ItemStack stack,
             EquipmentSlot slot,
             LivingEntity entity,
-            EnchantmentHelper.ContextAwareConsumer consumer
+            EnchantmentHelper.EnchantmentInSlotVisitor consumer
     ) {
-        RegistryEntry<Enchantment> enchantment = args.get(0);
+        Holder<Enchantment> enchantment = args.get(0);
         int level = args.get(1);
         int bonus = EnchantmentAmplification.getBonusLevel(stack, enchantment);
         if (bonus > 0) {

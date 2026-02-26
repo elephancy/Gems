@@ -9,13 +9,13 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemAbilityCooldowns;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.entity.TntEntity;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.item.PrimedTnt;
 
 public final class TerrorRemoteChargeRuntime {
     private static final String KEY_ARM_UNTIL = "terrorRemoteArmUntil";
@@ -27,12 +27,12 @@ public final class TerrorRemoteChargeRuntime {
     private TerrorRemoteChargeRuntime() {
     }
 
-    public static boolean startArming(ServerPlayerEntity player) {
+    public static boolean startArming(ServerPlayer player) {
         int window = GemsBalance.v().terror().remoteChargeArmWindowTicks();
         if (window <= 0) {
             return false;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         clearExpired(player, nbt);
         // Skip cooldown check if admin has no-cooldowns enabled
         if (!GemsAdmin.noCooldowns(player) && isOnCooldown(player, nbt)) {
@@ -45,13 +45,13 @@ public final class TerrorRemoteChargeRuntime {
         return true;
     }
 
-    public static boolean tryArm(ServerPlayerEntity player, BlockPos pos) {
-        NbtCompound nbt = persistent(player);
+    public static boolean tryArm(ServerPlayer player, BlockPos pos) {
+        CompoundTag nbt = persistent(player);
         clearExpired(player, nbt);
         if (!isArming(player, nbt)) {
             return false;
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld playerWorld)) {
+        if (!(player.level() instanceof ServerLevel playerWorld)) {
             return false;
         }
         if (playerWorld.getBlockState(pos).isAir()) {
@@ -63,19 +63,19 @@ public final class TerrorRemoteChargeRuntime {
         }
         nbt.putLong(KEY_CHARGE_UNTIL, GemsTime.now(player) + detonateWindow);
         nbt.putLong(KEY_CHARGE_POS, pos.asLong());
-        nbt.putString(KEY_CHARGE_DIM, playerWorld.getRegistryKey().getValue().toString());
+        nbt.putString(KEY_CHARGE_DIM, playerWorld.dimension().identifier().toString());
         nbt.remove(KEY_ARM_UNTIL);
         return true;
     }
 
-    public static boolean detonate(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
+    public static boolean detonate(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
         clearExpired(player, nbt);
         if (!hasActiveCharge(player, nbt)) {
             return false;
         }
         BlockPos pos = readChargePos(nbt);
-        String dimRaw = nbt.getString(KEY_CHARGE_DIM, "");
+        String dimRaw = nbt.getStringOr(KEY_CHARGE_DIM, "");
         if (pos == null || dimRaw == null || dimRaw.isBlank()) {
             clearCharge(nbt);
             return false;
@@ -85,40 +85,40 @@ public final class TerrorRemoteChargeRuntime {
             clearCharge(nbt);
             return false;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             clearCharge(nbt);
             return false;
         }
-        var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, dimId);
-        ServerWorld world = server.getWorld(key);
+        var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimId);
+        ServerLevel world = server.getLevel(key);
         if (world == null) {
             clearCharge(nbt);
             return false;
         }
         int fuse = Math.max(1, GemsBalance.v().terror().remoteChargeFuseTicks());
-        TntEntity tnt = new TntEntity(world, pos.getX() + 0.5D, pos.getY() + 0.1D, pos.getZ() + 0.5D, player);
+        PrimedTnt tnt = new PrimedTnt(world, pos.getX() + 0.5D, pos.getY() + 0.1D, pos.getZ() + 0.5D, player);
         tnt.setFuse(fuse);
-        world.spawnEntity(tnt);
+        world.addFreshEntity(tnt);
         clearCharge(nbt);
         startCooldown(player, nbt);
         return true;
     }
 
-    public static boolean isArming(ServerPlayerEntity player) {
+    public static boolean isArming(ServerPlayer player) {
         return isArming(player, persistent(player));
     }
 
-    public static boolean hasActiveCharge(ServerPlayerEntity player) {
+    public static boolean hasActiveCharge(ServerPlayer player) {
         return hasActiveCharge(player, persistent(player));
     }
 
-    public static boolean isOnCooldown(ServerPlayerEntity player) {
+    public static boolean isOnCooldown(ServerPlayer player) {
         return isOnCooldown(player, persistent(player));
     }
 
-    private static boolean isArming(ServerPlayerEntity player, NbtCompound nbt) {
-        long until = nbt.getLong(KEY_ARM_UNTIL, 0L);
+    private static boolean isArming(ServerPlayer player, CompoundTag nbt) {
+        long until = nbt.getLongOr(KEY_ARM_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
@@ -130,8 +130,8 @@ public final class TerrorRemoteChargeRuntime {
         return true;
     }
 
-    private static boolean hasActiveCharge(ServerPlayerEntity player, NbtCompound nbt) {
-        long until = nbt.getLong(KEY_CHARGE_UNTIL, 0L);
+    private static boolean hasActiveCharge(ServerPlayer player, CompoundTag nbt) {
+        long until = nbt.getLongOr(KEY_CHARGE_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
@@ -151,8 +151,8 @@ public final class TerrorRemoteChargeRuntime {
         return true;
     }
 
-    private static boolean isOnCooldown(ServerPlayerEntity player, NbtCompound nbt) {
-        long until = nbt.getLong(KEY_COOLDOWN_UNTIL, 0L);
+    private static boolean isOnCooldown(ServerPlayer player, CompoundTag nbt) {
+        long until = nbt.getLongOr(KEY_COOLDOWN_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
@@ -164,29 +164,29 @@ public final class TerrorRemoteChargeRuntime {
         return true;
     }
 
-    private static void clearExpired(ServerPlayerEntity player, NbtCompound nbt) {
+    private static void clearExpired(ServerPlayer player, CompoundTag nbt) {
         long now = GemsTime.now(player);
-        long armUntil = nbt.getLong(KEY_ARM_UNTIL, 0L);
+        long armUntil = nbt.getLongOr(KEY_ARM_UNTIL, 0L);
         if (armUntil > 0 && now >= armUntil) {
             nbt.remove(KEY_ARM_UNTIL);
         }
-        long chargeUntil = nbt.getLong(KEY_CHARGE_UNTIL, 0L);
+        long chargeUntil = nbt.getLongOr(KEY_CHARGE_UNTIL, 0L);
         if (chargeUntil > 0 && now >= chargeUntil) {
             clearCharge(nbt);
         }
-        long cooldownUntil = nbt.getLong(KEY_COOLDOWN_UNTIL, 0L);
+        long cooldownUntil = nbt.getLongOr(KEY_COOLDOWN_UNTIL, 0L);
         if (cooldownUntil > 0 && now >= cooldownUntil) {
             nbt.remove(KEY_COOLDOWN_UNTIL);
         }
     }
 
-    private static void clearCharge(NbtCompound nbt) {
+    private static void clearCharge(CompoundTag nbt) {
         nbt.remove(KEY_CHARGE_UNTIL);
         nbt.remove(KEY_CHARGE_POS);
         nbt.remove(KEY_CHARGE_DIM);
     }
 
-    private static void startCooldown(ServerPlayerEntity player, NbtCompound nbt) {
+    private static void startCooldown(ServerPlayer player, CompoundTag nbt) {
         // Skip cooldown if admin has no-cooldowns enabled
         if (GemsAdmin.noCooldowns(player)) {
             return;
@@ -201,7 +201,7 @@ public final class TerrorRemoteChargeRuntime {
         }
     }
 
-    private static int applyCooldownModifiers(ServerPlayerEntity player, int baseTicks) {
+    private static int applyCooldownModifiers(ServerPlayer player, int baseTicks) {
         if (baseTicks <= 0) {
             return 0;
         }
@@ -210,15 +210,15 @@ public final class TerrorRemoteChargeRuntime {
         return Math.max(1, adjusted);
     }
 
-    private static BlockPos readChargePos(NbtCompound nbt) {
-        long packed = nbt.getLong(KEY_CHARGE_POS, Long.MIN_VALUE);
+    private static BlockPos readChargePos(CompoundTag nbt) {
+        long packed = nbt.getLongOr(KEY_CHARGE_POS, Long.MIN_VALUE);
         if (packed == Long.MIN_VALUE) {
             return null;
         }
-        return BlockPos.fromLong(packed);
+        return BlockPos.of(packed);
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 }

@@ -1,8 +1,8 @@
 package com.feel.gems.mixin;
 
 import com.feel.gems.event.GemsPlayerDeath;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -11,16 +11,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 
 
-@Mixin(ServerPlayerEntity.class)
+@Mixin(ServerPlayer.class)
 public abstract class ServerPlayerEntityDeathMixin {
-    @Inject(method = "onDeath", at = @At("HEAD"))
+    @Inject(method = "die", at = @At("HEAD"))
     private void gems$stashGems(DamageSource source, CallbackInfo ci) {
-        GemsPlayerDeath.onDeathHead((ServerPlayerEntity) (Object) this, source);
+        GemsPlayerDeath.onDeathHead((ServerPlayer) (Object) this, source);
     }
 
-    @Inject(method = "onDeath", at = @At("TAIL"))
+    @Inject(method = "die", at = @At("TAIL"))
     private void gems$onDeath(DamageSource source, CallbackInfo ci) {
-        GemsPlayerDeath.onDeathTail((ServerPlayerEntity) (Object) this, source);
+        GemsPlayerDeath.onDeathTail((ServerPlayer) (Object) this, source);
     }
 
 }

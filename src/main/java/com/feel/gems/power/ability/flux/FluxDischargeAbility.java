@@ -8,15 +8,15 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class FluxDischargeAbility implements GemAbility {
     @Override
@@ -40,38 +40,38 @@ public final class FluxDischargeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         var cfg = GemsBalance.v().flux();
         int charge = FluxCharge.get(player);
         int minCharge = cfg.fluxDischargeMinCharge();
         if (charge < minCharge) {
-            player.sendMessage(Text.translatable("gems.ability.flux.not_enough_charge"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.flux.not_enough_charge"), true);
             return false;
         }
 
         float damage = Math.min(cfg.fluxDischargeMaxDamage(), cfg.fluxDischargeBaseDamage() + charge * cfg.fluxDischargeDamagePerCharge());
         int radius = cfg.fluxDischargeRadiusBlocks();
         double knockback = cfg.fluxDischargeKnockback();
-        ServerWorld world = player.getEntityWorld();
+        ServerLevel world = player.level();
         int hits = 0;
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                 continue;
             }
-            if (other instanceof ServerPlayerEntity otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
+            if (other instanceof ServerPlayer otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
                 continue;
             }
-            other.damage(world, player.getDamageSources().indirectMagic(player, player), damage);
+            other.hurtServer(world, player.damageSources().indirectMagic(player, player), damage);
             if (knockback > 0.0D) {
-                Vec3d delta = other.getEntityPos().subtract(player.getEntityPos());
-                if (delta.lengthSquared() > 1.0E-4D) {
-                    Vec3d norm = delta.normalize();
-                    other.addVelocity(norm.x * knockback, 0.25D, norm.z * knockback);
-                    other.velocityDirty = true;
+                Vec3 delta = other.position().subtract(player.position());
+                if (delta.lengthSqr() > 1.0E-4D) {
+                    Vec3 norm = delta.normalize();
+                    other.push(norm.x * knockback, 0.25D, norm.z * knockback);
+                    other.needsSync = true;
                 }
             }
-            AbilityFeedback.burstAt(world, other.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.ELECTRIC_SPARK, 10, 0.35D);
+            AbilityFeedback.burstAt(world, other.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.ELECTRIC_SPARK, 10, 0.35D);
             hits++;
         }
 
@@ -80,8 +80,8 @@ public final class FluxDischargeAbility implements GemAbility {
         GemExtraStateSync.send(player);
 
         AbilityFeedback.burst(player, ParticleTypes.ELECTRIC_SPARK, 24, 0.5D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5F, 1.5F);
-        player.sendMessage(Text.translatable("gems.ability.flux.discharge.hit", hits), true);
+        AbilityFeedback.sound(player, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.5F, 1.5F);
+        player.sendSystemMessage(Component.translatable("gems.ability.flux.discharge.hit", hits), true);
         return true;
     }
 }

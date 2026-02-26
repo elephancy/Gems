@@ -10,13 +10,13 @@ import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.AbilityRuntime;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.trust.GemTrust;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
 import com.feel.gems.power.gem.life.HeartLockRuntime;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 
 
@@ -42,31 +42,31 @@ public final class HeartLockAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         LivingEntity target = Targeting.raycastLiving(player, GemsBalance.v().life().heartLockRangeBlocks());
         if (target == null) {
-            player.sendMessage(Text.translatable("gems.message.no_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_target"), true);
             return false;
         }
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.LIFE, GemsBalance.v().life().heartLockDurationTicks());
-        if (target instanceof ServerPlayerEntity other) {
+        if (target instanceof ServerPlayer other) {
             if (GemTrust.isTrusted(player, other)) {
-                player.sendMessage(Text.translatable("gems.message.target_trusted"), true);
+                player.sendSystemMessage(Component.translatable("gems.message.target_trusted"), true);
                 return false;
             }
             if (!VoidImmunity.canBeTargeted(player, other)) {
-                player.sendMessage(Text.translatable("gems.message.target_immune"), true);
+                player.sendSystemMessage(Component.translatable("gems.message.target_immune"), true);
                 return false;
             }
             AbilityRuntime.startHeartLock(player, other, duration);
         } else {
-            if (target instanceof net.minecraft.entity.mob.MobEntity mob) {
+            if (target instanceof net.minecraft.world.entity.Mob mob) {
                 HeartLockRuntime.apply(player, mob, duration);
             }
         }
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_CHAIN_PLACE, 0.8F, 0.9F);
-        AbilityFeedback.burstAt(player.getEntityWorld(), target.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.ENCHANT, 18, 0.25D);
-        player.sendMessage(Text.translatable("gems.ability.life.heart_lock.applied"), true);
+        AbilityFeedback.sound(player, SoundEvents.CHAIN_PLACE, 0.8F, 0.9F);
+        AbilityFeedback.burstAt(player.level(), target.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.ENCHANT, 18, 0.25D);
+        player.sendSystemMessage(Component.translatable("gems.ability.life.heart_lock.applied"), true);
         return true;
     }
 }

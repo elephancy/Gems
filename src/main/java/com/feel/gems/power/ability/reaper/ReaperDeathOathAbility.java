@@ -9,10 +9,10 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityRuntime;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 
 
 
@@ -38,28 +38,28 @@ public final class ReaperDeathOathAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int range = GemsBalance.v().reaper().deathOathRangeBlocks();
         LivingEntity target = Targeting.raycastLiving(player, range);
         if (target == null) {
-            player.sendMessage(Text.translatable("gems.message.no_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_target"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_trusted"), true);
+        if (target instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_trusted"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_immune"), true);
+        if (target instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_immune"), true);
             return false;
         }
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.REAPER, GemsBalance.v().reaper().deathOathDurationTicks());
         if (duration <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.reaper.death_oath.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.death_oath.disabled"), true);
             return false;
         }
-        AbilityRuntime.startReaperDeathOath(player, target.getUuid(), duration);
-        player.sendMessage(Text.translatable("gems.ability.reaper.death_oath.bound", target.getName().getString()), true);
+        AbilityRuntime.startReaperDeathOath(player, target.getUUID(), duration);
+        player.sendSystemMessage(Component.translatable("gems.ability.reaper.death_oath.bound", target.getName().getString()), true);
         return true;
     }
 }

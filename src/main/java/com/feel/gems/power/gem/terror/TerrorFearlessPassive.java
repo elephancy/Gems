@@ -2,9 +2,9 @@ package com.feel.gems.power.gem.terror;
 
 import com.feel.gems.power.api.GemMaintainedPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffects;
 
 
 public final class TerrorFearlessPassive implements GemMaintainedPassive {
@@ -24,18 +24,18 @@ public final class TerrorFearlessPassive implements GemMaintainedPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         maintain(player);
     }
 
     @Override
-    public void maintain(ServerPlayerEntity player) {
-        player.removeStatusEffect(StatusEffects.DARKNESS);
-        player.removeStatusEffect(StatusEffects.BLINDNESS);
+    public void maintain(ServerPlayer player) {
+        player.removeEffect(MobEffects.DARKNESS);
+        player.removeEffect(MobEffects.BLINDNESS);
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
+    public void remove(ServerPlayer player) {
         // No-op.
     }
 }

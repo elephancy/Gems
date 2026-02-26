@@ -2,19 +2,20 @@ package com.feel.gems.power.gem.wealth;
 
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemInstance;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 
 public final class EnchantmentAmplification {
@@ -24,57 +25,57 @@ public final class EnchantmentAmplification {
     private EnchantmentAmplification() {
     }
 
-    public static void apply(ServerPlayerEntity player, int durationTicks) {
+    public static void apply(ServerPlayer player, int durationTicks) {
         long until = GemsTime.now(player) + durationTicks;
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        amplifyStack(world, player.getMainHandStack(), until);
-        amplifyStack(world, player.getOffHandStack(), until);
-        amplifyStack(world, player.getEquippedStack(net.minecraft.entity.EquipmentSlot.HEAD), until);
-        amplifyStack(world, player.getEquippedStack(net.minecraft.entity.EquipmentSlot.CHEST), until);
-        amplifyStack(world, player.getEquippedStack(net.minecraft.entity.EquipmentSlot.LEGS), until);
-        amplifyStack(world, player.getEquippedStack(net.minecraft.entity.EquipmentSlot.FEET), until);
-        amplifyStack(world, player.getEquippedStack(net.minecraft.entity.EquipmentSlot.BODY), until);
+        amplifyStack(world, player.getMainHandItem(), until);
+        amplifyStack(world, player.getOffhandItem(), until);
+        amplifyStack(world, player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD), until);
+        amplifyStack(world, player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST), until);
+        amplifyStack(world, player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS), until);
+        amplifyStack(world, player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET), until);
+        amplifyStack(world, player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.BODY), until);
     }
 
-    private static void amplifyStack(ServerWorld world, ItemStack stack, long until) {
+    private static void amplifyStack(ServerLevel world, ItemStack stack, long until) {
         if (stack == null || stack.isEmpty()) {
             return;
         }
-        if (!stack.hasEnchantments()) {
+        if (!stack.isEnchanted()) {
             return;
         }
 
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
-        if (custom != null && custom.copyNbt().contains(CUSTOM_DATA_KEY_AMPLIFY)) {
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
+        if (custom != null && custom.copyTag().contains(CUSTOM_DATA_KEY_AMPLIFY)) {
             return;
         }
 
-        ItemEnchantmentsComponent enchants = stack.getEnchantments();
+        ItemEnchantments enchants = stack.getEnchantments();
         if (enchants.isEmpty()) {
             return;
         }
 
         int bonusLevels = Math.max(1, GemsBalance.v().wealth().amplificationBonusLevels());
-        NbtList originalList = new NbtList();
-        NbtCompound bonus = new NbtCompound();
-        for (var entry : enchants.getEnchantmentEntries()) {
-            RegistryEntry<Enchantment> enchantment = entry.getKey();
+        ListTag originalList = new ListTag();
+        CompoundTag bonus = new CompoundTag();
+        for (var entry : enchants.entrySet()) {
+            Holder<Enchantment> enchantment = entry.getKey();
             int level = entry.getIntValue();
             if (level >= enchantment.value().getMaxLevel() && isOverMaxEligible(enchantment)) {
-                bonus.putInt(enchantment.getIdAsString(), bonusLevels);
+                bonus.putInt(enchantment.getRegisteredName(), bonusLevels);
             }
 
-            NbtCompound e = new NbtCompound();
-            e.putString("id", world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT).getId(enchantment.value()).toString());
+            CompoundTag e = new CompoundTag();
+            e.putString("id", world.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getKey(enchantment.value()).toString());
             e.putInt("lvl", level);
             originalList.add(e);
         }
 
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
-            NbtCompound marker = new NbtCompound();
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
+            CompoundTag marker = new CompoundTag();
             marker.putLong("until", until);
             marker.put("enchants", originalList);
             if (!bonus.isEmpty()) {
@@ -83,75 +84,75 @@ public final class EnchantmentAmplification {
             nbt.put(CUSTOM_DATA_KEY_AMPLIFY, marker);
         });
 
-        for (var entry : enchants.getEnchantmentEntries()) {
-            RegistryEntry<Enchantment> enchantment = entry.getKey();
+        for (var entry : enchants.entrySet()) {
+            Holder<Enchantment> enchantment = entry.getKey();
             int current = entry.getIntValue();
             int boosted = Math.min(enchantment.value().getMaxLevel(), current + bonusLevels);
             if (boosted == current) {
                 continue;
             }
-            EnchantmentHelper.apply(stack, builder -> builder.set(enchantment, boosted));
+            EnchantmentHelper.updateEnchantments(stack, builder -> builder.set(enchantment, boosted));
         }
     }
 
-    public static void restoreFromList(ServerWorld world, ItemStack stack, NbtList list) {
+    public static void restoreFromList(ServerLevel world, ItemStack stack, ListTag list) {
         if (stack == null || stack.isEmpty()) {
             return;
         }
 
-        EnchantmentHelper.set(stack, ItemEnchantmentsComponent.DEFAULT);
-        var registry = world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
+        EnchantmentHelper.setEnchantments(stack, ItemEnchantments.EMPTY);
+        var registry = world.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
         for (int i = 0; i < list.size(); i++) {
-            NbtCompound e = list.getCompound(i).orElse(null);
+            CompoundTag e = list.getCompound(i).orElse(null);
             if (e == null) {
                 continue;
             }
-            String rawId = e.getString("id", "");
-            int lvl = e.getInt("lvl", 0);
-            var id = net.minecraft.util.Identifier.tryParse(rawId);
+            String rawId = e.getStringOr("id", "");
+            int lvl = e.getIntOr("lvl", 0);
+            var id = net.minecraft.resources.Identifier.tryParse(rawId);
             if (id == null) {
                 continue;
             }
-            var entry = registry.getEntry(id);
+            var entry = registry.get(id);
             if (entry.isEmpty()) {
                 continue;
             }
             int clamped = Math.max(1, Math.min(entry.get().value().getMaxLevel(), lvl));
-            EnchantmentHelper.apply(stack, builder -> builder.set(entry.get(), clamped));
+            EnchantmentHelper.updateEnchantments(stack, builder -> builder.set(entry.get(), clamped));
         }
     }
 
-    public static int getBonusLevel(ItemStack stack, RegistryEntry<Enchantment> enchantment) {
-        if (stack == null || stack.isEmpty()) {
+    public static int getBonusLevel(ItemInstance stack, Holder<Enchantment> enchantment) {
+        if (stack == null || stack.count() <= 0) {
             return 0;
         }
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return 0;
         }
-        NbtCompound nbt = custom.copyNbt();
-        NbtCompound marker = nbt.getCompound(CUSTOM_DATA_KEY_AMPLIFY).orElse(null);
+        CompoundTag nbt = custom.copyTag();
+        CompoundTag marker = nbt.getCompound(CUSTOM_DATA_KEY_AMPLIFY).orElse(null);
         if (marker == null || marker.isEmpty()) {
             return 0;
         }
-        NbtCompound bonus = marker.getCompound(CUSTOM_DATA_KEY_BONUS).orElse(null);
+        CompoundTag bonus = marker.getCompound(CUSTOM_DATA_KEY_BONUS).orElse(null);
         if (bonus == null || bonus.isEmpty()) {
             return 0;
         }
-        String key = enchantment.getIdAsString();
+        String key = enchantment.getRegisteredName();
         if (key == null || key.isEmpty()) {
             return 0;
         }
-        return bonus.getInt(key, 0);
+        return bonus.getIntOr(key, 0);
     }
 
-    private static boolean isOverMaxEligible(RegistryEntry<Enchantment> enchantment) {
-        return enchantment.matchesKey(Enchantments.UNBREAKING)
-                || enchantment.matchesKey(Enchantments.PROTECTION)
-                || enchantment.matchesKey(Enchantments.MENDING)
-                || enchantment.matchesKey(Enchantments.LOOTING)
-                || enchantment.matchesKey(Enchantments.SHARPNESS)
-                || enchantment.matchesKey(Enchantments.EFFICIENCY)
-                || enchantment.matchesKey(Enchantments.FORTUNE);
+    private static boolean isOverMaxEligible(Holder<Enchantment> enchantment) {
+        return enchantment.is(Enchantments.UNBREAKING)
+                || enchantment.is(Enchantments.PROTECTION)
+                || enchantment.is(Enchantments.MENDING)
+                || enchantment.is(Enchantments.LOOTING)
+                || enchantment.is(Enchantments.SHARPNESS)
+                || enchantment.is(Enchantments.EFFICIENCY)
+                || enchantment.is(Enchantments.FORTUNE);
     }
 }

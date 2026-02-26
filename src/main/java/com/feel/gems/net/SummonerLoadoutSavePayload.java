@@ -4,10 +4,10 @@ import com.feel.gems.GemsMod;
 import com.feel.gems.power.gem.summoner.SummonerLoadouts;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 
 
@@ -21,20 +21,20 @@ public record SummonerLoadoutSavePayload(
         List<SummonerLoadouts.Entry> slot3,
         List<SummonerLoadouts.Entry> slot4,
         List<SummonerLoadouts.Entry> slot5
-) implements CustomPayload {
-    public static final Id<SummonerLoadoutSavePayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "summoner_loadout_save"));
+) implements CustomPacketPayload {
+    public static final Type<SummonerLoadoutSavePayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "summoner_loadout_save"));
 
-    public static final PacketCodec<RegistryByteBuf, SummonerLoadoutSavePayload> CODEC = PacketCodec.ofStatic(
+    public static final StreamCodec<RegistryFriendlyByteBuf, SummonerLoadoutSavePayload> CODEC = StreamCodec.of(
             SummonerLoadoutSavePayload::write,
             SummonerLoadoutSavePayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-        private static void write(RegistryByteBuf buf, SummonerLoadoutSavePayload payload) {
+        private static void write(RegistryFriendlyByteBuf buf, SummonerLoadoutSavePayload payload) {
                 writeEntries(buf, payload.slot1);
                 writeEntries(buf, payload.slot2);
                 writeEntries(buf, payload.slot3);
@@ -42,7 +42,7 @@ public record SummonerLoadoutSavePayload(
                 writeEntries(buf, payload.slot5);
         }
 
-        private static SummonerLoadoutSavePayload read(RegistryByteBuf buf) {
+        private static SummonerLoadoutSavePayload read(RegistryFriendlyByteBuf buf) {
                 List<SummonerLoadouts.Entry> s1 = readEntries(buf);
                 List<SummonerLoadouts.Entry> s2 = readEntries(buf);
                 List<SummonerLoadouts.Entry> s3 = readEntries(buf);
@@ -51,19 +51,19 @@ public record SummonerLoadoutSavePayload(
                 return new SummonerLoadoutSavePayload(s1, s2, s3, s4, s5);
         }
 
-        private static void writeEntries(RegistryByteBuf buf, List<SummonerLoadouts.Entry> entries) {
+        private static void writeEntries(RegistryFriendlyByteBuf buf, List<SummonerLoadouts.Entry> entries) {
                 buf.writeVarInt(entries.size());
                 for (SummonerLoadouts.Entry entry : entries) {
-                        buf.writeString(entry.entityId(), 256);
+                        buf.writeUtf(entry.entityId(), 256);
                         buf.writeVarInt(entry.count());
                 }
         }
 
-        private static List<SummonerLoadouts.Entry> readEntries(RegistryByteBuf buf) {
+        private static List<SummonerLoadouts.Entry> readEntries(RegistryFriendlyByteBuf buf) {
                 int size = buf.readVarInt();
                 List<SummonerLoadouts.Entry> out = new ArrayList<>(size);
                 for (int i = 0; i < size; i++) {
-                        String id = buf.readString(256);
+                        String id = buf.readUtf(256);
                         int count = buf.readVarInt();
                         out.add(new SummonerLoadouts.Entry(id, count));
                 }

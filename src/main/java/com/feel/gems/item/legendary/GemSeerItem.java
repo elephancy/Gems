@@ -3,19 +3,21 @@ package com.feel.gems.item.legendary;
 import com.feel.gems.legendary.LegendaryItem;
 import com.feel.gems.screen.GemSeerScreenHandler;
 import com.feel.gems.util.GemsTooltipFormat;
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
+import com.feel.gems.net.GemSeerOpeningPayload;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
 import java.util.function.Consumer;
 
 /**
@@ -26,7 +28,7 @@ import java.util.function.Consumer;
 public final class GemSeerItem extends Item implements LegendaryItem {
     private static final String LEGENDARY_ID = "gem_seer";
 
-    public GemSeerItem(Settings settings) {
+    public GemSeerItem(Properties settings) {
         super(settings);
     }
 
@@ -36,55 +38,39 @@ public final class GemSeerItem extends Item implements LegendaryItem {
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
 
-        if (!(user instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+        if (!(user instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
 
-        player.openHandledScreen(new ExtendedScreenHandlerFactory<GemSeerScreenHandler.OpeningData>() {
-            private GemSeerScreenHandler.OpeningData data;
-
+        GemSeerScreenHandler.OpeningData data = GemSeerScreenHandler.buildOpeningData(player);
+        player.openMenu(new MenuProvider() {
             @Override
-            public Text getDisplayName() {
-                return Text.translatable("screen.gems.gem_seer.title");
-            }
-
-            @Override
-            public ScreenHandler createMenu(int syncId, PlayerInventory inv, PlayerEntity p) {
-                if (!(p instanceof ServerPlayerEntity serverPlayer)) {
-                    return new GemSeerScreenHandler(syncId, inv);
-                }
-                GemSeerScreenHandler.OpeningData openingData = ensureData(serverPlayer);
-                return new GemSeerScreenHandler(syncId, inv, openingData);
+            public Component getDisplayName() {
+                return Component.translatable("screen.gems.gem_seer.title");
             }
 
             @Override
-            public GemSeerScreenHandler.OpeningData getScreenOpeningData(ServerPlayerEntity player) {
-                return ensureData(player);
+            public AbstractContainerMenu createMenu(int syncId, Inventory inv, Player p) {
+                return new GemSeerScreenHandler(syncId, inv, data);
             }
 
-            private GemSeerScreenHandler.OpeningData ensureData(ServerPlayerEntity serverPlayer) {
-                if (data == null) {
-                    data = GemSeerScreenHandler.buildOpeningData(serverPlayer);
-                }
-                return data;
-            }
-        });
+        }).ifPresent(menuId -> ServerPlayNetworking.send(player, new GemSeerOpeningPayload(menuId, data)));
 
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
-    public boolean hasGlint(ItemStack stack) {
+    public boolean isFoil(ItemStack stack) {
         return true;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
-        GemsTooltipFormat.appendDescription(tooltip, Text.translatable("item.gems.gem_seer.desc"));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
+        GemsTooltipFormat.appendDescription(tooltip, Component.translatable("item.gems.gem_seer.desc"));
     }
 }

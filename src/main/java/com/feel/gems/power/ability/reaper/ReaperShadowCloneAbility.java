@@ -14,14 +14,14 @@ import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -47,49 +47,49 @@ public final class ReaperShadowCloneAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         var cfg = GemsBalance.v().reaper();
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.REAPER, cfg.shadowCloneDurationTicks());
         int count = cfg.shadowCloneCount();
         if (duration <= 0 || count <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.reaper.shadow_clone.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.shadow_clone.disabled"), true);
             return false;
         }
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         
         List<java.util.UUID> spawned = new ArrayList<>();
-        float yaw = player.getYaw();
+        float yaw = player.getYRot();
         double baseRadius = 1.5D;
         
         for (int i = 0; i < count; i++) {
-            Entity entity = ModEntities.SHADOW_CLONE.create(world, SpawnReason.MOB_SUMMONED);
+            Entity entity = ModEntities.SHADOW_CLONE.create(world, EntitySpawnReason.MOB_SUMMONED);
             if (!(entity instanceof ShadowCloneEntity clone)) {
                 continue;
             }
             
             double angle = (Math.PI * 2.0D) * (i / (double) count);
-            double offset = baseRadius + (world.random.nextDouble() * 0.6D);
+            double offset = baseRadius + (world.getRandom().nextDouble() * 0.6D);
             double dx = Math.cos(angle) * offset;
             double dz = Math.sin(angle) * offset;
-            Vec3d pos = new Vec3d(player.getX() + dx, player.getY(), player.getZ() + dz);
+            Vec3 pos = new Vec3(player.getX() + dx, player.getY(), player.getZ() + dz);
 
-            clone.refreshPositionAndAngles(pos.x, pos.y, pos.z, yaw + (world.random.nextFloat() - 0.5F) * 30F, 0.0F);
+            clone.snapTo(pos.x, pos.y, pos.z, yaw + (world.getRandom().nextFloat() - 0.5F) * 30F, 0.0F);
             clone.setOwner(player);
             clone.setMaxLifetime(duration); // Set auto-despawn lifetime
 
-            world.spawnEntity(clone);
-            spawned.add(clone.getUuid());
+            world.addFreshEntity(clone);
+            spawned.add(clone.getUUID());
             
             // Send sync payload to all nearby players for skin rendering
             ShadowCloneSyncPayload syncPayload = new ShadowCloneSyncPayload(
                     clone.getId(),
-                    player.getUuid(),
+                    player.getUUID(),
                     player.getGameProfile().name()
             );
-            for (ServerPlayerEntity tracker : PlayerLookup.tracking(clone)) {
+            for (ServerPlayer tracker : PlayerLookup.tracking(clone)) {
                 ServerPlayNetworking.send(tracker, syncPayload);
             }
             // Also send to the caster
@@ -97,13 +97,13 @@ public final class ReaperShadowCloneAbility implements GemAbility {
         }
 
         if (spawned.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.ability.reaper.shadow_clone.failed"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.shadow_clone.failed"), true);
             return false;
         }
 
         AbilityRuntime.startReaperShadowClone(player, spawned, duration);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDERMAN_TELEPORT, 0.6F, 0.6F);
-        player.sendMessage(Text.translatable("gems.ability.reaper.shadow_clone.spawned"), true);
+        AbilityFeedback.sound(player, SoundEvents.ENDERMAN_TELEPORT, 0.6F, 0.6F);
+        player.sendSystemMessage(Component.translatable("gems.ability.reaper.shadow_clone.spawned"), true);
         return true;
     }
 }

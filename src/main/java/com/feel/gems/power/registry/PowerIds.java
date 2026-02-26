@@ -1,7 +1,7 @@
 package com.feel.gems.power.registry;
 
 import com.feel.gems.GemsMod;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 
 
@@ -389,6 +389,6 @@ public final class PowerIds {
     }
 
     private static Identifier id(String path) {
-        return Identifier.of(GemsMod.MOD_ID, path);
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, path);
     }
 }

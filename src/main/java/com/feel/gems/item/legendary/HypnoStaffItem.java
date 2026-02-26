@@ -10,19 +10,19 @@ import com.feel.gems.util.GemsNbt;
 import com.feel.gems.util.GemsTooltipFormat;
 import java.util.UUID;
 import java.util.function.Consumer;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
 
 
 
@@ -31,52 +31,52 @@ public final class HypnoStaffItem extends Item implements LegendaryItem {
     private static final String KEY_TARGET = "legendaryHypnoTarget";
     private static final String KEY_PROGRESS = "legendaryHypnoProgress";
 
-    public HypnoStaffItem(Settings settings) {
+    public HypnoStaffItem(Properties settings) {
         super(settings);
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "hypno_staff").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "hypno_staff").toString();
     }
 
     @Override
-    public int getMaxUseTime(ItemStack stack, LivingEntity user) {
+    public int getUseDuration(ItemStack stack, LivingEntity user) {
         return 72000;
     }
 
     @Override
-    public ActionResult use(World world, net.minecraft.entity.player.PlayerEntity user, Hand hand) {
-        user.setCurrentHand(hand);
-        return ActionResult.CONSUME;
+    public InteractionResult use(Level world, net.minecraft.world.entity.player.Player user, InteractionHand hand) {
+        user.startUsingItem(hand);
+        return InteractionResult.CONSUME;
     }
 
     @Override
-    public void usageTick(World world, LivingEntity user, ItemStack stack, int remainingUseTicks) {
-        if (world.isClient()) {
+    public void onUseTick(Level world, LivingEntity user, ItemStack stack, int remainingUseTicks) {
+        if (world.isClientSide()) {
             return;
         }
-        if (!(user instanceof ServerPlayerEntity player)) {
+        if (!(user instanceof ServerPlayer player)) {
             return;
         }
         var cfg = GemsBalance.v().legendary();
         int range = cfg.hypnoRangeBlocks();
         double viewRange = Math.max(4.0D, cfg.hypnoViewRangeBlocks());
         LivingEntity target = Targeting.raycastLiving(player, range, viewRange);
-        if (!(target instanceof MobEntity mob) || !HypnoControl.isAllowed(mob)) {
+        if (!(target instanceof Mob mob) || !HypnoControl.isAllowed(mob)) {
             resetProgress(player);
             return;
         }
 
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         UUID current = GemsNbt.getUuid(data, KEY_TARGET);
-        if (current == null || !current.equals(mob.getUuid())) {
-            GemsNbt.putUuid(data, KEY_TARGET, mob.getUuid());
+        if (current == null || !current.equals(mob.getUUID())) {
+            GemsNbt.putUuid(data, KEY_TARGET, mob.getUUID());
             data.putInt(KEY_PROGRESS, 1);
             return;
         }
 
-        int progress = data.getInt(KEY_PROGRESS, 0) + 1;
+        int progress = data.getIntOr(KEY_PROGRESS, 0) + 1;
         data.putInt(KEY_PROGRESS, progress);
 
         int holdTicks = cfg.hypnoHoldTicks();
@@ -84,49 +84,49 @@ public final class HypnoStaffItem extends Item implements LegendaryItem {
         if (progress < holdTicks) {
             return;
         }
-        if (HypnoControl.isHypno(mob) && player.getUuid().equals(HypnoControl.ownerUuid(mob))) {
+        if (HypnoControl.isHypno(mob) && player.getUUID().equals(HypnoControl.ownerUuid(mob))) {
             float heal = cfg.hypnoHealHearts() * 2.0F;
             if (heal > 0.0F) {
                 mob.heal(heal);
             }
-            player.sendMessage(Text.translatable("gems.item.hypno_staff.refreshed"), true);
-            player.stopUsingItem();
+            player.sendSystemMessage(Component.translatable("gems.item.hypno_staff.refreshed"), true);
+            player.releaseUsingItem();
             resetProgress(player);
             return;
         }
         boolean controlled = HypnoControl.tryControl(player, mob);
         if (controlled) {
-            player.sendMessage(Text.translatable("gems.item.hypno_staff.successful"), true);
-            player.stopUsingItem();
+            player.sendSystemMessage(Component.translatable("gems.item.hypno_staff.successful"), true);
+            player.releaseUsingItem();
         } else {
-            player.sendMessage(Text.translatable("gems.item.hypno_staff.failed"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.hypno_staff.failed"), true);
         }
         resetProgress(player);
     }
 
     @Override
-    public boolean onStoppedUsing(ItemStack stack, World world, LivingEntity user, int remainingUseTicks) {
-        if (world.isClient()) {
+    public boolean releaseUsing(ItemStack stack, Level world, LivingEntity user, int remainingUseTicks) {
+        if (world.isClientSide()) {
             return false;
         }
-        if (user instanceof ServerPlayerEntity player) {
+        if (user instanceof ServerPlayer player) {
             resetProgress(player);
         }
         return false;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
-        GemsTooltipFormat.appendDescription(tooltip, Text.translatable("item.gems.hypno_staff.desc"));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
+        GemsTooltipFormat.appendDescription(tooltip, Component.translatable("item.gems.hypno_staff.desc"));
     }
 
-    private static void resetProgress(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    private static void resetProgress(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         data.remove(KEY_TARGET);
         data.remove(KEY_PROGRESS);
     }
 
-    private static void sendProgress(ServerPlayerEntity player, int progress, int holdTicks) {
+    private static void sendProgress(ServerPlayer player, int progress, int holdTicks) {
         if (holdTicks <= 0) {
             return;
         }
@@ -139,6 +139,6 @@ public final class HypnoStaffItem extends Item implements LegendaryItem {
             bar.append(i < filled ? "=" : " ");
         }
         bar.append("]");
-        player.sendMessage(Text.translatable("gems.item.hypno_staff.progress", bar.toString(), percent), true);
+        player.sendSystemMessage(Component.translatable("gems.item.hypno_staff.progress", bar.toString(), percent), true);
     }
 }

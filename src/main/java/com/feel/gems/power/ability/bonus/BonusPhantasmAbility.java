@@ -10,17 +10,18 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Phantasm - create a decoy that taunts enemies and explodes on death.
@@ -49,11 +50,11 @@ public final class BonusPhantasmAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
-        Entity entity = ModEntities.HUNTER_PACK.create(world, SpawnReason.MOB_SUMMONED);
+        Entity entity = ModEntities.HUNTER_PACK.create(world, EntitySpawnReason.MOB_SUMMONED);
         if (!(entity instanceof HunterPackEntity clone)) {
             return false;
         }
@@ -61,33 +62,33 @@ public final class BonusPhantasmAbility implements GemAbility {
         clone.setOwner(player, packId);
         int duration = GemsBalance.v().bonusPool().phantasmDurationSeconds * 20;
         clone.setMaxLifetime(duration);
-        clone.refreshPositionAndAngles(player.getX(), player.getY(), player.getZ(), player.getYaw(), 0.0F);
-        world.spawnEntity(clone);
+        clone.snapTo(player.getX(), player.getY(), player.getZ(), player.getYRot(), 0.0F);
+        world.addFreshEntity(clone);
 
-        Box box = clone.getBoundingBox().expand(12);
-        for (MobEntity mob : world.getEntitiesByClass(MobEntity.class, box, m -> m.isAlive())) {
+        AABB box = clone.getBoundingBox().inflate(12);
+        for (Mob mob : world.getEntitiesOfClass(Mob.class, box, m -> m.isAlive())) {
             mob.setTarget(clone);
         }
-        PHANTASMS.put(clone.getUuid(), new Phantasm(world, clone.getUuid(), player.getUuid(), world.getTime() + duration, clone.getEntityPos()));
-        world.spawnParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 15, 0.5, 0.4, 0.5, 0.02);
+        PHANTASMS.put(clone.getUUID(), new Phantasm(world, clone.getUUID(), player.getUUID(), world.getGameTime() + duration, clone.position()));
+        world.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 15, 0.5, 0.4, 0.5, 0.02);
 
         ShadowCloneSyncPayload syncPayload = new ShadowCloneSyncPayload(
                 clone.getId(),
-                player.getUuid(),
+                player.getUUID(),
                 player.getGameProfile().name()
         );
-        for (ServerPlayerEntity tracker : PlayerLookup.tracking(clone)) {
+        for (ServerPlayer tracker : PlayerLookup.tracking(clone)) {
             ServerPlayNetworking.send(tracker, syncPayload);
         }
         ServerPlayNetworking.send(player, syncPayload);
         return true;
     }
 
-    public static void tick(ServerWorld world) {
+    public static void tick(ServerLevel world) {
         if (PHANTASMS.isEmpty()) {
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
         Iterator<Map.Entry<UUID, Phantasm>> iter = PHANTASMS.entrySet().iterator();
         while (iter.hasNext()) {
             var entry = iter.next();
@@ -97,7 +98,7 @@ public final class BonusPhantasmAbility implements GemAbility {
             }
             Entity clone = world.getEntity(phantom.cloneUuid);
             if (clone != null) {
-                phantom.lastPos = clone.getEntityPos();
+                phantom.lastPos = clone.position();
             }
             boolean expired = now > phantom.until;
             boolean dead = clone == null || !clone.isAlive();
@@ -110,37 +111,37 @@ public final class BonusPhantasmAbility implements GemAbility {
     }
 
     private static void explode(Phantasm phantom, Entity clone) {
-        ServerWorld world = phantom.world;
-        Vec3d pos = clone != null ? clone.getEntityPos() : phantom.lastPos;
+        ServerLevel world = phantom.world;
+        Vec3 pos = clone != null ? clone.position() : phantom.lastPos;
         if (pos == null) {
             return;
         }
         float power = GemsBalance.v().bonusPool().phantasmExplosionDamage;
-        world.createExplosion(clone, pos.x, pos.y, pos.z, power, ServerWorld.ExplosionSourceType.MOB);
+        world.explode(clone, pos.x, pos.y, pos.z, power, Level.ExplosionInteraction.MOB);
         if (clone != null) {
             clone.discard();
         }
         clearTargets(world, phantom.cloneUuid, pos);
     }
 
-    private static void clearTargets(ServerWorld world, UUID cloneUuid, Vec3d center) {
-        Box box = new Box(center, center).expand(32.0D);
-        for (MobEntity mob : world.getEntitiesByClass(MobEntity.class, box, m -> m.getTarget() != null)) {
+    private static void clearTargets(ServerLevel world, UUID cloneUuid, Vec3 center) {
+        AABB box = new AABB(center, center).inflate(32.0D);
+        for (Mob mob : world.getEntitiesOfClass(Mob.class, box, m -> m.getTarget() != null)) {
             Entity target = mob.getTarget();
-            if (target != null && cloneUuid.equals(target.getUuid())) {
+            if (target != null && cloneUuid.equals(target.getUUID())) {
                 mob.setTarget(null);
             }
         }
     }
 
     private static final class Phantasm {
-        final ServerWorld world;
+        final ServerLevel world;
         final UUID cloneUuid;
         final UUID ownerUuid;
         final long until;
-        Vec3d lastPos;
+        Vec3 lastPos;
 
-        private Phantasm(ServerWorld world, UUID cloneUuid, UUID ownerUuid, long until, Vec3d lastPos) {
+        private Phantasm(ServerLevel world, UUID cloneUuid, UUID ownerUuid, long until, Vec3 lastPos) {
             this.world = world;
             this.cloneUuid = cloneUuid;
             this.ownerUuid = ownerUuid;

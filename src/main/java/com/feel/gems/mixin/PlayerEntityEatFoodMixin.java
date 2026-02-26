@@ -3,13 +3,13 @@ package com.feel.gems.mixin;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.util.GemsTime;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import com.feel.gems.state.GemsPersistentDataHolder;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,12 +22,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class PlayerEntityEatFoodMixin {
     private static final String KEY_ROT_EATER_UNTIL = "reaperRotEaterUntil";
 
-    @Inject(method = "finishUsing", at = @At("HEAD"))
-    private void gems$reaperRotEater(World world, net.minecraft.entity.LivingEntity user, CallbackInfoReturnable<ItemStack> cir) {
-        if (world == null || world.isClient()) {
+    @Inject(method = "finishUsingItem", at = @At("HEAD"))
+    private void gems$reaperRotEater(Level world, net.minecraft.world.entity.LivingEntity user, CallbackInfoReturnable<ItemStack> cir) {
+        if (world == null || world.isClientSide()) {
             return;
         }
-        if (!(user instanceof ServerPlayerEntity player)) {
+        if (!(user instanceof ServerPlayer player)) {
             return;
         }
         if (!GemPowers.isPassiveActive(player, PowerIds.REAPER_ROT_EATER)) {
@@ -36,25 +36,25 @@ public abstract class PlayerEntityEatFoodMixin {
 
         ItemStack self = (ItemStack) (Object) this;
 
-        if (self.isOf(Items.ROTTEN_FLESH)) {
+        if (self.is(Items.ROTTEN_FLESH)) {
             markRotEater(player);
-        } else if (self.isOf(Items.SPIDER_EYE)) {
+        } else if (self.is(Items.SPIDER_EYE)) {
             markRotEater(player);
         }
     }
 
-    @Inject(method = "finishUsing", at = @At("TAIL"))
-    private void gems$reaperRotEaterTail(World world, net.minecraft.entity.LivingEntity user, CallbackInfoReturnable<ItemStack> cir) {
-        if (world == null || world.isClient()) {
+    @Inject(method = "finishUsingItem", at = @At("TAIL"))
+    private void gems$reaperRotEaterTail(Level world, net.minecraft.world.entity.LivingEntity user, CallbackInfoReturnable<ItemStack> cir) {
+        if (world == null || world.isClientSide()) {
             return;
         }
-        if (!(user instanceof ServerPlayerEntity player)) {
+        if (!(user instanceof ServerPlayer player)) {
             return;
         }
         // Vanilla applies food status effects during finishUsing; clear again at TAIL to ensure Hunger/Poison
         // doesn't "win" after our HEAD removal.
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        long until = data.getLong(KEY_ROT_EATER_UNTIL, 0L);
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        long until = data.getLongOr(KEY_ROT_EATER_UNTIL, 0L);
         if (until <= 0L) {
             return;
         }
@@ -62,15 +62,15 @@ public abstract class PlayerEntityEatFoodMixin {
         if (now > until) {
             return;
         }
-        player.removeStatusEffect(StatusEffects.HUNGER);
-        player.removeStatusEffect(StatusEffects.POISON);
+        player.removeEffect(MobEffects.HUNGER);
+        player.removeEffect(MobEffects.POISON);
     }
 
-    private static void markRotEater(ServerPlayerEntity player) {
+    private static void markRotEater(ServerPlayer player) {
         long now = GemsTime.now(player);
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         data.putLong(KEY_ROT_EATER_UNTIL, now + 40L);
-        player.removeStatusEffect(StatusEffects.HUNGER);
-        player.removeStatusEffect(StatusEffects.POISON);
+        player.removeEffect(MobEffects.HUNGER);
+        player.removeEffect(MobEffects.POISON);
     }
 }

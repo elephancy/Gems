@@ -8,12 +8,12 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.gem.chaos.ChaosSlotRuntime;
 import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.state.GemsPersistentDataHolder;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 /**
  * Manages the auto-step toggle state for Speed gem players.
@@ -21,18 +21,18 @@ import net.minecraft.util.Identifier;
  */
 public final class SpeedAutoStepRuntime {
     private static final String KEY_AUTO_STEP = "speedAutoStep";
-    private static final Identifier MODIFIER_ID = Identifier.of(GemsMod.MOD_ID, "speed_auto_step");
+    private static final Identifier MODIFIER_ID = Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "speed_auto_step");
 
     private SpeedAutoStepRuntime() {
     }
 
-    public static boolean isActive(ServerPlayerEntity player) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        return nbt.getBoolean(KEY_AUTO_STEP, false);
+    public static boolean isActive(ServerPlayer player) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        return nbt.getBooleanOr(KEY_AUTO_STEP, false);
     }
 
-    public static void setActive(ServerPlayerEntity player, boolean active) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static void setActive(ServerPlayer player, boolean active) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         nbt.putBoolean(KEY_AUTO_STEP, active);
         applyModifier(player, active);
     }
@@ -40,7 +40,7 @@ public final class SpeedAutoStepRuntime {
     /**
      * Called every second to ensure the modifier is correctly applied based on state.
      */
-    public static void tickEverySecond(ServerPlayerEntity player) {
+    public static void tickEverySecond(ServerPlayer player) {
         if (!isActive(player)) {
             removeModifier(player);
             return;
@@ -68,14 +68,14 @@ public final class SpeedAutoStepRuntime {
     /**
      * Clear the auto-step effect (e.g., on gem swap or energy loss).
      */
-    public static void clear(ServerPlayerEntity player) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static void clear(ServerPlayer player) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         nbt.remove(KEY_AUTO_STEP);
         removeModifier(player);
     }
 
-    private static void applyModifier(ServerPlayerEntity player, boolean active) {
-        EntityAttributeInstance stepHeight = player.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
+    private static void applyModifier(ServerPlayer player, boolean active) {
+        AttributeInstance stepHeight = player.getAttribute(Attributes.STEP_HEIGHT);
         if (stepHeight == null) {
             return;
         }
@@ -87,17 +87,17 @@ public final class SpeedAutoStepRuntime {
             // Default player step height is 0.6 blocks; horses have 1.0
             // Add 0.4 to reach 1.0 (full block step)
             double bonus = GemsBalance.v().speed().autoStepHeightBonus();
-            EntityAttributeModifier modifier = new EntityAttributeModifier(
+            AttributeModifier modifier = new AttributeModifier(
                     MODIFIER_ID,
                     bonus,
-                    EntityAttributeModifier.Operation.ADD_VALUE
+                    AttributeModifier.Operation.ADD_VALUE
             );
-            stepHeight.addTemporaryModifier(modifier);
+            stepHeight.addTransientModifier(modifier);
         }
     }
 
-    private static void removeModifier(ServerPlayerEntity player) {
-        EntityAttributeInstance stepHeight = player.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
+    private static void removeModifier(ServerPlayer player) {
+        AttributeInstance stepHeight = player.getAttribute(Attributes.STEP_HEIGHT);
         if (stepHeight != null) {
             stepHeight.removeModifier(MODIFIER_ID);
         }

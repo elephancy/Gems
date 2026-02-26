@@ -6,21 +6,22 @@ import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTeleport;
 import java.util.*;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.projectile.SmallFireballEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.hurtingprojectile.SmallFireball;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Registry of all synergy combos.
@@ -55,15 +56,15 @@ public final class SynergyRegistry {
     }
 
     // Helper to get player position as Vec3d
-    private static Vec3d getPlayerPos(ServerPlayerEntity player) {
-        return new Vec3d(player.getX(), player.getY(), player.getZ());
+    private static Vec3 getPlayerPos(ServerPlayer player) {
+        return new Vec3(player.getX(), player.getY(), player.getZ());
     }
 
     // Helper to get nearby entities
-    private static List<LivingEntity> getNearbyLiving(ServerPlayerEntity player, double radius) {
-        ServerWorld world = player.getEntityWorld();
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        return world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive());
+    private static List<LivingEntity> getNearbyLiving(ServerPlayer player, double radius) {
+        ServerLevel world = player.level();
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        return world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive());
     }
 
     // ========== Synergy Definitions ==========
@@ -71,7 +72,7 @@ public final class SynergyRegistry {
     private static void registerSynergies() {
         // ==================== GEM-BASED SYNERGIES ====================
         // These trigger when any ability from each gem is cast within the window
-        
+
         // FIRE + FLUX = Thunderstorm: Lightning strike + fire explosion
         register(SynergyDefinition.gemBased(
                 "thunderstorm",
@@ -80,16 +81,16 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
                         // Create lightning at target location (5 blocks ahead)
-                        Vec3d playerPos = getPlayerPos(player);
-                        Vec3d forward = player.getRotationVector().multiply(5);
-                        Vec3d targetPos = playerPos.add(forward);
-                        var lightning = EntityType.LIGHTNING_BOLT.create(world, SpawnReason.TRIGGERED);
+                        Vec3 playerPos = getPlayerPos(player);
+                        Vec3 forward = player.getLookAngle().scale(5);
+                        Vec3 targetPos = playerPos.add(forward);
+                        var lightning = EntityTypes.LIGHTNING_BOLT.create(world, EntitySpawnReason.TRIGGERED);
                         if (lightning != null) {
-                            lightning.refreshPositionAfterTeleport(targetPos.x, targetPos.y, targetPos.z);
-                            world.spawnEntity(lightning);
+                            lightning.snapTo(targetPos.x, targetPos.y, targetPos.z);
+                            world.addFreshEntity(lightning);
                         }
                     }
                 }
@@ -109,8 +110,8 @@ public final class SynergyRegistry {
                         float pct2 = p2.getHealth() / p2.getMaxHealth();
                         p1.setHealth(p1.getMaxHealth() * pct2);
                         p2.setHealth(p2.getMaxHealth() * pct1);
-                        p1.sendMessage(Text.translatable("gems.synergy.soul_exchange.swapped").formatted(Formatting.LIGHT_PURPLE), true);
-                        p2.sendMessage(Text.translatable("gems.synergy.soul_exchange.swapped").formatted(Formatting.LIGHT_PURPLE), true);
+                        p1.sendSystemMessage(Component.translatable("gems.synergy.soul_exchange.swapped").withStyle(ChatFormatting.LIGHT_PURPLE), true);
+                        p2.sendSystemMessage(Component.translatable("gems.synergy.soul_exchange.swapped").withStyle(ChatFormatting.LIGHT_PURPLE), true);
                     }
                 }
         ));
@@ -123,14 +124,14 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 100, 4));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.JUMP_BOOST, 100, 2));
+                        ServerPlayer player = p.player();
+                        player.addEffect(new MobEffectInstance(MobEffects.SPEED, 100, 4));
+                        player.addEffect(new MobEffectInstance(MobEffects.JUMP_BOOST, 100, 2));
                         // Teleport forward 10 blocks in look direction
-                        Vec3d playerPos = getPlayerPos(player);
-                        Vec3d forward = player.getRotationVector().multiply(10);
-                        Vec3d targetPos = playerPos.add(forward);
-                        GemsTeleport.teleport(player, player.getEntityWorld(), targetPos.x, targetPos.y, targetPos.z, player.getYaw(), player.getPitch());
+                        Vec3 playerPos = getPlayerPos(player);
+                        Vec3 forward = player.getLookAngle().scale(10);
+                        Vec3 targetPos = playerPos.add(forward);
+                        GemsTeleport.teleport(player, player.level(), targetPos.x, targetPos.y, targetPos.z, player.getYRot(), player.getXRot());
                     }
                 }
         ));
@@ -143,17 +144,17 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
+                        ServerPlayer player = p.player();
                         // Buff self
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 200, 2));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 200, 1));
+                        player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 200, 2));
+                        player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 200, 1));
                         // Play intimidating sound
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
+                        AbilityFeedback.sound(player, SoundEvents.ENDER_DRAGON_GROWL, 1.0f, 0.5f);
                         // Fear nearby enemies
                         for (LivingEntity other : getNearbyLiving(player, 15)) {
-                            if (other != player && other instanceof ServerPlayerEntity otherPlayer) {
-                                otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.DARKNESS, 100, 0));
-                                otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100, 1));
+                            if (other != player && other instanceof ServerPlayer otherPlayer) {
+                                otherPlayer.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 100, 0));
+                                otherPlayer.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 100, 1));
                             }
                         }
                     }
@@ -168,10 +169,10 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 200, 0));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 100, 3));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 100, 1));
+                        ServerPlayer player = p.player();
+                        player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 200, 0));
+                        player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 100, 3));
+                        player.addEffect(new MobEffectInstance(MobEffects.SPEED, 100, 1));
                     }
                 }
         ));
@@ -184,15 +185,15 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 200, 3));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 400, 2));
+                        ServerPlayer player = p.player();
+                        player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 3));
+                        player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 400, 2));
                         // Heal nearby allies
                         for (LivingEntity other : getNearbyLiving(player, 20)) {
-                            if (other instanceof ServerPlayerEntity otherPlayer) {
+                            if (other instanceof ServerPlayer otherPlayer) {
                                 if (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer)) {
                                     otherPlayer.heal(10.0f);
-                                    otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 100, 1));
+                                    otherPlayer.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100, 1));
                                 }
                             }
                         }
@@ -208,18 +209,18 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        Vec3d playerPos = getPlayerPos(player);
+                        ServerPlayer player = p.player();
+                        Vec3 playerPos = getPlayerPos(player);
                         for (LivingEntity other : getNearbyLiving(player, 12)) {
                             if (other != player) {
-                                boolean ally = other instanceof ServerPlayerEntity otherPlayer && 
+                                boolean ally = other instanceof ServerPlayer otherPlayer &&
                                               GemTrust.isTrusted(player, otherPlayer);
                                 if (!ally) {
                                     // Pull towards caster then launch up
-                                    Vec3d otherPos = new Vec3d(other.getX(), other.getY(), other.getZ());
-                                    Vec3d direction = playerPos.subtract(otherPos).normalize();
-                                    other.addVelocity(direction.x * 1.5, 1.5, direction.z * 1.5);
-                                    other.velocityDirty = true;
+                                    Vec3 otherPos = new Vec3(other.getX(), other.getY(), other.getZ());
+                                    Vec3 direction = playerPos.subtract(otherPos).normalize();
+                                    other.push(direction.x * 1.5, 1.5, direction.z * 1.5);
+                                    other.needsSync = true;
                                 }
                             }
                         }
@@ -235,10 +236,10 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 300, 2));
+                        ServerPlayer player = p.player();
+                        player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 300, 2));
                         // Give the player night vision to help track prey
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.NIGHT_VISION, 300, 0));
+                        player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 300, 0));
                     }
                 }
         ));
@@ -251,11 +252,11 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
+                        ServerPlayer player = p.player();
                         // Give luck effect for increased drops
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.LUCK, 600, 3));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE, 300, 2));
-                        player.sendMessage(Text.translatable("gems.synergy.plunder.active").formatted(Formatting.GOLD), true);
+                        player.addEffect(new MobEffectInstance(MobEffects.LUCK, 600, 3));
+                        player.addEffect(new MobEffectInstance(MobEffects.HASTE, 300, 2));
+                        player.sendSystemMessage(Component.translatable("gems.synergy.plunder.active").withStyle(ChatFormatting.GOLD), true);
                     }
                 }
         ));
@@ -268,15 +269,15 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
+                        ServerPlayer player = p.player();
                         // Gain massive defense
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 200, 3));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 200, 0));
+                        player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 200, 3));
+                        player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 200, 0));
                         // Taunt nearby enemies (give them glowing so they're visible)
                         for (LivingEntity other : getNearbyLiving(player, 15)) {
-                            if (other != player && other instanceof ServerPlayerEntity otherPlayer) {
+                            if (other != player && other instanceof ServerPlayer otherPlayer) {
                                 if (!GemTrust.isTrusted(player, otherPlayer)) {
-                                    otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0));
+                                    otherPlayer.addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0));
                                 }
                             }
                         }
@@ -292,21 +293,21 @@ public final class SynergyRegistry {
                 60, 600,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
+                        ServerPlayer player = p.player();
                         java.util.Random rand = new java.util.Random();
                         // Apply random effects to everyone nearby
                         for (LivingEntity other : getNearbyLiving(player, 20)) {
-                            if (other instanceof ServerPlayerEntity otherPlayer) {
+                            if (other instanceof ServerPlayer otherPlayer) {
                                 // Random effect pool
                                 var effects = List.of(
-                                        StatusEffects.SPEED, StatusEffects.SLOWNESS,
-                                        StatusEffects.STRENGTH, StatusEffects.WEAKNESS,
-                                        StatusEffects.JUMP_BOOST, StatusEffects.LEVITATION,
-                                        StatusEffects.INVISIBILITY, StatusEffects.GLOWING,
-                                        StatusEffects.REGENERATION, StatusEffects.POISON
+                                        MobEffects.SPEED, MobEffects.SLOWNESS,
+                                        MobEffects.STRENGTH, MobEffects.WEAKNESS,
+                                        MobEffects.JUMP_BOOST, MobEffects.LEVITATION,
+                                        MobEffects.INVISIBILITY, MobEffects.GLOWING,
+                                        MobEffects.REGENERATION, MobEffects.POISON
                                 );
                                 var effect = effects.get(rand.nextInt(effects.size()));
-                                otherPlayer.addStatusEffect(new StatusEffectInstance(effect, 100, rand.nextInt(3)));
+                                otherPlayer.addEffect(new MobEffectInstance(effect, 100, rand.nextInt(3)));
                             }
                         }
                     }
@@ -325,28 +326,28 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        Vec3d start = getPlayerPos(player).add(0, 1.4, 0);
-                        Vec3d dir = player.getRotationVector().normalize();
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        Vec3 start = getPlayerPos(player).add(0, 1.4, 0);
+                        Vec3 dir = player.getLookAngle().normalize();
 
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_GENERIC_EXPLODE, 1.2f, 0.9f);
+                        AbilityFeedback.sound(player, SoundEvents.GENERIC_EXPLODE, 1.2f, 0.9f);
 
                         for (int i = 1; i <= 6; i++) {
-                            Vec3d point = start.add(dir.multiply(i * 3.0));
-                            world.spawnParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 20, 0.6, 0.6, 0.6, 0.1);
-                            world.createExplosion(player, point.x, point.y, point.z, 2.4f, net.minecraft.world.World.ExplosionSourceType.MOB);
+                            Vec3 point = start.add(dir.scale(i * 3.0));
+                            world.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 20, 0.6, 0.6, 0.6, 0.1);
+                            world.explode(player, point.x, point.y, point.z, 2.4f, net.minecraft.world.level.Level.ExplosionInteraction.MOB);
 
-                            Box box = new Box(point, point).expand(2.5);
-                            for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive())) {
+                            AABB box = new AABB(point, point).inflate(2.5);
+                            for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive())) {
                                 if (other == player) {
                                     continue;
                                 }
-                                if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+                                if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                                     continue;
                                 }
-                                other.setOnFireFor(4);
-                                other.damage(world, player.getDamageSources().indirectMagic(player, player), 6.0f);
+                                other.igniteForSeconds(4);
+                                other.hurtServer(world, player.damageSources().indirectMagic(player, player), 6.0f);
                             }
                         }
                     }
@@ -362,26 +363,26 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        Vec3d center = getPlayerPos(player).add(player.getRotationVector().multiply(6));
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        Vec3 center = getPlayerPos(player).add(player.getLookAngle().scale(6));
 
-                        var lightning = EntityType.LIGHTNING_BOLT.create(world, SpawnReason.TRIGGERED);
+                        var lightning = EntityTypes.LIGHTNING_BOLT.create(world, EntitySpawnReason.TRIGGERED);
                         if (lightning != null) {
-                            lightning.refreshPositionAfterTeleport(center.x, center.y, center.z);
-                            world.spawnEntity(lightning);
+                            lightning.snapTo(center.x, center.y, center.z);
+                            world.addFreshEntity(lightning);
                         }
 
-                        world.createExplosion(player, center.x, center.y, center.z, 3.2f, net.minecraft.world.World.ExplosionSourceType.MOB);
-                        world.spawnParticles(ParticleTypes.FLAME, center.x, center.y + 1, center.z, 60, 1.5, 1.0, 1.5, 0.08);
+                        world.explode(player, center.x, center.y, center.z, 3.2f, net.minecraft.world.level.Level.ExplosionInteraction.MOB);
+                        world.sendParticles(ParticleTypes.FLAME, center.x, center.y + 1, center.z, 60, 1.5, 1.0, 1.5, 0.08);
 
                         for (int i = 0; i < 8; i++) {
                             double angle = i * (Math.PI * 2.0 / 8.0);
                             double radius = 6.0;
-                            Vec3d spawn = center.add(Math.cos(angle) * radius, 18.0, Math.sin(angle) * radius);
-                            SmallFireballEntity fireball = new SmallFireballEntity(world, player, new Vec3d(0.0, -1.0, 0.0));
-                            fireball.setPosition(spawn.x, spawn.y, spawn.z);
-                            world.spawnEntity(fireball);
+                            Vec3 spawn = center.add(Math.cos(angle) * radius, 18.0, Math.sin(angle) * radius);
+                            SmallFireball fireball = new SmallFireball(world, player, new Vec3(0.0, -1.0, 0.0));
+                            fireball.setPos(spawn.x, spawn.y, spawn.z);
+                            world.addFreshEntity(fireball);
                         }
                     }
                 }
@@ -396,31 +397,31 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        Vec3d forward = player.getRotationVector().normalize();
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        Vec3 forward = player.getLookAngle().normalize();
 
                         for (LivingEntity other : getNearbyLiving(player, 12)) {
                             if (other == player) {
                                 continue;
                             }
-                            boolean ally = other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer);
+                            boolean ally = other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer);
                             if (ally) {
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 120, 3));
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE, 120, 2));
-                                other.addVelocity(forward.x * 1.8, 0.2, forward.z * 1.8);
-                                other.velocityDirty = true;
+                                other.addEffect(new MobEffectInstance(MobEffects.SPEED, 120, 3));
+                                other.addEffect(new MobEffectInstance(MobEffects.HASTE, 120, 2));
+                                other.push(forward.x * 1.8, 0.2, forward.z * 1.8);
+                                other.needsSync = true;
                             } else {
-                                Vec3d pull = getPlayerPos(player).subtract(new Vec3d(other.getX(), other.getY(), other.getZ())).normalize();
-                                other.addVelocity(pull.x * 1.4, 0.4, pull.z * 1.4);
-                                other.velocityDirty = true;
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 120, 3));
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 120, 1));
+                                Vec3 pull = getPlayerPos(player).subtract(new Vec3(other.getX(), other.getY(), other.getZ())).normalize();
+                                other.push(pull.x * 1.4, 0.4, pull.z * 1.4);
+                                other.needsSync = true;
+                                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 120, 3));
+                                other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 120, 1));
                             }
                         }
 
-                        world.spawnParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1, player.getZ(), 40, 2.0, 1.0, 2.0, 0.03);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDER_DRAGON_FLAP, 0.8f, 1.2f);
+                        world.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1, player.getZ(), 40, 2.0, 1.0, 2.0, 0.03);
+                        AbilityFeedback.sound(player, SoundEvents.ENDER_DRAGON_FLAP, 0.8f, 1.2f);
                     }
                 }
         ));
@@ -434,8 +435,8 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
 
                         LivingEntity target = null;
                         double bestDist = Double.MAX_VALUE;
@@ -443,32 +444,32 @@ public final class SynergyRegistry {
                             if (other == player) {
                                 continue;
                             }
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                                 continue;
                             }
-                            double d = other.squaredDistanceTo(player);
+                            double d = other.distanceToSqr(player);
                             if (d < bestDist) {
                                 bestDist = d;
                                 target = other;
                             }
                         }
 
-                        Vec3d origin = getPlayerPos(player);
+                        Vec3 origin = getPlayerPos(player);
                         if (target != null) {
-                            Vec3d behind = new Vec3d(target.getX(), target.getY(), target.getZ())
-                                    .subtract(target.getRotationVector().normalize().multiply(2.0));
-                            GemsTeleport.teleport(player, world, behind.x, behind.y, behind.z, player.getYaw(), player.getPitch());
-                            target.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 80, 0));
-                            target.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 120, 1));
+                            Vec3 behind = new Vec3(target.getX(), target.getY(), target.getZ())
+                                    .subtract(target.getLookAngle().normalize().scale(2.0));
+                            GemsTeleport.teleport(player, world, behind.x, behind.y, behind.z, player.getYRot(), player.getXRot());
+                            target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 80, 0));
+                            target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 120, 1));
                         }
 
-                        world.spawnParticles(ParticleTypes.SMOKE, origin.x, origin.y + 1, origin.z, 40, 1.2, 0.6, 1.2, 0.02);
-                        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, new Box(origin, origin).expand(6), e -> e.isAlive())) {
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+                        world.sendParticles(ParticleTypes.SMOKE, origin.x, origin.y + 1, origin.z, 40, 1.2, 0.6, 1.2, 0.02);
+                        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, new AABB(origin, origin).inflate(6), e -> e.isAlive())) {
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                                 continue;
                             }
                             if (other != player) {
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 60, 1));
+                                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 60, 1));
                             }
                         }
                     }
@@ -484,26 +485,26 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
 
                         for (LivingEntity other : getNearbyLiving(player, 10)) {
                             if (other == player) {
                                 continue;
                             }
-                            boolean ally = other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer);
+                            boolean ally = other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer);
                             if (ally) {
                                 other.heal(6.0f);
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 120, 2));
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 200, 2));
+                                other.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 120, 2));
+                                other.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 200, 2));
                             } else {
-                                other.damage(world, player.getDamageSources().indirectMagic(player, player), 8.0f);
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.WITHER, 100, 1));
+                                other.hurtServer(world, player.damageSources().indirectMagic(player, player), 8.0f);
+                                other.addEffect(new MobEffectInstance(MobEffects.WITHER, 100, 1));
                             }
                         }
 
-                        world.spawnParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1, player.getZ(), 45, 1.8, 0.8, 1.8, 0.02);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_WITHER_AMBIENT, 0.9f, 1.0f);
+                        world.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1, player.getZ(), 45, 1.8, 0.8, 1.8, 0.02);
+                        AbilityFeedback.sound(player, SoundEvents.WITHER_AMBIENT, 0.9f, 1.0f);
                     }
                 }
         ));
@@ -517,27 +518,27 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        Vec3d center = getPlayerPos(player).add(player.getRotationVector().multiply(6));
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        Vec3 center = getPlayerPos(player).add(player.getLookAngle().scale(6));
 
-                        world.spawnParticles(ParticleTypes.PORTAL, center.x, center.y + 1, center.z, 80, 1.2, 1.2, 1.2, 0.05);
-                        world.spawnParticles(ParticleTypes.FLAME, center.x, center.y + 1, center.z, 60, 1.0, 0.6, 1.0, 0.03);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_WITHER_SPAWN, 0.6f, 1.1f);
-                        world.createExplosion(player, center.x, center.y, center.z, 2.8f, net.minecraft.world.World.ExplosionSourceType.MOB);
+                        world.sendParticles(ParticleTypes.PORTAL, center.x, center.y + 1, center.z, 80, 1.2, 1.2, 1.2, 0.05);
+                        world.sendParticles(ParticleTypes.FLAME, center.x, center.y + 1, center.z, 60, 1.0, 0.6, 1.0, 0.03);
+                        AbilityFeedback.sound(player, SoundEvents.WITHER_SPAWN, 0.6f, 1.1f);
+                        world.explode(player, center.x, center.y, center.z, 2.8f, net.minecraft.world.level.Level.ExplosionInteraction.MOB);
 
-                        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, new Box(center, center).expand(9), e -> e.isAlive())) {
+                        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, new AABB(center, center).inflate(9), e -> e.isAlive())) {
                             if (other == player) {
                                 continue;
                             }
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                                 continue;
                             }
-                            Vec3d pull = center.subtract(new Vec3d(other.getX(), other.getY(), other.getZ())).normalize();
-                            other.addVelocity(pull.x * 1.4, 0.5, pull.z * 1.4);
-                            other.velocityDirty = true;
-                            other.setOnFireFor(6);
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.WITHER, 120, 1));
+                            Vec3 pull = center.subtract(new Vec3(other.getX(), other.getY(), other.getZ())).normalize();
+                            other.push(pull.x * 1.4, 0.5, pull.z * 1.4);
+                            other.needsSync = true;
+                            other.igniteForSeconds(6);
+                            other.addEffect(new MobEffectInstance(MobEffects.WITHER, 120, 1));
                         }
                     }
                 }
@@ -552,20 +553,20 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, 0.6f, 1.3f);
-                        world.spawnParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 80, 2.0, 1.0, 2.0, 0.1);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        AbilityFeedback.sound(player, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.6f, 1.3f);
+                        world.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 80, 2.0, 1.0, 2.0, 0.1);
                         for (LivingEntity other : getNearbyLiving(player, 10)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                                 continue;
                             }
-                            Vec3d dir = new Vec3d(other.getX() - player.getX(), 0.0, other.getZ() - player.getZ()).normalize();
-                            other.addVelocity(dir.x * 1.4, 0.6, dir.z * 1.4);
-                            other.velocityDirty = true;
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 80, 2));
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 80, 1));
+                            Vec3 dir = new Vec3(other.getX() - player.getX(), 0.0, other.getZ() - player.getZ()).normalize();
+                            other.push(dir.x * 1.4, 0.6, dir.z * 1.4);
+                            other.needsSync = true;
+                            other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 80, 2));
+                            other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 80, 1));
                         }
                     }
                 }
@@ -580,21 +581,21 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.HEART, player.getX(), player.getY() + 1, player.getZ(), 40, 1.6, 0.8, 1.6, 0.02);
-                        AbilityFeedback.sound(player, SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME, 0.7f, 1.4f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 1, player.getZ(), 40, 1.6, 0.8, 1.6, 0.02);
+                        AbilityFeedback.sound(player, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 1.4f);
 
                         for (LivingEntity other : getNearbyLiving(player, 12)) {
-                            if (other instanceof ServerPlayerEntity otherPlayer && (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer))) {
+                            if (other instanceof ServerPlayer otherPlayer && (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer))) {
                                 otherPlayer.heal(8.0f);
-                                otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 200, 2));
-                                otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 200, 2));
-                                otherPlayer.removeStatusEffect(StatusEffects.POISON);
-                                otherPlayer.removeStatusEffect(StatusEffects.WITHER);
-                                otherPlayer.removeStatusEffect(StatusEffects.WEAKNESS);
-                                otherPlayer.removeStatusEffect(StatusEffects.SLOWNESS);
-                                otherPlayer.removeStatusEffect(StatusEffects.BLINDNESS);
+                                otherPlayer.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 2));
+                                otherPlayer.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 200, 2));
+                                otherPlayer.removeEffect(MobEffects.POISON);
+                                otherPlayer.removeEffect(MobEffects.WITHER);
+                                otherPlayer.removeEffect(MobEffects.WEAKNESS);
+                                otherPlayer.removeEffect(MobEffects.SLOWNESS);
+                                otherPlayer.removeEffect(MobEffects.BLINDNESS);
                             }
                         }
                     }
@@ -610,16 +611,16 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.02);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_WITHER_HURT, 0.7f, 1.1f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.02);
+                        AbilityFeedback.sound(player, SoundEvents.WITHER_HURT, 0.7f, 1.1f);
                         for (LivingEntity other : getNearbyLiving(player, 10)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 120, 3));
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.WITHER, 100, 1));
-                            other.damage(world, player.getDamageSources().indirectMagic(player, player), 5.0f);
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 120, 3));
+                            other.addEffect(new MobEffectInstance(MobEffects.WITHER, 100, 1));
+                            other.hurtServer(world, player.damageSources().indirectMagic(player, player), 5.0f);
                         }
                     }
                 }
@@ -634,16 +635,16 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 120, 0));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 120, 2));
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1, player.getZ(), 50, 1.4, 0.6, 1.4, 0.02);
+                        ServerPlayer player = p.player();
+                        player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 120, 0));
+                        player.addEffect(new MobEffectInstance(MobEffects.SPEED, 120, 2));
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1, player.getZ(), 50, 1.4, 0.6, 1.4, 0.02);
                         for (LivingEntity other : getNearbyLiving(player, 6)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 60, 0));
-                            other.damage(world, player.getDamageSources().indirectMagic(player, player), 3.0f);
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
+                            other.hurtServer(world, player.damageSources().indirectMagic(player, player), 3.0f);
                         }
                     }
                 }
@@ -658,19 +659,19 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 160, 2));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 120, 1));
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.SWEEP_ATTACK, player.getX(), player.getY() + 1, player.getZ(), 20, 1.2, 0.6, 1.2, 0.0);
-                        AbilityFeedback.sound(player, SoundEvents.ITEM_SHIELD_BLOCK, 0.8f, 0.9f);
+                        ServerPlayer player = p.player();
+                        player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 160, 2));
+                        player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 120, 1));
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX(), player.getY() + 1, player.getZ(), 20, 1.2, 0.6, 1.2, 0.0);
+                        AbilityFeedback.sound(player, SoundEvents.SHIELD_BLOCK, 0.8f, 0.9f);
                         for (LivingEntity other : getNearbyLiving(player, 6)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            Vec3d dir = new Vec3d(other.getX() - player.getX(), 0.0, other.getZ() - player.getZ()).normalize();
-                            other.addVelocity(dir.x * 1.1, 0.4, dir.z * 1.1);
-                            other.velocityDirty = true;
-                            other.damage(world, player.getDamageSources().indirectMagic(player, player), 4.0f);
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            Vec3 dir = new Vec3(other.getX() - player.getX(), 0.0, other.getZ() - player.getZ()).normalize();
+                            other.push(dir.x * 1.1, 0.4, dir.z * 1.1);
+                            other.needsSync = true;
+                            other.hurtServer(world, player.damageSources().indirectMagic(player, player), 4.0f);
                         }
                     }
                 }
@@ -685,17 +686,17 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_PLAYER_LEVELUP, 1.0f, 1.1f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        AbilityFeedback.sound(player, SoundEvents.PLAYER_LEVELUP, 1.0f, 1.1f);
                         for (LivingEntity other : getNearbyLiving(player, 12)) {
-                            if (other instanceof ServerPlayerEntity otherPlayer) {
+                            if (other instanceof ServerPlayer otherPlayer) {
                                 if (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer)) {
-                                    otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 160, 2));
-                                    otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 120, 1));
+                                    otherPlayer.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 160, 2));
+                                    otherPlayer.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 120, 1));
                                 } else {
-                                    otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 120, 0));
-                                    otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 120, 0));
+                                    otherPlayer.addEffect(new MobEffectInstance(MobEffects.GLOWING, 120, 0));
+                                    otherPlayer.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 120, 0));
                                 }
                             }
                         }
@@ -712,17 +713,17 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        Vec3d center = getPlayerPos(player).add(player.getRotationVector().multiply(4));
-                        world.createExplosion(player, center.x, center.y, center.z, 2.6f, net.minecraft.world.World.ExplosionSourceType.MOB);
-                        world.spawnParticles(ParticleTypes.EXPLOSION, center.x, center.y + 1, center.z, 12, 0.6, 0.6, 0.6, 0.0);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_RAVAGER_ROAR, 0.9f, 0.9f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        Vec3 center = getPlayerPos(player).add(player.getLookAngle().scale(4));
+                        world.explode(player, center.x, center.y, center.z, 2.6f, net.minecraft.world.level.Level.ExplosionInteraction.MOB);
+                        world.sendParticles(ParticleTypes.EXPLOSION, center.x, center.y + 1, center.z, 12, 0.6, 0.6, 0.6, 0.0);
+                        AbilityFeedback.sound(player, SoundEvents.RAVAGER_ROAR, 0.9f, 0.9f);
                         for (LivingEntity other : getNearbyLiving(player, 12)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 120, 1));
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 120, 1));
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 120, 1));
+                            other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 120, 1));
                         }
                     }
                 }
@@ -737,17 +738,17 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 60, 1.4, 0.7, 1.4, 0.12);
-                        AbilityFeedback.sound(player, SoundEvents.BLOCK_BEACON_ACTIVATE, 0.7f, 1.4f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1, player.getZ(), 60, 1.4, 0.7, 1.4, 0.12);
+                        AbilityFeedback.sound(player, SoundEvents.BEACON_ACTIVATE, 0.7f, 1.4f);
                         for (LivingEntity other : getNearbyLiving(player, 10)) {
-                            if (!(other instanceof ServerPlayerEntity target)) {
+                            if (!(other instanceof ServerPlayer target)) {
                                 continue;
                             }
                             boolean ally = target == player || GemTrust.isTrusted(player, target);
                             if (ally) {
-                                long now = world.getTime();
+                                long now = world.getGameTime();
                                 for (Identifier id : com.feel.gems.power.registry.ModAbilities.all().keySet()) {
                                     long next = com.feel.gems.power.runtime.GemAbilityCooldowns.nextAllowedTick(target, id);
                                     if (next > now) {
@@ -755,7 +756,7 @@ public final class SynergyRegistry {
                                     }
                                 }
                             } else {
-                                target.addStatusEffect(new StatusEffectInstance(StatusEffects.MINING_FATIGUE, 120, 1));
+                                target.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, 120, 1));
                             }
                         }
                     }
@@ -771,20 +772,20 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1, player.getZ(), 50, 2.2, 1.0, 2.2, 0.04);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDER_DRAGON_FLAP, 0.8f, 1.1f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1, player.getZ(), 50, 2.2, 1.0, 2.2, 0.04);
+                        AbilityFeedback.sound(player, SoundEvents.ENDER_DRAGON_FLAP, 0.8f, 1.1f);
                         for (LivingEntity other : getNearbyLiving(player, 12)) {
                             if (other == player) continue;
-                            boolean ally = other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer);
+                            boolean ally = other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer);
                             if (ally) {
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 120, 0));
+                                other.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 120, 0));
                             } else {
-                                Vec3d dir = new Vec3d(other.getX() - player.getX(), 0.0, other.getZ() - player.getZ()).normalize();
-                                other.addVelocity(dir.x * 1.6, 0.8, dir.z * 1.6);
-                                other.velocityDirty = true;
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.LEVITATION, 40, 0));
+                                Vec3 dir = new Vec3(other.getX() - player.getX(), 0.0, other.getZ() - player.getZ()).normalize();
+                                other.push(dir.x * 1.6, 0.8, dir.z * 1.6);
+                                other.needsSync = true;
+                                other.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 40, 0));
                             }
                         }
                     }
@@ -800,16 +801,16 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.SONIC_BOOM, player.getX(), player.getY() + 1, player.getZ(), 6, 0.2, 0.2, 0.2, 0.0);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_WARDEN_SONIC_BOOM, 0.6f, 1.2f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.SONIC_BOOM, player.getX(), player.getY() + 1, player.getZ(), 6, 0.2, 0.2, 0.2, 0.0);
+                        AbilityFeedback.sound(player, SoundEvents.WARDEN_SONIC_BOOM, 0.6f, 1.2f);
                         for (LivingEntity other : getNearbyLiving(player, 7)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.addVelocity(0.0, 1.2, 0.0);
-                            other.velocityDirty = true;
-                            other.damage(world, player.getDamageSources().indirectMagic(player, player), 6.0f);
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.push(0.0, 1.2, 0.0);
+                            other.needsSync = true;
+                            other.hurtServer(world, player.damageSources().indirectMagic(player, player), 6.0f);
                         }
                     }
                 }
@@ -824,20 +825,20 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        Vec3d center = getPlayerPos(player).add(player.getRotationVector().multiply(5));
-                        var lightning = EntityType.LIGHTNING_BOLT.create(world, SpawnReason.TRIGGERED);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        Vec3 center = getPlayerPos(player).add(player.getLookAngle().scale(5));
+                        var lightning = EntityTypes.LIGHTNING_BOLT.create(world, EntitySpawnReason.TRIGGERED);
                         if (lightning != null) {
-                            lightning.refreshPositionAfterTeleport(center.x, center.y, center.z);
-                            world.spawnEntity(lightning);
+                            lightning.snapTo(center.x, center.y, center.z);
+                            world.addFreshEntity(lightning);
                         }
-                        world.spawnParticles(ParticleTypes.END_ROD, center.x, center.y + 1, center.z, 60, 2.0, 1.0, 2.0, 0.02);
-                        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, new Box(center, center).expand(8), e -> e.isAlive())) {
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                        world.sendParticles(ParticleTypes.END_ROD, center.x, center.y + 1, center.z, 60, 2.0, 1.0, 2.0, 0.02);
+                        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, new AABB(center, center).inflate(8), e -> e.isAlive())) {
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
                             if (other != player) {
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 140, 0));
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 140, 2));
+                                other.addEffect(new MobEffectInstance(MobEffects.GLOWING, 140, 0));
+                                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 140, 2));
                             }
                         }
                     }
@@ -853,16 +854,16 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_BLAZE_SHOOT, 0.8f, 1.0f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        AbilityFeedback.sound(player, SoundEvents.BLAZE_SHOOT, 0.8f, 1.0f);
                         for (LivingEntity other : getNearbyLiving(player, 10)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.setOnFireFor(6);
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 100, 0));
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.igniteForSeconds(6);
+                            other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0));
                         }
-                        world.spawnParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 1, player.getZ(), 70, 2.0, 0.8, 2.0, 0.05);
+                        world.sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 1, player.getZ(), 70, 2.0, 0.8, 2.0, 0.05);
                     }
                 }
         ));
@@ -876,15 +877,15 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1, player.getZ(), 50, 1.4, 0.6, 1.4, 0.1);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDERMAN_SCREAM, 0.6f, 1.3f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1, player.getZ(), 50, 1.4, 0.6, 1.4, 0.1);
+                        AbilityFeedback.sound(player, SoundEvents.ENDERMAN_SCREAM, 0.6f, 1.3f);
                         for (LivingEntity other : getNearbyLiving(player, 8)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.damage(world, player.getDamageSources().indirectMagic(player, player), 5.0f);
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 100, 1));
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.hurtServer(world, player.damageSources().indirectMagic(player, player), 5.0f);
+                            other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 1));
                         }
                     }
                 }
@@ -899,16 +900,16 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 120, 0));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 120, 1));
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.02);
+                        ServerPlayer player = p.player();
+                        player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 120, 0));
+                        player.addEffect(new MobEffectInstance(MobEffects.SPEED, 120, 1));
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.02);
                         for (LivingEntity other : getNearbyLiving(player, 10)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA, 120, 0));
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 80, 0));
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.addEffect(new MobEffectInstance(MobEffects.NAUSEA, 120, 0));
+                            other.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 80, 0));
                         }
                     }
                 }
@@ -923,21 +924,21 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_WITHER_SHOOT, 0.7f, 1.1f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        AbilityFeedback.sound(player, SoundEvents.WITHER_SHOOT, 0.7f, 1.1f);
                         for (LivingEntity other : getNearbyLiving(player, 9)) {
                             if (other == player) continue;
-                            boolean ally = other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer);
+                            boolean ally = other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer);
                             if (ally) {
                                 other.heal(4.0f);
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 160, 1));
+                                other.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 160, 1));
                             } else {
-                                other.damage(world, player.getDamageSources().indirectMagic(player, player), 6.0f);
-                                other.addStatusEffect(new StatusEffectInstance(StatusEffects.WITHER, 80, 0));
+                                other.hurtServer(world, player.damageSources().indirectMagic(player, player), 6.0f);
+                                other.addEffect(new MobEffectInstance(MobEffects.WITHER, 80, 0));
                             }
                         }
-                        world.spawnParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.02);
+                        world.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.02);
                     }
                 }
         ));
@@ -951,16 +952,16 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_ZOMBIE_ATTACK_IRON_DOOR, 0.7f, 1.2f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        AbilityFeedback.sound(player, SoundEvents.ZOMBIE_ATTACK_IRON_DOOR, 0.7f, 1.2f);
                         for (LivingEntity other : getNearbyLiving(player, 8)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.damage(world, player.getDamageSources().indirectMagic(player, player), 7.0f);
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 100, 1));
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.hurtServer(world, player.damageSources().indirectMagic(player, player), 7.0f);
+                            other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 1));
                         }
-                        world.spawnParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1, player.getZ(), 30, 1.0, 0.4, 1.0, 0.2);
+                        world.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1, player.getZ(), 30, 1.0, 0.4, 1.0, 0.2);
                     }
                 }
         ));
@@ -974,14 +975,14 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        Vec3d playerPos = getPlayerPos(player);
-                        Vec3d forward = player.getRotationVector().multiply(8);
-                        Vec3d target = playerPos.add(forward);
-                        GemsTeleport.teleport(player, player.getEntityWorld(), target.x, target.y, target.z, player.getYaw(), player.getPitch());
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 140, 0));
-                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.JUMP_BOOST, 140, 1));
-                        player.getEntityWorld().spawnParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 30, 0.8, 0.4, 0.8, 0.02);
+                        ServerPlayer player = p.player();
+                        Vec3 playerPos = getPlayerPos(player);
+                        Vec3 forward = player.getLookAngle().scale(8);
+                        Vec3 target = playerPos.add(forward);
+                        GemsTeleport.teleport(player, player.level(), target.x, target.y, target.z, player.getYRot(), player.getXRot());
+                        player.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 140, 0));
+                        player.addEffect(new MobEffectInstance(MobEffects.JUMP_BOOST, 140, 1));
+                        player.level().sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 30, 0.8, 0.4, 0.8, 0.02);
                     }
                 }
         ));
@@ -995,18 +996,18 @@ public final class SynergyRegistry {
                 60, 1200,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        AbilityFeedback.sound(player, SoundEvents.BLOCK_BEACON_POWER_SELECT, 0.7f, 1.1f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        AbilityFeedback.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.1f);
                         for (LivingEntity other : getNearbyLiving(player, 12)) {
-                            if (other instanceof ServerPlayerEntity otherPlayer && (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer))) {
-                                otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 200, 2));
-                                otherPlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 200, 2));
-                                otherPlayer.removeStatusEffect(StatusEffects.WITHER);
-                                otherPlayer.removeStatusEffect(StatusEffects.POISON);
+                            if (other instanceof ServerPlayer otherPlayer && (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer))) {
+                                otherPlayer.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 200, 2));
+                                otherPlayer.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 200, 2));
+                                otherPlayer.removeEffect(MobEffects.WITHER);
+                                otherPlayer.removeEffect(MobEffects.POISON);
                             }
                         }
-                        world.spawnParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 50, 1.6, 0.8, 1.6, 0.01);
+                        world.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 50, 1.6, 0.8, 1.6, 0.01);
                     }
                 }
         ));
@@ -1020,15 +1021,15 @@ public final class SynergyRegistry {
                 60, 900,
                 participants -> {
                     for (var p : participants) {
-                        ServerPlayerEntity player = p.player();
-                        ServerWorld world = player.getEntityWorld();
-                        world.spawnParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.2);
-                        AbilityFeedback.sound(player, SoundEvents.ENTITY_PLAYER_ATTACK_STRONG, 0.8f, 1.2f);
+                        ServerPlayer player = p.player();
+                        ServerLevel world = player.level();
+                        world.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1, player.getZ(), 40, 1.2, 0.6, 1.2, 0.2);
+                        AbilityFeedback.sound(player, SoundEvents.PLAYER_ATTACK_STRONG, 0.8f, 1.2f);
                         for (LivingEntity other : getNearbyLiving(player, 7)) {
                             if (other == player) continue;
-                            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
-                            other.damage(world, player.getDamageSources().indirectMagic(player, player), 6.0f);
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 80, 2));
+                            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) continue;
+                            other.hurtServer(world, player.damageSources().indirectMagic(player, player), 6.0f);
+                            other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 80, 2));
                         }
                     }
                 }

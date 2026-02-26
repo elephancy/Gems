@@ -12,13 +12,13 @@ import com.feel.gems.power.runtime.AbilityFeedback;
 import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 
 /**
  * Six-Pack Pain ability - summons 6 player clones that share a health pool.
@@ -48,8 +48,8 @@ public final class HunterCallThePackAbility implements GemAbility {
     }
     
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         var cfg = GemsBalance.v().hunter();
@@ -62,7 +62,7 @@ public final class HunterCallThePackAbility implements GemAbility {
         
         // Spawn clones around the player
         for (int i = 0; i < cloneCount; i++) {
-            Entity entity = ModEntities.HUNTER_PACK.create(world, SpawnReason.MOB_SUMMONED);
+            Entity entity = ModEntities.HUNTER_PACK.create(world, EntitySpawnReason.MOB_SUMMONED);
             if (!(entity instanceof HunterPackEntity clone)) continue;
             
             // Calculate spawn position in a circle around the player
@@ -71,34 +71,34 @@ public final class HunterCallThePackAbility implements GemAbility {
             double spawnX = player.getX() + Math.cos(angle) * radius;
             double spawnZ = player.getZ() + Math.sin(angle) * radius;
             
-            clone.refreshPositionAndAngles(spawnX, player.getY(), spawnZ, player.getYaw() + (360f / cloneCount) * i, 0);
+            clone.snapTo(spawnX, player.getY(), spawnZ, player.getYRot() + (360f / cloneCount) * i, 0);
             clone.setOwner(player, packId);
             clone.setMaxLifetime(durationTicks); // Set auto-despawn lifetime
             
-            world.spawnEntity(clone);
+            world.addFreshEntity(clone);
             
             // Send sync payload to all nearby players for skin rendering
             ShadowCloneSyncPayload syncPayload = new ShadowCloneSyncPayload(
                     clone.getId(),
-                    player.getUuid(),
+                    player.getUUID(),
                     player.getGameProfile().name()
             );
-            for (ServerPlayerEntity tracker : PlayerLookup.tracking(clone)) {
+            for (ServerPlayer tracker : PlayerLookup.tracking(clone)) {
                 ServerPlayNetworking.send(tracker, syncPayload);
             }
             // Also send to the caster
             ServerPlayNetworking.send(player, syncPayload);
             
             // Spawn particles at clone location
-            AbilityFeedback.burstAt(world, clone.getEntityPos().add(0, 1, 0), ParticleTypes.SMOKE, 10, 0.5);
+            AbilityFeedback.burstAt(world, clone.position().add(0, 1, 0), ParticleTypes.SMOKE, 10, 0.5);
         }
         
         // Schedule despawn
-        HunterCallThePackRuntime.schedulePackDespawn(player.getUuid(), packId, durationTicks);
+        HunterCallThePackRuntime.schedulePackDespawn(player.getUUID(), packId, durationTicks);
         
         // Visual and sound feedback
-        AbilityFeedback.burstAt(world, player.getEntityPos().add(0, 1, 0), ParticleTypes.ANGRY_VILLAGER, 20, 1.0);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_RAVAGER_ROAR, 1.2F, 1.5F);
+        AbilityFeedback.burstAt(world, player.position().add(0, 1, 0), ParticleTypes.ANGRY_VILLAGER, 20, 1.0);
+        AbilityFeedback.sound(player, SoundEvents.RAVAGER_ROAR, 1.2F, 1.5F);
         
         return true;
     }

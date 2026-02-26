@@ -6,15 +6,16 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.datafixer.DataFixTypes;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.Uuids;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.PersistentStateType;
-import net.minecraft.world.World;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.level.Level;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
 
-public final class BountyState extends PersistentState {
+public final class BountyState extends SavedData {
     private static final String STATE_ID = GemsMod.MOD_ID + "_bounties";
 
     public record BountyEntry(String placerName, int hearts, int energy) {
@@ -28,20 +29,20 @@ public final class BountyState extends PersistentState {
     public record TargetBounty(String targetName, Map<UUID, BountyEntry> placers) {
         static final Codec<TargetBounty> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.STRING.optionalFieldOf("targetName", "").forGetter(TargetBounty::targetName),
-                Codec.unboundedMap(Uuids.CODEC, BountyEntry.CODEC)
+                Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, BountyEntry.CODEC)
                         .optionalFieldOf("placers", Map.of())
                         .forGetter(TargetBounty::placers)
         ).apply(instance, TargetBounty::new));
     }
 
     static final Codec<BountyState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.unboundedMap(Uuids.CODEC, TargetBounty.CODEC)
+            Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, TargetBounty.CODEC)
                     .optionalFieldOf("bounties", Map.of())
                     .forGetter(state -> state.bounties)
     ).apply(instance, BountyState::new));
 
-    private static final PersistentStateType<BountyState> TYPE =
-            new PersistentStateType<>(STATE_ID, BountyState::new, CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<BountyState> TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(STATE_ID), BountyState::new, CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
 
     private final Map<UUID, TargetBounty> bounties;
 
@@ -54,8 +55,8 @@ public final class BountyState extends PersistentState {
     }
 
     public static BountyState get(MinecraftServer server) {
-        PersistentStateManager manager = server.getWorld(World.OVERWORLD).getPersistentStateManager();
-        return manager.getOrCreate(TYPE);
+        SavedDataStorage manager = server.getLevel(Level.OVERWORLD).getDataStorage();
+        return manager.computeIfAbsent(TYPE);
     }
 
     public Map<UUID, TargetBounty> getAll() {
@@ -84,13 +85,13 @@ public final class BountyState extends PersistentState {
         }
         placers.put(placerId, new BountyEntry(placerName, hearts, energy));
         bounties.put(targetId, new TargetBounty(targetName, placers));
-        markDirty();
+        setDirty();
     }
 
     public TargetBounty removeTarget(UUID targetId) {
         TargetBounty removed = bounties.remove(targetId);
         if (removed != null) {
-            markDirty();
+            setDirty();
         }
         return removed;
     }
@@ -110,7 +111,7 @@ public final class BountyState extends PersistentState {
         } else {
             bounties.put(targetId, new TargetBounty(target.targetName(), placers));
         }
-        markDirty();
+        setDirty();
         return removed;
     }
 }

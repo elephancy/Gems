@@ -7,13 +7,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.entity.EntityType;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 
 
 /**
@@ -49,7 +50,7 @@ public final class SummonerLoadouts {
         }
     }
 
-    public static Loadout resolve(ServerPlayerEntity player, GemsBalance.Summoner cfg) {
+    public static Loadout resolve(ServerPlayer player, GemsBalance.Summoner cfg) {
         Loadout stored = load(player);
         if (stored == null) {
             return fromConfig(cfg);
@@ -94,9 +95,9 @@ public final class SummonerLoadouts {
         );
     }
 
-    public static void save(ServerPlayerEntity player, Loadout loadout) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound out = new NbtCompound();
+    public static void save(ServerPlayer player, Loadout loadout) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag out = new CompoundTag();
         out.put("slot1", toNbtList(loadout.slot1()));
         out.put("slot2", toNbtList(loadout.slot2()));
         out.put("slot3", toNbtList(loadout.slot3()));
@@ -105,12 +106,12 @@ public final class SummonerLoadouts {
         root.put(KEY_LOADOUT, out);
     }
 
-    public static Loadout load(ServerPlayerEntity player) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static Loadout load(ServerPlayer player) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         if (!root.contains(KEY_LOADOUT)) {
             return null;
         }
-        NbtCompound in = root.getCompound(KEY_LOADOUT).orElse(null);
+        CompoundTag in = root.getCompound(KEY_LOADOUT).orElse(null);
         if (in == null) {
             return null;
         }
@@ -136,8 +137,8 @@ public final class SummonerLoadouts {
             if (id == null) {
                 continue;
             }
-            EntityType<?> type = Registries.ENTITY_TYPE.get(id);
-            if (type == EntityType.WITHER || type == EntityType.ENDER_DRAGON) {
+            EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(id);
+            if (type == EntityTypes.WITHER || type == EntityTypes.ENDER_DRAGON) {
                 continue;
             }
             int maxPerSlot = Math.max(0, cfg.maxPoints());
@@ -177,8 +178,8 @@ public final class SummonerLoadouts {
         return Collections.unmodifiableList(out);
     }
 
-    private static NbtList toNbtList(List<Entry> entries) {
-        NbtList list = new NbtList();
+    private static ListTag toNbtList(List<Entry> entries) {
+        ListTag list = new ListTag();
         if (entries == null) {
             return list;
         }
@@ -186,7 +187,7 @@ public final class SummonerLoadouts {
             if (entry == null || entry.entityId == null || entry.entityId.isBlank() || entry.count <= 0) {
                 continue;
             }
-            NbtCompound tag = new NbtCompound();
+            CompoundTag tag = new CompoundTag();
             tag.putString("id", entry.entityId);
             tag.putInt("count", entry.count);
             list.add(tag);
@@ -194,18 +195,18 @@ public final class SummonerLoadouts {
         return list;
     }
 
-    private static List<Entry> fromNbtList(NbtList list) {
+    private static List<Entry> fromNbtList(ListTag list) {
         if (list == null || list.isEmpty()) {
             return List.of();
         }
         List<Entry> out = new ArrayList<>(list.size());
         for (int i = 0; i < list.size(); i++) {
-            NbtElement element = list.get(i);
-            if (!(element instanceof NbtCompound tag)) {
+            Tag element = list.get(i);
+            if (!(element instanceof CompoundTag tag)) {
                 continue;
             }
-            String id = tag.getString("id", "");
-            int count = tag.getInt("count", 0);
+            String id = tag.getStringOr("id", "");
+            int count = tag.getIntOr("count", 0);
             if (id == null || id.isBlank() || count <= 0) {
                 continue;
             }

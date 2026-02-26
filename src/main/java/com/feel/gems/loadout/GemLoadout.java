@@ -2,7 +2,7 @@ package com.feel.gems.loadout;
 
 import com.feel.gems.core.GemId;
 import java.util.List;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 /**
  * A loadout preset stores per-gem ability order, passive toggle state, and HUD layout preferences.
@@ -28,7 +28,7 @@ public record GemLoadout(
             boolean compactMode
     ) {
         public static HudLayout defaults() {
-            return new HudLayout(HudPosition.TOP_LEFT, true, true, false);
+            return new HudLayout(HudPosition.TOP_LEFT, true, true, true);
         }
     }
 

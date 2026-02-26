@@ -9,20 +9,20 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.state.PlayerStateManager;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LazyEntityReference;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.Angerable;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityReference;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.NeutralMob;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.phys.AABB;
 
 public final class SentinelTauntAbility implements GemAbility {
     public static final String TAUNT_ACTIVE_KEY = "sentinel_taunt_active";
@@ -49,23 +49,23 @@ public final class SentinelTauntAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int radius = GemsBalance.v().sentinel().tauntRadiusBlocks();
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.SENTINEL, GemsBalance.v().sentinel().tauntDurationTicks());
 
-        long endTime = world.getTime() + durationTicks;
+        long endTime = world.getGameTime() + durationTicks;
         PlayerStateManager.setPersistent(player, TAUNT_ACTIVE_KEY, "true");
         PlayerStateManager.setPersistent(player, TAUNT_END_KEY, String.valueOf(endTime));
 
         // Apply taunt effect to nearby enemies.
-        Box box = player.getBoundingBox().expand(radius);
-        for (Entity e : world.getOtherEntities(player, box, ent -> ent instanceof LivingEntity)) {
+        AABB box = player.getBoundingBox().inflate(radius);
+        for (Entity e : world.getEntities(player, box, ent -> ent instanceof LivingEntity)) {
             LivingEntity target = (LivingEntity) e;
             if (target == player) {
                 continue;
             }
-            if (target instanceof ServerPlayerEntity targetPlayer) {
+            if (target instanceof ServerPlayer targetPlayer) {
                 if (GemTrust.isTrusted(player, targetPlayer)) {
                     continue;
                 }
@@ -73,31 +73,31 @@ public final class SentinelTauntAbility implements GemAbility {
                     continue;
                 }
                 // Mark them as taunted by this player.
-                SentinelTauntRuntime.applyTaunt(targetPlayer, player.getUuid(), durationTicks);
+                SentinelTauntRuntime.applyTaunt(targetPlayer, player.getUUID(), durationTicks);
                 continue;
             }
-            if (target instanceof MobEntity mob) {
-                if (!(mob instanceof HostileEntity) && !(mob instanceof Angerable)) {
+            if (target instanceof Mob mob) {
+                if (!(mob instanceof Monster) && !(mob instanceof NeutralMob)) {
                     continue;
                 }
                 mob.setTarget(player);
-                mob.setAttacker(player);
-                if (mob instanceof Angerable angerable) {
-                    angerable.setAngryAt(LazyEntityReference.of(player));
+                mob.setLastHurtByMob(player);
+                if (mob instanceof NeutralMob angerable) {
+                    angerable.setPersistentAngerTarget(EntityReference.of(player));
                 }
             }
         }
 
         // Grant resistance to self
         int resistanceAmplifier = (int) ((1.0F - GemsBalance.v().sentinel().tauntDamageReduction()) * 4); // Rough conversion
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, durationTicks, resistanceAmplifier, false, true));
+        player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, durationTicks, resistanceAmplifier, false, true));
 
-        AbilityFeedback.ring(world, player.getEntityPos().add(0, 1, 0), radius, ParticleTypes.ANGRY_VILLAGER, 24);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_RAVAGER_ROAR, 1.0F, 1.2F);
+        AbilityFeedback.ring(world, player.position().add(0, 1, 0), radius, ParticleTypes.ANGRY_VILLAGER, 24);
+        AbilityFeedback.sound(player, SoundEvents.RAVAGER_ROAR, 1.0F, 1.2F);
         return true;
     }
 
-    public static boolean isTaunting(ServerPlayerEntity player) {
+    public static boolean isTaunting(ServerPlayer player) {
         String active = PlayerStateManager.getPersistent(player, TAUNT_ACTIVE_KEY);
         if (!"true".equals(active)) return false;
 
@@ -105,6 +105,6 @@ public final class SentinelTauntAbility implements GemAbility {
         if (endStr == null) return false;
 
         long endTime = Long.parseLong(endStr);
-        return player.getEntityWorld().getTime() < endTime;
+        return player.level().getGameTime() < endTime;
     }
 }

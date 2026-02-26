@@ -6,11 +6,11 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.terror.TerrorRemoteChargeRuntime;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 public final class TerrorRemoteChargeAbility implements GemAbility {
     @Override
@@ -34,32 +34,32 @@ public final class TerrorRemoteChargeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         if (TerrorRemoteChargeRuntime.detonate(player)) {
             AbilityFeedback.burst(player, ParticleTypes.SMOKE, 10, 0.2D);
-            AbilityFeedback.sound(player, SoundEvents.ENTITY_TNT_PRIMED, 0.8F, 0.9F);
-            player.sendMessage(Text.translatable("gems.ability.terror.remote_charge.detonated"), true);
+            AbilityFeedback.sound(player, SoundEvents.TNT_PRIMED, 0.8F, 0.9F);
+            player.sendSystemMessage(Component.translatable("gems.ability.terror.remote_charge.detonated"), true);
             return true;
         }
 
         if (TerrorRemoteChargeRuntime.hasActiveCharge(player)) {
-            player.sendMessage(Text.translatable("gems.ability.terror.remote_charge.already_armed"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.terror.remote_charge.already_armed"), true);
             return false;
         }
 
         // Skip cooldown check if admin no-cooldowns mode is enabled
         if (!GemsAdmin.noCooldowns(player) && TerrorRemoteChargeRuntime.isOnCooldown(player)) {
-            player.sendMessage(Text.translatable("gems.ability.terror.remote_charge.on_cooldown"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.terror.remote_charge.on_cooldown"), true);
             return false;
         }
 
         if (!TerrorRemoteChargeRuntime.startArming(player)) {
-            player.sendMessage(Text.translatable("gems.ability.terror.remote_charge.unavailable"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.terror.remote_charge.unavailable"), true);
             return false;
         }
 
         int windowSeconds = GemsBalance.v().terror().remoteChargeArmWindowTicks() / 20;
-        player.sendMessage(Text.translatable("gems.ability.terror.remote_charge.arm_prompt", windowSeconds), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.terror.remote_charge.arm_prompt", windowSeconds), true);
         return true;
     }
 }

@@ -18,24 +18,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.entity.mob.Angerable;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.PiglinBruteEntity;
-import net.minecraft.entity.mob.PiglinEntity;
-import net.minecraft.entity.mob.HoglinEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.NeutralMob;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.monster.hoglin.Hoglin;
+import net.minecraft.world.entity.monster.piglin.Piglin;
+import net.minecraft.world.entity.monster.piglin.PiglinBrute;
 
 
 public final class SummonerSummons {
@@ -45,23 +45,23 @@ public final class SummonerSummons {
 
     private static final String KEY_SUMMONS = "summonerSummons";
 
-    private static final Identifier BONUS_HEALTH_MODIFIER_ID = Identifier.of(GemsMod.MOD_ID, "summoner_bonus_health");
+    private static final Identifier BONUS_HEALTH_MODIFIER_ID = Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "summoner_bonus_health");
 
     private SummonerSummons() {
     }
 
     public static void mark(Entity entity, UUID owner, long untilTick) {
-        entity.addCommandTag(TAG_SUMMON);
-        entity.addCommandTag(TAG_OWNER_PREFIX + owner);
-        entity.addCommandTag(TAG_UNTIL_PREFIX + untilTick);
+        entity.addTag(TAG_SUMMON);
+        entity.addTag(TAG_OWNER_PREFIX + owner);
+        entity.addTag(TAG_UNTIL_PREFIX + untilTick);
     }
 
     public static boolean isSummon(Entity entity) {
-        return entity.getCommandTags().contains(TAG_SUMMON);
+        return entity.entityTags().contains(TAG_SUMMON);
     }
 
     public static UUID ownerUuid(Entity entity) {
-        Set<String> tags = entity.getCommandTags();
+        Set<String> tags = entity.entityTags();
         for (String tag : tags) {
             if (!tag.startsWith(TAG_OWNER_PREFIX)) {
                 continue;
@@ -77,7 +77,7 @@ public final class SummonerSummons {
     }
 
     public static long untilTick(Entity entity) {
-        Set<String> tags = entity.getCommandTags();
+        Set<String> tags = entity.entityTags();
         for (String tag : tags) {
             if (!tag.startsWith(TAG_UNTIL_PREFIX)) {
                 continue;
@@ -92,19 +92,19 @@ public final class SummonerSummons {
         return 0L;
     }
 
-    public static void trackSpawn(ServerPlayerEntity owner, Entity entity) {
+    public static void trackSpawn(ServerPlayer owner, Entity entity) {
         if (!(entity instanceof LivingEntity)) {
             return;
         }
-        NbtCompound root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
-        NbtList list = root.getListOrEmpty(KEY_SUMMONS);
-        list.add(GemsNbt.fromUuid(entity.getUuid()));
+        CompoundTag root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
+        ListTag list = root.getListOrEmpty(KEY_SUMMONS);
+        list.add(GemsNbt.fromUuid(entity.getUUID()));
         root.put(KEY_SUMMONS, list);
     }
 
-    public static List<UUID> ownedSummonUuids(ServerPlayerEntity owner) {
-        NbtCompound root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
-        NbtList list = root.getList(KEY_SUMMONS).orElse(null);
+    public static List<UUID> ownedSummonUuids(ServerPlayer owner) {
+        CompoundTag root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
+        ListTag list = root.getList(KEY_SUMMONS).orElse(null);
         if (list == null) {
             return List.of();
         }
@@ -121,17 +121,17 @@ public final class SummonerSummons {
     public record SummonStats(int count, int points) {
     }
 
-    public static int pruneAndCount(ServerPlayerEntity owner) {
-        MinecraftServer server = owner.getEntityWorld().getServer();
+    public static int pruneAndCount(ServerPlayer owner) {
+        MinecraftServer server = owner.level().getServer();
         if (server == null) {
             return 0;
         }
-        NbtCompound root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
-        NbtList list = root.getListOrEmpty(KEY_SUMMONS);
+        CompoundTag root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
+        ListTag list = root.getListOrEmpty(KEY_SUMMONS);
         if (list.isEmpty()) {
             return 0;
         }
-        NbtList next = new NbtList();
+        ListTag next = new ListTag();
         int alive = 0;
         for (int i = 0; i < list.size(); i++) {
             UUID uuid = GemsNbt.toUuid(list.get(i));
@@ -139,7 +139,7 @@ public final class SummonerSummons {
                 continue;
             }
             Entity e = findEntity(server, uuid);
-            if (e != null && e.isAlive() && isSummon(e) && owner.getUuid().equals(ownerUuid(e))) {
+            if (e != null && e.isAlive() && isSummon(e) && owner.getUUID().equals(ownerUuid(e))) {
                 next.add(GemsNbt.fromUuid(uuid));
                 alive++;
             }
@@ -148,17 +148,17 @@ public final class SummonerSummons {
         return alive;
     }
 
-    public static SummonStats pruneAndPoints(ServerPlayerEntity owner, GemsBalance.Summoner cfg) {
-        MinecraftServer server = owner.getEntityWorld().getServer();
+    public static SummonStats pruneAndPoints(ServerPlayer owner, GemsBalance.Summoner cfg) {
+        MinecraftServer server = owner.level().getServer();
         if (server == null) {
             return new SummonStats(0, 0);
         }
-        NbtCompound root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
-        NbtList list = root.getListOrEmpty(KEY_SUMMONS);
+        CompoundTag root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
+        ListTag list = root.getListOrEmpty(KEY_SUMMONS);
         if (list.isEmpty()) {
             return new SummonStats(0, 0);
         }
-        NbtList next = new NbtList();
+        ListTag next = new ListTag();
         int alive = 0;
         int points = 0;
         for (int i = 0; i < list.size(); i++) {
@@ -167,10 +167,10 @@ public final class SummonerSummons {
                 continue;
             }
             Entity e = findEntity(server, uuid);
-            if (!(e instanceof MobEntity mob) || !mob.isAlive() || !isSummon(mob)) {
+            if (!(e instanceof Mob mob) || !mob.isAlive() || !isSummon(mob)) {
                 continue;
             }
-            if (!owner.getUuid().equals(ownerUuid(mob))) {
+            if (!owner.getUUID().equals(ownerUuid(mob))) {
                 continue;
             }
             next.add(GemsNbt.fromUuid(uuid));
@@ -181,8 +181,8 @@ public final class SummonerSummons {
         return new SummonStats(alive, points);
     }
 
-    public static void discardAll(ServerPlayerEntity owner) {
-        MinecraftServer server = owner.getEntityWorld().getServer();
+    public static void discardAll(ServerPlayer owner) {
+        MinecraftServer server = owner.level().getServer();
         if (server == null) {
             return;
         }
@@ -195,42 +195,42 @@ public final class SummonerSummons {
         ((GemsPersistentDataHolder) owner).gems$getPersistentData().remove(KEY_SUMMONS);
     }
 
-    public static void commandSummons(ServerPlayerEntity owner, LivingEntity target, int rangeBlocks, int strengthAmplifier, int durationTicks) {
-        MinecraftServer server = owner.getEntityWorld().getServer();
+    public static void commandSummons(ServerPlayer owner, LivingEntity target, int rangeBlocks, int strengthAmplifier, int durationTicks) {
+        MinecraftServer server = owner.level().getServer();
         if (server == null) {
             return;
         }
-        if (target instanceof MobEntity mobTarget) {
+        if (target instanceof Mob mobTarget) {
             UUID targetOwner = ownerUuid(mobTarget);
-            if (targetOwner != null && targetOwner.equals(owner.getUuid()) && isSummon(mobTarget)) {
+            if (targetOwner != null && targetOwner.equals(owner.getUUID()) && isSummon(mobTarget)) {
                 return;
             }
             UUID hypnoOwner = HypnoControl.ownerUuid(mobTarget);
-            if (hypnoOwner != null && hypnoOwner.equals(owner.getUuid()) && HypnoControl.isHypno(mobTarget)) {
+            if (hypnoOwner != null && hypnoOwner.equals(owner.getUUID()) && HypnoControl.isHypno(mobTarget)) {
                 return;
             }
         }
         double rangeSq = rangeBlocks * (double) rangeBlocks;
         for (UUID uuid : ownedSummonUuids(owner)) {
             Entity e = findEntity(server, uuid);
-            if (!(e instanceof MobEntity mob) || !mob.isAlive() || !isSummon(mob)) {
+            if (!(e instanceof Mob mob) || !mob.isAlive() || !isSummon(mob)) {
                 continue;
             }
-            if (mob.getEntityWorld() != target.getEntityWorld()) {
+            if (mob.level() != target.level()) {
                 continue;
             }
-            if (mob.squaredDistanceTo(owner) > rangeSq) {
+            if (mob.distanceToSqr(owner) > rangeSq) {
                 continue;
             }
             mob.setTarget(target);
             if (strengthAmplifier >= 0 && durationTicks > 0) {
-                mob.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.STRENGTH, durationTicks, strengthAmplifier, true, false, false));
+                mob.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.STRENGTH, durationTicks, strengthAmplifier, true, false, false));
             }
         }
     }
 
-    public static void followOwner(ServerPlayerEntity owner) {
-        MinecraftServer server = owner.getEntityWorld().getServer();
+    public static void followOwner(ServerPlayer owner) {
+        MinecraftServer server = owner.level().getServer();
         if (server == null) {
             return;
         }
@@ -249,11 +249,11 @@ public final class SummonerSummons {
         }
         for (UUID uuid : ownedSummonUuids(owner)) {
             Entity e = findEntity(server, uuid);
-            if (!(e instanceof MobEntity mob) || !mob.isAlive() || !isSummon(mob)) {
+            if (!(e instanceof Mob mob) || !mob.isAlive() || !isSummon(mob)) {
                 continue;
             }
             refreshNetherMob(mob);
-            if (mob.getEntityWorld() != owner.getEntityWorld()) {
+            if (mob.level() != owner.level()) {
                 continue;
             }
             LivingEntity desiredTarget = markLiving != null ? markLiving : fallbackTarget;
@@ -265,7 +265,7 @@ public final class SummonerSummons {
                 normalizedTarget = null;
             }
             if (normalizedTarget != null) {
-                if (desiredTarget != null && normalizedTarget.getUuid().equals(desiredTarget.getUuid())) {
+                if (desiredTarget != null && normalizedTarget.getUUID().equals(desiredTarget.getUUID())) {
                     continue;
                 }
                 if (desiredTarget == null) {
@@ -275,16 +275,16 @@ public final class SummonerSummons {
                     continue;
                 }
             }
-            if (desiredTarget != null && desiredTarget.getEntityWorld() == mob.getEntityWorld()) {
+            if (desiredTarget != null && desiredTarget.level() == mob.level()) {
                 double rangeSq = rangeBlocks * (double) rangeBlocks;
-                if (mob.squaredDistanceTo(owner) <= rangeSq) {
-                    if (desiredTarget instanceof MobEntity mobTarget) {
+                if (mob.distanceToSqr(owner) <= rangeSq) {
+                    if (desiredTarget instanceof Mob mobTarget) {
                         UUID targetOwner = ownerUuid(mobTarget);
-                        if (targetOwner != null && targetOwner.equals(owner.getUuid()) && isSummon(mobTarget)) {
+                        if (targetOwner != null && targetOwner.equals(owner.getUUID()) && isSummon(mobTarget)) {
                             continue;
                         }
                         UUID hypnoOwner = HypnoControl.ownerUuid(mobTarget);
-                        if (hypnoOwner != null && hypnoOwner.equals(owner.getUuid()) && HypnoControl.isHypno(mobTarget)) {
+                        if (hypnoOwner != null && hypnoOwner.equals(owner.getUUID()) && HypnoControl.isHypno(mobTarget)) {
                             continue;
                         }
                     }
@@ -292,17 +292,17 @@ public final class SummonerSummons {
                     continue;
                 }
             }
-            double distSq = mob.squaredDistanceTo(owner);
+            double distSq = mob.distanceToSqr(owner);
             if (distSq > followStartSq) {
-                mob.getNavigation().startMovingTo(owner, followSpeed);
+                mob.getNavigation().moveTo(owner, followSpeed);
             } else if (distSq < followStopSq) {
                 mob.getNavigation().stop();
             }
         }
     }
 
-    private static LivingEntity findOwnerThreat(ServerPlayerEntity owner, int rangeBlocks) {
-        LivingEntity attacker = owner.getAttacker();
+    private static LivingEntity findOwnerThreat(ServerPlayer owner, int rangeBlocks) {
+        LivingEntity attacker = owner.getLastHurtByMob();
         LivingEntity candidate = normalizeTarget(owner, attacker, rangeBlocks);
         if (candidate != null) {
             return candidate;
@@ -311,16 +311,16 @@ public final class SummonerSummons {
             return null;
         }
         double maxSq = rangeBlocks * (double) rangeBlocks;
-        var box = owner.getBoundingBox().expand(rangeBlocks);
-        List<MobEntity> mobs = owner.getEntityWorld().getEntitiesByClass(MobEntity.class, box, mob -> mob.getTarget() == owner);
+        var box = owner.getBoundingBox().inflate(rangeBlocks);
+        List<Mob> mobs = owner.level().getEntitiesOfClass(Mob.class, box, mob -> mob.getTarget() == owner);
         LivingEntity nearest = null;
         double nearestSq = Double.MAX_VALUE;
-        for (MobEntity mob : mobs) {
+        for (Mob mob : mobs) {
             LivingEntity normalized = normalizeTarget(owner, mob, rangeBlocks);
             if (normalized == null) {
                 continue;
             }
-            double distSq = owner.squaredDistanceTo(mob);
+            double distSq = owner.distanceToSqr(mob);
             if (distSq > maxSq || distSq >= nearestSq) {
                 continue;
             }
@@ -330,89 +330,89 @@ public final class SummonerSummons {
         return nearest;
     }
 
-    private static LivingEntity normalizeTarget(ServerPlayerEntity owner, LivingEntity target, int rangeBlocks) {
-        if (target == null || !target.isAlive() || target.getEntityWorld() != owner.getEntityWorld()) {
+    private static LivingEntity normalizeTarget(ServerPlayer owner, LivingEntity target, int rangeBlocks) {
+        if (target == null || !target.isAlive() || target.level() != owner.level()) {
             return null;
         }
         if (rangeBlocks > 0) {
             double maxSq = rangeBlocks * (double) rangeBlocks;
-            if (owner.squaredDistanceTo(target) > maxSq) {
+            if (owner.distanceToSqr(target) > maxSq) {
                 return null;
             }
         }
-        if (target instanceof MobEntity mobTarget) {
+        if (target instanceof Mob mobTarget) {
             UUID targetOwner = ownerUuid(mobTarget);
-            if (targetOwner != null && targetOwner.equals(owner.getUuid()) && isSummon(mobTarget)) {
+            if (targetOwner != null && targetOwner.equals(owner.getUUID()) && isSummon(mobTarget)) {
                 return null;
             }
             UUID hypnoOwner = HypnoControl.ownerUuid(mobTarget);
-            if (hypnoOwner != null && hypnoOwner.equals(owner.getUuid()) && HypnoControl.isHypno(mobTarget)) {
+            if (hypnoOwner != null && hypnoOwner.equals(owner.getUUID()) && HypnoControl.isHypno(mobTarget)) {
                 return null;
             }
         }
         return target;
     }
 
-    public static void applyBonusHealth(MobEntity mob, float bonusHealth) {
+    public static void applyBonusHealth(Mob mob, float bonusHealth) {
         if (bonusHealth <= 0.0F) {
             return;
         }
-        var inst = mob.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+        var inst = mob.getAttribute(Attributes.MAX_HEALTH);
         if (inst == null) {
             return;
         }
         inst.removeModifier(BONUS_HEALTH_MODIFIER_ID);
-        inst.addPersistentModifier(new EntityAttributeModifier(BONUS_HEALTH_MODIFIER_ID, bonusHealth, EntityAttributeModifier.Operation.ADD_VALUE));
+        inst.addPermanentModifier(new AttributeModifier(BONUS_HEALTH_MODIFIER_ID, bonusHealth, AttributeModifier.Operation.ADD_VALUE));
         mob.setHealth(Math.min(mob.getMaxHealth(), mob.getHealth() + bonusHealth));
     }
 
-    public static void tuneControlledMob(MobEntity mob) {
+    public static void tuneControlledMob(Mob mob) {
         if (mob == null) {
             return;
         }
         mob.setTarget(null);
-        mob.setAttacker(null);
-        mob.setPersistent();
+        mob.setLastHurtByMob(null);
+        mob.setPersistenceRequired();
         refreshNetherMob(mob);
         clearAnger(mob);
         clearBrainAggro(mob);
-        if (mob instanceof PiglinBruteEntity brute) {
+        if (mob instanceof PiglinBrute brute) {
             brute.setTarget(null);
-            brute.setAttacker(null);
+            brute.setLastHurtByMob(null);
         }
     }
 
-    public static void refreshNetherMob(MobEntity mob) {
-        if (mob instanceof PiglinEntity piglin) {
+    public static void refreshNetherMob(Mob mob) {
+        if (mob instanceof Piglin piglin) {
             piglin.setImmuneToZombification(true);
         }
-        if (mob instanceof HoglinEntity hoglin) {
+        if (mob instanceof Hoglin hoglin) {
             hoglin.setImmuneToZombification(true);
         }
-        if (mob instanceof PiglinBruteEntity brute) {
+        if (mob instanceof PiglinBrute brute) {
             brute.setImmuneToZombification(true);
         }
     }
 
-    public static void clearAnger(MobEntity mob) {
-        if (mob instanceof Angerable angerable) {
-            angerable.stopAnger();
+    public static void clearAnger(Mob mob) {
+        if (mob instanceof NeutralMob angerable) {
+            angerable.stopBeingAngry();
         }
     }
 
-    private static void clearBrainAggro(MobEntity mob) {
+    private static void clearBrainAggro(Mob mob) {
         var brain = mob.getBrain();
-        brain.forget(MemoryModuleType.ATTACK_TARGET);
-        brain.forget(MemoryModuleType.ANGRY_AT);
-        brain.forget(MemoryModuleType.UNIVERSAL_ANGER);
-        brain.forget(MemoryModuleType.NEAREST_ATTACKABLE);
-        brain.forget(MemoryModuleType.NEAREST_VISIBLE_TARGETABLE_PLAYER);
-        brain.forget(MemoryModuleType.HURT_BY);
-        brain.forget(MemoryModuleType.HURT_BY_ENTITY);
+        brain.eraseMemory(MemoryModuleType.ATTACK_TARGET);
+        brain.eraseMemory(MemoryModuleType.ANGRY_AT);
+        brain.eraseMemory(MemoryModuleType.UNIVERSAL_ANGER);
+        brain.eraseMemory(MemoryModuleType.NEAREST_ATTACKABLE);
+        brain.eraseMemory(MemoryModuleType.NEAREST_VISIBLE_ATTACKABLE_PLAYER);
+        brain.eraseMemory(MemoryModuleType.HURT_BY);
+        brain.eraseMemory(MemoryModuleType.HURT_BY_ENTITY);
     }
 
     public static Entity findEntity(MinecraftServer server, UUID uuid) {
-        for (ServerWorld world : server.getWorlds()) {
+        for (ServerLevel world : server.getAllLevels()) {
             Entity e = world.getEntity(uuid);
             if (e != null) {
                 return e;
@@ -421,14 +421,14 @@ public final class SummonerSummons {
         return null;
     }
 
-    public static long computeUntilTick(ServerPlayerEntity owner, int lifetimeTicks) {
+    public static long computeUntilTick(ServerPlayer owner, int lifetimeTicks) {
         if (lifetimeTicks <= 0) {
             return 0L;
         }
         return GemsTime.now(owner) + lifetimeTicks;
     }
 
-    public static void applyCooldown(ServerPlayerEntity owner) {
+    public static void applyCooldown(ServerPlayer owner) {
         if (GemsAdmin.noCooldowns(owner)) {
             return;
         }
@@ -450,7 +450,7 @@ public final class SummonerSummons {
         GemCooldownSync.send(owner);
     }
 
-    private static int applyCooldownModifiers(ServerPlayerEntity player, int baseTicks) {
+    private static int applyCooldownModifiers(ServerPlayer player, int baseTicks) {
         if (baseTicks <= 0) {
             return 0;
         }
@@ -465,7 +465,7 @@ public final class SummonerSummons {
         if (costs == null || costs.isEmpty() || type == null) {
             return 0;
         }
-        Identifier id = Registries.ENTITY_TYPE.getId(type);
+        Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
         if (id == null) {
             return 0;
         }

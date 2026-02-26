@@ -1,9 +1,9 @@
 package com.feel.gems.mixin;
 
 import com.feel.gems.power.util.RangeLimitedProjectile;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.ExplosiveProjectileEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.hurtingprojectile.AbstractHurtingProjectile;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,10 +13,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 
 
-@Mixin(ExplosiveProjectileEntity.class)
+@Mixin(AbstractHurtingProjectile.class)
 public abstract class ExplosiveProjectileRangeLimitMixin implements RangeLimitedProjectile {
     @Unique
-    private Vec3d gems$origin;
+    private Vec3 gems$origin;
 
     @Unique
     private double gems$maxDistSq;
@@ -25,7 +25,7 @@ public abstract class ExplosiveProjectileRangeLimitMixin implements RangeLimited
     private boolean gems$limitSet;
 
     @Override
-    public void gems$setRangeLimit(Vec3d origin, double maxDistanceBlocks) {
+    public void gems$setRangeLimit(Vec3 origin, double maxDistanceBlocks) {
         this.gems$origin = origin;
         this.gems$maxDistSq = Math.max(0.0D, maxDistanceBlocks) * Math.max(0.0D, maxDistanceBlocks);
         this.gems$limitSet = true;
@@ -37,7 +37,7 @@ public abstract class ExplosiveProjectileRangeLimitMixin implements RangeLimited
             return;
         }
         Entity self = (Entity) (Object) this;
-        if (self.getEntityPos().squaredDistanceTo(gems$origin) > gems$maxDistSq) {
+        if (self.position().distanceToSqr(gems$origin) > gems$maxDistSq) {
             self.discard();
         }
     }

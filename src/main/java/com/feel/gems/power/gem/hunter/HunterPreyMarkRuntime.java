@@ -4,12 +4,12 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
 import com.feel.gems.power.gem.summoner.SummonerSummons;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
 import java.util.UUID;
 
 public final class HunterPreyMarkRuntime {
@@ -18,27 +18,27 @@ public final class HunterPreyMarkRuntime {
 
     private HunterPreyMarkRuntime() {}
 
-    public static void applyMark(ServerPlayerEntity hunter, LivingEntity target) {
+    public static void applyMark(ServerPlayer hunter, LivingEntity target) {
         if (!GemPowers.isPassiveActive(hunter, PowerIds.HUNTER_PREY_MARK)) {
             return;
         }
 
         int durationTicks = GemsBalance.v().hunter().preyMarkDurationTicks();
-        long endTime = hunter.getEntityWorld().getTime() + durationTicks;
+        long endTime = hunter.level().getGameTime() + durationTicks;
 
-        PlayerStateManager.setPersistent(hunter, MARK_TARGET_KEY, target.getUuidAsString());
+        PlayerStateManager.setPersistent(hunter, MARK_TARGET_KEY, target.getStringUUID());
         PlayerStateManager.setPersistent(hunter, MARK_END_KEY, String.valueOf(endTime));
 
         // Apply glowing to target if tracker's eye is active
         if (GemPowers.isPassiveActive(hunter, PowerIds.HUNTER_TRACKERS_EYE)) {
             int range = GemsBalance.v().hunter().trackersEyeRangeBlocks();
-            if (range <= 0 || hunter.squaredDistanceTo(target) <= (double) range * range) {
-                target.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, durationTicks, 0, false, false));
+            if (range <= 0 || hunter.distanceToSqr(target) <= (double) range * range) {
+                target.addEffect(new MobEffectInstance(MobEffects.GLOWING, durationTicks, 0, false, false));
             }
         }
     }
 
-    public static LivingEntity getMarkedTarget(ServerPlayerEntity hunter) {
+    public static LivingEntity getMarkedTarget(ServerPlayer hunter) {
         String targetStr = PlayerStateManager.getPersistent(hunter, MARK_TARGET_KEY);
         if (targetStr == null || targetStr.isEmpty()) return null;
 
@@ -46,14 +46,14 @@ public final class HunterPreyMarkRuntime {
         if (endStr == null) return null;
 
         long endTime = Long.parseLong(endStr);
-        if (hunter.getEntityWorld().getTime() > endTime) {
+        if (hunter.level().getGameTime() > endTime) {
             clearMark(hunter);
             return null;
         }
 
         try {
             UUID targetId = UUID.fromString(targetStr);
-            MinecraftServer server = hunter.getEntityWorld().getServer();
+            MinecraftServer server = hunter.level().getServer();
             if (server == null) return null;
             var entity = SummonerSummons.findEntity(server, targetId);
             if (!(entity instanceof LivingEntity living) || !living.isAlive()) {
@@ -65,16 +65,16 @@ public final class HunterPreyMarkRuntime {
         }
     }
 
-    public static boolean isMarked(ServerPlayerEntity hunter, LivingEntity target) {
+    public static boolean isMarked(ServerPlayer hunter, LivingEntity target) {
         LivingEntity marked = getMarkedTarget(hunter);
-        return marked != null && marked.getUuid().equals(target.getUuid());
+        return marked != null && marked.getUUID().equals(target.getUUID());
     }
 
     public static float getDamageMultiplier() {
         return GemsBalance.v().hunter().preyMarkBonusDamageMultiplier();
     }
 
-    public static void tickTrackersEye(ServerPlayerEntity hunter) {
+    public static void tickTrackersEye(ServerPlayer hunter) {
         if (!GemPowers.isPassiveActive(hunter, PowerIds.HUNTER_TRACKERS_EYE)) {
             return;
         }
@@ -82,18 +82,18 @@ public final class HunterPreyMarkRuntime {
         if (marked == null) {
             return;
         }
-        if (marked instanceof ServerPlayerEntity markedPlayer
+        if (marked instanceof ServerPlayer markedPlayer
                 && GemPowers.isPassiveActive(markedPlayer, PowerIds.SPY_FALSE_SIGNATURE)) {
             return;
         }
         int range = GemsBalance.v().hunter().trackersEyeRangeBlocks();
-        if (range > 0 && hunter.squaredDistanceTo(marked) > (double) range * range) {
+        if (range > 0 && hunter.distanceToSqr(marked) > (double) range * range) {
             return;
         }
-        marked.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 40, 0, false, false));
+        marked.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false));
     }
 
-    public static void clearMark(ServerPlayerEntity hunter) {
+    public static void clearMark(ServerPlayer hunter) {
         PlayerStateManager.clearPersistent(hunter, MARK_TARGET_KEY);
         PlayerStateManager.clearPersistent(hunter, MARK_END_KEY);
     }

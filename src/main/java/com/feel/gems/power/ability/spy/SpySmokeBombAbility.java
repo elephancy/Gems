@@ -6,16 +6,16 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import com.feel.gems.power.gem.spy.SpySystem;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
 
 
 public final class SpySmokeBombAbility implements GemAbility {
@@ -40,8 +40,8 @@ public final class SpySmokeBombAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         int radius = GemsBalance.v().spy().smokeBombRadiusBlocks();
@@ -52,18 +52,18 @@ public final class SpySmokeBombAbility implements GemAbility {
         int blindAmp = GemsBalance.v().spy().smokeBombBlindnessAmplifier();
         int slowAmp = GemsBalance.v().spy().smokeBombSlownessAmplifier();
 
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, p -> p != player)) {
-            if (other instanceof ServerPlayerEntity otherPlayer && !SpySystem.canAffect(player, otherPlayer)) {
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, p -> p != player)) {
+            if (other instanceof ServerPlayer otherPlayer && !SpySystem.canAffect(player, otherPlayer)) {
                 continue;
             }
-            other.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, duration, blindAmp, true, false, false));
-            other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, duration, slowAmp, true, false, false));
+            other.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, duration, blindAmp, true, false, false));
+            other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, duration, slowAmp, true, false, false));
         }
 
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, Math.min(duration, 40), 0, true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, Math.min(duration, 40), 0, true, false, false));
         AbilityFeedback.burst(player, ParticleTypes.CLOUD, 28, 0.45D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_PUFFER_FISH_BLOW_UP, 0.6F, 0.7F);
+        AbilityFeedback.sound(player, SoundEvents.PUFFER_FISH_BLOW_UP, 0.6F, 0.7F);
         return true;
     }
 }

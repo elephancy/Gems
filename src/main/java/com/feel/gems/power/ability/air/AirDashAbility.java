@@ -6,13 +6,13 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -39,7 +39,7 @@ public final class AirDashAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         double velocity = GemsBalance.v().air().dashVelocity();
         double up = GemsBalance.v().air().dashUpVelocity();
         int iFrame = AugmentRuntime.applyDurationMultiplier(player, GemId.AIR, GemsBalance.v().air().dashIFrameDurationTicks());
@@ -48,20 +48,20 @@ public final class AirDashAbility implements GemAbility {
             return false;
         }
 
-        Vec3d dir = player.getRotationVec(1.0F).normalize();
-        player.addVelocity(dir.x * velocity, up, dir.z * velocity);
-        player.velocityDirty = true;
+        Vec3 dir = player.getViewVector(1.0F).normalize();
+        player.push(dir.x * velocity, up, dir.z * velocity);
+        player.needsSync = true;
         AbilityFeedback.syncVelocity(player);
         if (iFrame > 0) {
-            player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, iFrame, amp, true, false, false));
+            player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, iFrame, amp, true, false, false));
         }
 
-        AbilityFeedback.beam(player.getEntityWorld(),
-                player.getEntityPos().add(0.0D, 1.0D, 0.0D),
-                player.getEntityPos().add(dir.multiply(3.0D)).add(0.0D, 1.0D, 0.0D),
+        AbilityFeedback.beam(player.level(),
+                player.position().add(0.0D, 1.0D, 0.0D),
+                player.position().add(dir.scale(3.0D)).add(0.0D, 1.0D, 0.0D),
                 ParticleTypes.CLOUD,
                 12);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDER_DRAGON_FLAP, 0.7F, 1.4F);
+        AbilityFeedback.sound(player, SoundEvents.ENDER_DRAGON_FLAP, 0.7F, 1.4F);
         return true;
     }
 }

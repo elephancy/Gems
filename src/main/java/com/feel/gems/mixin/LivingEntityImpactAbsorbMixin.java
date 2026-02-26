@@ -3,12 +3,12 @@ package com.feel.gems.mixin;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,10 +23,10 @@ public abstract class LivingEntityImpactAbsorbMixin {
     @Unique
     private float gems$impactAbsorbPendingGain;
 
-    @Inject(method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z", at = @At("HEAD"))
-    private void gems$trackImpactAbsorbBefore(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At("HEAD"))
+    private void gems$trackImpactAbsorbBefore(ServerLevel world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity) (Object) this;
-        if (!(self instanceof ServerPlayerEntity player)) {
+        if (!(self instanceof ServerPlayer player)) {
             return;
         }
         if (amount <= 0.0F) {
@@ -40,15 +40,15 @@ public abstract class LivingEntityImpactAbsorbMixin {
         gems$impactAbsorbPendingGain = Math.max(0.0F, amount * percent);
     }
 
-    @Inject(method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z", at = @At("TAIL"))
-    private void gems$applyImpactAbsorb(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At("TAIL"))
+    private void gems$applyImpactAbsorb(ServerLevel world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (!Boolean.TRUE.equals(cir.getReturnValue())) {
             gems$impactAbsorbTracking = false;
             gems$impactAbsorbPendingGain = 0.0F;
             return;
         }
         LivingEntity self = (LivingEntity) (Object) this;
-        if (!(self instanceof ServerPlayerEntity player)) {
+        if (!(self instanceof ServerPlayer player)) {
             gems$impactAbsorbTracking = false;
             gems$impactAbsorbPendingGain = 0.0F;
             return;
@@ -75,6 +75,6 @@ public abstract class LivingEntityImpactAbsorbMixin {
         
         // Short duration since we're applying it immediately after damage
         // 60 ticks = 3 seconds should be enough for the absorption to persist
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 60, amplifier, true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 60, amplifier, true, false, false));
     }
 }

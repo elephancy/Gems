@@ -14,9 +14,9 @@ import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -46,13 +46,13 @@ public final class GemsStressTest {
         };
     }
 
-    public static void start(ServerPlayerEntity player, int seconds, int periodTicks, Mode mode, boolean cycleGems, boolean forceEnergy10) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void start(ServerPlayer player, int seconds, int periodTicks, Mode mode, boolean cycleGems, boolean forceEnergy10) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
 
-        long now = server.getOverworld().getTime();
+        long now = server.overworld().getGameTime();
         long durationTicks = Math.max(1L, (long) seconds * 20L);
         Task task = new Task(
                 now + durationTicks,
@@ -64,7 +64,7 @@ public final class GemsStressTest {
                 GemPlayerState.getActiveGem(player).ordinal(),
                 0
         );
-        TASKS.put(player.getUuid(), task);
+        TASKS.put(player.getUUID(), task);
     }
 
     public static boolean stop(UUID playerId) {
@@ -76,7 +76,7 @@ public final class GemsStressTest {
             return;
         }
 
-        long now = server.getOverworld().getTime();
+        long now = server.overworld().getGameTime();
         Iterator<Map.Entry<UUID, Task>> it = TASKS.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<UUID, Task> entry = it.next();
@@ -91,7 +91,7 @@ public final class GemsStressTest {
                 continue;
             }
 
-            ServerPlayerEntity player = server.getPlayerManager().getPlayer(uuid);
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) {
                 it.remove();
                 continue;
@@ -139,7 +139,7 @@ public final class GemsStressTest {
                 }
             } catch (Throwable t) {
                 GemsMod.LOGGER.error("Stress test crashed for player {} on {} slot {}", player.getName().getString(), active.name(), slot + 1, t);
-                player.sendMessage(Text.literal("Gems stress test stopped due to an error (see logs)."), false);
+                player.sendSystemMessage(Component.literal("Gems stress test stopped due to an error (see logs)."), false);
                 it.remove();
                 continue;
             }

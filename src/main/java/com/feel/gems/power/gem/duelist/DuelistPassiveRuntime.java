@@ -4,10 +4,10 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
 import java.util.List;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Duelist passive runtime implementations.
@@ -20,21 +20,21 @@ public final class DuelistPassiveRuntime {
     // ========== Riposte ==========
     // After a successful block (parry), your next attack within 2s deals 50% bonus damage.
 
-    public static void triggerRiposte(ServerPlayerEntity player) {
+    public static void triggerRiposte(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.DUELIST_RIPOSTE)) {
             return;
         }
         int windowTicks = GemsBalance.v().duelist().riposteWindowTicks();
-        long endTime = player.getEntityWorld().getTime() + windowTicks;
+        long endTime = player.level().getGameTime() + windowTicks;
         PlayerStateManager.setPersistent(player, RIPOSTE_END_KEY, String.valueOf(endTime));
     }
 
-    public static boolean consumeRiposte(ServerPlayerEntity player) {
+    public static boolean consumeRiposte(ServerPlayer player) {
         String endStr = PlayerStateManager.getPersistent(player, RIPOSTE_END_KEY);
         if (endStr == null || endStr.isEmpty()) return false;
 
         long endTime = Long.parseLong(endStr);
-        if (player.getEntityWorld().getTime() > endTime) {
+        if (player.level().getGameTime() > endTime) {
             clearRiposte(player);
             return false;
         }
@@ -43,7 +43,7 @@ public final class DuelistPassiveRuntime {
         return true;
     }
 
-    public static void clearRiposte(ServerPlayerEntity player) {
+    public static void clearRiposte(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, RIPOSTE_END_KEY);
     }
 
@@ -54,19 +54,19 @@ public final class DuelistPassiveRuntime {
     // ========== Duelist's Focus ==========
     // Deal 25% more damage in 1v1 combat when no other players are within 15 blocks.
 
-    public static boolean isIn1v1Combat(ServerPlayerEntity attacker, ServerPlayerEntity target) {
+    public static boolean isIn1v1Combat(ServerPlayer attacker, ServerPlayer target) {
         if (!GemPowers.isPassiveActive(attacker, PowerIds.DUELIST_FOCUS)) {
             return false;
         }
 
         int range = GemsBalance.v().duelist().focusRadiusBlocks();
-        Box searchBox = attacker.getBoundingBox().expand(range);
-        if (!(attacker.getEntityWorld() instanceof ServerWorld world)) {
+        AABB searchBox = attacker.getBoundingBox().inflate(range);
+        if (!(attacker.level() instanceof ServerLevel world)) {
             return false;
         }
 
-        List<ServerPlayerEntity> nearbyPlayers = world.getEntitiesByClass(
-            ServerPlayerEntity.class,
+        List<ServerPlayer> nearbyPlayers = world.getEntitiesOfClass(
+            ServerPlayer.class,
             searchBox,
             p -> p != attacker && p != target && p.isAlive()
         );

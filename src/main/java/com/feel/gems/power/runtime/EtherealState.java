@@ -2,8 +2,8 @@ package com.feel.gems.power.runtime;
 
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Tracks the ethereal (damage immune) state for players.
@@ -18,12 +18,12 @@ public final class EtherealState {
     /**
      * Set the player as ethereal for the given duration in ticks.
      */
-    public static void setEthereal(ServerPlayerEntity player, int durationTicks) {
+    public static void setEthereal(ServerPlayer player, int durationTicks) {
         if (durationTicks <= 0) {
             clearEthereal(player);
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         long until = GemsTime.now(player) + durationTicks;
         nbt.putLong(KEY_ETHEREAL_UNTIL, until);
     }
@@ -31,17 +31,17 @@ public final class EtherealState {
     /**
      * Clear the ethereal state.
      */
-    public static void clearEthereal(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
+    public static void clearEthereal(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
         nbt.remove(KEY_ETHEREAL_UNTIL);
     }
 
     /**
      * Check if the player is currently ethereal (immune to damage).
      */
-    public static boolean isEthereal(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_ETHEREAL_UNTIL, 0L);
+    public static boolean isEthereal(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_ETHEREAL_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
@@ -53,7 +53,7 @@ public final class EtherealState {
         return true;
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 }

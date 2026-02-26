@@ -2,29 +2,29 @@ package com.feel.gems.entity;
 
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.ai.goal.LookAroundGoal;
-import net.minecraft.entity.ai.goal.LookAtEntityGoal;
-import net.minecraft.entity.ai.goal.WanderAroundFarGoal;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 /**
  * Shadow clone entity that mimics a player's appearance and randomly moves around.
  * Cannot die, doesn't drop items, but can be hit for visual feedback.
  * Note: NBT persistence not needed as clones are temporary and discarded after duration.
  */
-public class ShadowCloneEntity extends PathAwareEntity {
+public class ShadowCloneEntity extends PathfinderMob {
     private UUID ownerUuid;
     private String ownerName;
     private boolean mirageClone;
@@ -33,38 +33,38 @@ public class ShadowCloneEntity extends PathAwareEntity {
     private int nextActionTick = 0;
     private int maxLifetimeTicks = 200; // 10 seconds default, set by ability
     
-    public ShadowCloneEntity(EntityType<? extends ShadowCloneEntity> type, World world) {
+    public ShadowCloneEntity(EntityType<? extends ShadowCloneEntity> type, Level world) {
         super(type, world);
     }
     
-    public static DefaultAttributeContainer.Builder createAttributes() {
-        return PathAwareEntity.createMobAttributes()
-                .add(EntityAttributes.MAX_HEALTH, 20.0D)
-                .add(EntityAttributes.MOVEMENT_SPEED, 0.3D)  // Faster movement
-                .add(EntityAttributes.FOLLOW_RANGE, 32.0D); // Larger wander range
+    public static AttributeSupplier.Builder createAttributes() {
+        return PathfinderMob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 20.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.3D)  // Faster movement
+                .add(Attributes.FOLLOW_RANGE, 32.0D); // Larger wander range
     }
     
     @Override
-    protected void initGoals() {
+    protected void registerGoals() {
         // Random wandering behavior with larger range
-        this.goalSelector.add(1, new CloneWanderGoal(this, 0.8D, 0.05F));
-        this.goalSelector.add(2, new LookAtEntityGoal(this, PlayerEntity.class, 12.0F));
-        this.goalSelector.add(3, new LookAroundGoal(this));
+        this.goalSelector.addGoal(1, new CloneWanderGoal(this, 0.8D, 0.05F));
+        this.goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 12.0F));
+        this.goalSelector.addGoal(3, new RandomLookAroundGoal(this));
     }
     
-    public void setOwner(ServerPlayerEntity owner) {
-        this.setPersistent();
+    public void setOwner(ServerPlayer owner) {
+        this.setPersistenceRequired();
         
-        this.ownerUuid = owner.getUuid();
+        this.ownerUuid = owner.getUUID();
         this.ownerName = owner.getGameProfile().name();
         this.setCustomName(owner.getDisplayName());
         this.setCustomNameVisible(true); // Always show name tag
         
         // Copy equipment
         for (EquipmentSlot slot : EquipmentSlot.values()) {
-            if (slot.isArmorSlot() || slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND) {
-                ItemStack stack = owner.getEquippedStack(slot);
-                this.equipStack(slot, stack.copy());
+            if (slot.isArmor() || slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND) {
+                ItemStack stack = owner.getItemBySlot(slot);
+                this.setItemSlot(slot, stack.copy());
             }
         }
     }
@@ -101,8 +101,8 @@ public class ShadowCloneEntity extends PathAwareEntity {
         super.tick();
         ticksAlive++;
         
-        World world = this.getEntityWorld();
-        if (!world.isClient()) {
+        Level world = this.level();
+        if (!world.isClientSide()) {
             // Auto-despawn after max lifetime
             if (ticksAlive >= maxLifetimeTicks) {
                 this.discard();
@@ -110,7 +110,7 @@ public class ShadowCloneEntity extends PathAwareEntity {
             }
             
             // Random item swinging/using animation
-            if (!mirageClone && world instanceof ServerWorld && ticksAlive >= nextActionTick) {
+            if (!mirageClone && world instanceof ServerLevel && ticksAlive >= nextActionTick) {
                 performRandomAction();
                 nextActionTick = ticksAlive + 40 + random.nextInt(80); // 2-6 seconds
             }
@@ -120,10 +120,10 @@ public class ShadowCloneEntity extends PathAwareEntity {
     private void performRandomAction() {
         int action = random.nextInt(5);
         switch (action) {
-            case 0 -> swingHand(net.minecraft.util.Hand.MAIN_HAND);
-            case 1 -> swingHand(net.minecraft.util.Hand.OFF_HAND);
-            case 2 -> setSneaking(!isSneaking());
-            case 3 -> jump();
+            case 0 -> swing(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT);
+            case 1 -> swing(net.minecraft.world.InteractionHand.OFF_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT);
+            case 2 -> setShiftKeyDown(!isShiftKeyDown());
+            case 3 -> jumpFromGround();
             // case 4: do nothing
         }
     }
@@ -134,7 +134,7 @@ public class ShadowCloneEntity extends PathAwareEntity {
     }
     
     @Override
-    public boolean damage(ServerWorld world, DamageSource source, float amount) {
+    public boolean hurtServer(ServerLevel world, DamageSource source, float amount) {
         if (mirageClone) {
             com.feel.gems.power.ability.trickster.TricksterMirageRuntime.onMirageCloneHit(this);
             this.discard();
@@ -148,44 +148,44 @@ public class ShadowCloneEntity extends PathAwareEntity {
     }
     
     @Override
-    protected void dropInventory(ServerWorld world) {
+    protected void dropEquipment(ServerLevel world) {
         // Don't drop anything
     }
     
     @Override
-    protected void dropEquipment(ServerWorld world, DamageSource source, boolean causedByPlayer) {
+    protected void dropCustomDeathLoot(ServerLevel world, DamageSource source, boolean causedByPlayer) {
         // Don't drop equipment
     }
     
     @Override
-    public void onDeath(DamageSource damageSource) {
+    public void die(DamageSource damageSource) {
         // Don't actually die
     }
     
     @Override
-    public boolean cannotDespawn() {
+    public boolean requiresCustomPersistence() {
         return true;
     }
     
     @Override
-    public boolean isPersistent() {
+    public boolean isPersistenceRequired() {
         return true;
     }
     
     @Override
     protected SoundEvent getHurtSound(DamageSource source) {
-        return SoundEvents.ENTITY_PLAYER_HURT;
+        return SoundEvents.PLAYER_HURT;
     }
     
     @Override
     protected SoundEvent getDeathSound() {
-        return SoundEvents.ENTITY_PLAYER_DEATH;
+        return SoundEvents.PLAYER_DEATH;
     }
     
     /**
      * Custom wander goal with larger range for more dynamic movement
      */
-    private static class CloneWanderGoal extends WanderAroundFarGoal {
+    private static class CloneWanderGoal extends WaterAvoidingRandomStrollGoal {
         private final ShadowCloneEntity clone;
         
         public CloneWanderGoal(ShadowCloneEntity clone, double speed, float probability) {
@@ -194,19 +194,19 @@ public class ShadowCloneEntity extends PathAwareEntity {
         }
         
         @Override
-        public boolean canStart() {
+        public boolean canUse() {
             // Higher chance to move around actively
-            if (clone.random.nextFloat() > 0.15F) {
+            if (clone.getRandom().nextFloat() > 0.15F) {
                 return false;
             }
-            return super.canStart();
+            return super.canUse();
         }
         
         @Override
-        protected net.minecraft.util.math.Vec3d getWanderTarget() {
+        protected net.minecraft.world.phys.Vec3 getPosition() {
             // Get a target further away for more dynamic movement
-            net.minecraft.util.math.Vec3d target = net.minecraft.entity.ai.FuzzyTargeting.find(this.clone, 16, 7);
-            return target != null ? target : super.getWanderTarget();
+            net.minecraft.world.phys.Vec3 target = net.minecraft.world.entity.ai.util.LandRandomPos.getPos(this.clone, 16, 7);
+            return target != null ? target : super.getPosition();
         }
     }
 }

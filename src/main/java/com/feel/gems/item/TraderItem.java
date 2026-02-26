@@ -1,42 +1,42 @@
 package com.feel.gems.item;
 
 import com.feel.gems.screen.TraderScreenHandler;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.Level;
 
 
 
 
 public final class TraderItem extends Item {
-    public TraderItem(Settings settings) {
+    public TraderItem(Properties settings) {
         super(settings);
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        if (!(user instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+        if (!(user instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
 
-        player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
+        player.openMenu(new net.minecraft.world.MenuProvider() {
             @Override
-            public Text getDisplayName() {
-                return Text.translatable("screen.gems.gem_trader.title");
+            public Component getDisplayName() {
+                return Component.translatable("screen.gems.gem_trader.title");
             }
 
             @Override
-            public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, PlayerEntity p) {
+            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int syncId, net.minecraft.world.entity.player.Inventory inv, Player p) {
                 return new TraderScreenHandler(syncId, inv);
             }
         });
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 }

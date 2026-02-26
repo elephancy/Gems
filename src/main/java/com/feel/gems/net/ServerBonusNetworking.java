@@ -10,10 +10,10 @@ import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.net.GemCooldownSync;
 import com.feel.gems.net.GemStateSync;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -31,26 +31,26 @@ public final class ServerBonusNetworking {
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(BonusSelectionOpenRequestPayload.ID, (payload, context) ->
-                context.player().getEntityWorld().getServer().execute(() -> openEditor(context.player())));
+                context.player().level().getServer().execute(() -> openEditor(context.player())));
         
         ServerPlayNetworking.registerGlobalReceiver(BonusSelectionClaimPayload.ID, (payload, context) ->
-                context.player().getEntityWorld().getServer().execute(() -> handleClaim(context.player(), payload)));
+                context.player().level().getServer().execute(() -> handleClaim(context.player(), payload)));
     }
 
-    public static void openEditor(ServerPlayerEntity player) {
+    public static void openEditor(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         
         int energy = GemPlayerState.getEnergy(player);
         if (energy < 10) {
-            player.sendMessage(Text.translatable("gems.bonus.need_energy_access"), true);
+            player.sendSystemMessage(Component.translatable("gems.bonus.need_energy_access"), true);
             return;
         }
         
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) return;
         
         BonusClaimsState claims = BonusClaimsState.get(server);
-        UUID playerId = player.getUuid();
+        UUID playerId = player.getUUID();
         
         Set<Identifier> playerAbilities = claims.getPlayerAbilities(playerId);
         Set<Identifier> playerPassives = claims.getPlayerPassives(playerId);
@@ -99,20 +99,20 @@ public final class ServerBonusNetworking {
         ));
     }
 
-    private static void handleClaim(ServerPlayerEntity player, BonusSelectionClaimPayload payload) {
+    private static void handleClaim(ServerPlayer player, BonusSelectionClaimPayload payload) {
         GemPlayerState.initIfNeeded(player);
         
         int energy = GemPlayerState.getEnergy(player);
         if (energy < 10) {
-            player.sendMessage(Text.translatable("gems.bonus.need_energy_claim"), true);
+            player.sendSystemMessage(Component.translatable("gems.bonus.need_energy_claim"), true);
             return;
         }
         
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) return;
         
         BonusClaimsState claims = BonusClaimsState.get(server);
-        UUID playerId = player.getUuid();
+        UUID playerId = player.getUUID();
         
         Identifier powerId = payload.powerId();
         boolean isAbility = payload.isAbility();
@@ -126,20 +126,20 @@ public final class ServerBonusNetworking {
                 if (success) {
                     GemAbility ability = ModAbilities.get(powerId);
                     String name = ability != null ? ability.name() : powerId.toString();
-                    player.sendMessage(Text.translatable("gems.bonus.claimed_ability", name), false);
+                    player.sendSystemMessage(Component.translatable("gems.bonus.claimed_ability", name), false);
                 } else {
-                    player.sendMessage(Text.translatable("gems.bonus.cannot_claim_ability"), true);
+                    player.sendSystemMessage(Component.translatable("gems.bonus.cannot_claim_ability"), true);
                 }
             } else {
                 success = claims.claimPassive(playerId, powerId);
                 if (success) {
                     GemPassive passive = ModPassives.get(powerId);
                     String name = passive != null ? passive.name() : powerId.toString();
-                    player.sendMessage(Text.translatable("gems.bonus.claimed_passive", name), false);
+                    player.sendSystemMessage(Component.translatable("gems.bonus.claimed_passive", name), false);
                     // Apply the passive immediately
                     passive.apply(player);
                 } else {
-                    player.sendMessage(Text.translatable("gems.bonus.cannot_claim_passive"), true);
+                    player.sendSystemMessage(Component.translatable("gems.bonus.cannot_claim_passive"), true);
                 }
             }
         } else {
@@ -150,7 +150,7 @@ public final class ServerBonusNetworking {
                     claims.releaseAbility(playerId, powerId);
                     GemAbility ability = ModAbilities.get(powerId);
                     String name = ability != null ? ability.name() : powerId.toString();
-                    player.sendMessage(Text.translatable("gems.bonus.released_ability", name), false);
+                    player.sendSystemMessage(Component.translatable("gems.bonus.released_ability", name), false);
                 }
             } else {
                 Set<Identifier> current = claims.getPlayerPassives(playerId);
@@ -162,7 +162,7 @@ public final class ServerBonusNetworking {
                     }
                     claims.releasePassive(playerId, powerId);
                     String name = passive != null ? passive.name() : powerId.toString();
-                    player.sendMessage(Text.translatable("gems.bonus.released_passive", name), false);
+                    player.sendSystemMessage(Component.translatable("gems.bonus.released_passive", name), false);
                 }
             }
         }

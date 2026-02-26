@@ -6,10 +6,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 
 
@@ -26,27 +26,27 @@ public record SummonerLoadoutScreenPayload(
         List<SummonerLoadouts.Entry> slot3,
         List<SummonerLoadouts.Entry> slot4,
         List<SummonerLoadouts.Entry> slot5
-) implements CustomPayload {
-    public static final Id<SummonerLoadoutScreenPayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "summoner_loadout_screen"));
+) implements CustomPacketPayload {
+    public static final Type<SummonerLoadoutScreenPayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "summoner_loadout_screen"));
 
-    public static final PacketCodec<RegistryByteBuf, SummonerLoadoutScreenPayload> CODEC = PacketCodec.ofStatic(
+    public static final StreamCodec<RegistryFriendlyByteBuf, SummonerLoadoutScreenPayload> CODEC = StreamCodec.of(
             SummonerLoadoutScreenPayload::write,
             SummonerLoadoutScreenPayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-        private static void write(RegistryByteBuf buf, SummonerLoadoutScreenPayload payload) {
+        private static void write(RegistryFriendlyByteBuf buf, SummonerLoadoutScreenPayload payload) {
                 buf.writeVarInt(payload.maxPoints);
                 buf.writeVarInt(payload.maxActiveSummons);
 
                 Map<String, Integer> costMap = payload.costs;
                 buf.writeVarInt(costMap.size());
                 for (Map.Entry<String, Integer> entry : costMap.entrySet()) {
-                        buf.writeString(entry.getKey(), 256);
+                        buf.writeUtf(entry.getKey(), 256);
                         buf.writeVarInt(entry.getValue());
                 }
 
@@ -57,14 +57,14 @@ public record SummonerLoadoutScreenPayload(
                 writeEntries(buf, payload.slot5);
         }
 
-        private static SummonerLoadoutScreenPayload read(RegistryByteBuf buf) {
+        private static SummonerLoadoutScreenPayload read(RegistryFriendlyByteBuf buf) {
                 int maxPoints = buf.readVarInt();
                 int maxActiveSummons = buf.readVarInt();
 
                 int costSize = buf.readVarInt();
                 Map<String, Integer> costs = new HashMap<>(costSize);
                 for (int i = 0; i < costSize; i++) {
-                        String id = buf.readString(256);
+                        String id = buf.readUtf(256);
                         int cost = buf.readVarInt();
                         costs.put(id, cost);
                 }
@@ -78,19 +78,19 @@ public record SummonerLoadoutScreenPayload(
                 return new SummonerLoadoutScreenPayload(maxPoints, maxActiveSummons, costs, s1, s2, s3, s4, s5);
         }
 
-        private static void writeEntries(RegistryByteBuf buf, List<SummonerLoadouts.Entry> entries) {
+        private static void writeEntries(RegistryFriendlyByteBuf buf, List<SummonerLoadouts.Entry> entries) {
                 buf.writeVarInt(entries.size());
                 for (SummonerLoadouts.Entry entry : entries) {
-                        buf.writeString(entry.entityId(), 256);
+                        buf.writeUtf(entry.entityId(), 256);
                         buf.writeVarInt(entry.count());
                 }
         }
 
-        private static List<SummonerLoadouts.Entry> readEntries(RegistryByteBuf buf) {
+        private static List<SummonerLoadouts.Entry> readEntries(RegistryFriendlyByteBuf buf) {
                 int size = buf.readVarInt();
                 List<SummonerLoadouts.Entry> out = new ArrayList<>(size);
                 for (int i = 0; i < size; i++) {
-                        String id = buf.readString(256);
+                        String id = buf.readUtf(256);
                         int count = buf.readVarInt();
                         out.add(new SummonerLoadouts.Entry(id, count));
                 }

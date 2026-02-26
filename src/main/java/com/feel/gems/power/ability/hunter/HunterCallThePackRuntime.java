@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
 
 /**
  * Runtime management for Hunter Pack entities.
@@ -33,7 +33,7 @@ public final class HunterCallThePackRuntime {
     public static void tick(MinecraftServer server) {
         if (ACTIVE_PACKS.isEmpty()) return;
         
-        int currentTick = server.getTicks();
+        int currentTick = server.getTickCount();
         var iterator = ACTIVE_PACKS.entrySet().iterator();
         
         while (iterator.hasNext()) {
@@ -58,9 +58,9 @@ public final class HunterCallThePackRuntime {
      * Despawn all entities in a pack.
      */
     private static void despawnPack(MinecraftServer server, UUID packId) {
-        for (ServerWorld world : server.getWorlds()) {
+        for (ServerLevel world : server.getAllLevels()) {
             // Iterate all entities and check for pack members
-            for (var entity : world.iterateEntities()) {
+            for (var entity : world.getAllEntities()) {
                 if (entity instanceof HunterPackEntity pack && packId.equals(pack.getPackId())) {
                     pack.discard();
                 }

@@ -1,9 +1,9 @@
 package com.feel.gems.power.runtime;
 
 import com.feel.gems.state.GemsPersistentDataHolder;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -14,20 +14,20 @@ public final class GemAbilityCooldowns {
     private GemAbilityCooldowns() {
     }
 
-    public static void clearAll(ServerPlayerEntity player) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static void clearAll(ServerPlayer player) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         root.remove(KEY_COOLDOWNS);
     }
 
-    public static long nextAllowedTick(ServerPlayerEntity player, Identifier abilityId) {
-        return cooldowns(player).getLong(abilityId.toString(), 0L);
+    public static long nextAllowedTick(ServerPlayer player, Identifier abilityId) {
+        return cooldowns(player).getLongOr(abilityId.toString(), 0L);
     }
 
-    public static void setNextAllowedTick(ServerPlayerEntity player, Identifier abilityId, long nextAllowedTick) {
+    public static void setNextAllowedTick(ServerPlayer player, Identifier abilityId, long nextAllowedTick) {
         cooldowns(player).putLong(abilityId.toString(), nextAllowedTick);
     }
 
-    public static int remainingTicks(ServerPlayerEntity player, Identifier abilityId, long nowTick) {
+    public static int remainingTicks(ServerPlayer player, Identifier abilityId, long nowTick) {
         long nextAllowed = nextAllowedTick(player, abilityId);
         if (nextAllowed <= nowTick) {
             return 0;
@@ -39,11 +39,11 @@ public final class GemAbilityCooldowns {
         return (int) remaining;
     }
 
-    private static NbtCompound cooldowns(ServerPlayerEntity player) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound existing = root.getCompound(KEY_COOLDOWNS).orElse(null);
+    private static CompoundTag cooldowns(ServerPlayer player) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag existing = root.getCompound(KEY_COOLDOWNS).orElse(null);
         if (existing == null) {
-            existing = new NbtCompound();
+            existing = new CompoundTag();
             root.put(KEY_COOLDOWNS, existing);
         }
         return existing;

@@ -1,8 +1,8 @@
 package com.feel.gems.power.ability.hunter;
 
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.UUID;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class HunterPounceRuntime {
     private static final String POUNCE_TARGET_KEY = "hunter_pounce_target";
@@ -10,12 +10,12 @@ public final class HunterPounceRuntime {
 
     private HunterPounceRuntime() {}
 
-    public static void setPouncing(ServerPlayerEntity player, UUID targetId, float damage) {
+    public static void setPouncing(ServerPlayer player, UUID targetId, float damage) {
         PlayerStateManager.setPersistent(player, POUNCE_TARGET_KEY, targetId.toString());
         PlayerStateManager.setPersistent(player, POUNCE_DAMAGE_KEY, String.valueOf(damage));
     }
 
-    public static UUID getPounceTarget(ServerPlayerEntity player) {
+    public static UUID getPounceTarget(ServerPlayer player) {
         String targetStr = PlayerStateManager.getPersistent(player, POUNCE_TARGET_KEY);
         if (targetStr == null || targetStr.isEmpty()) return null;
         try {
@@ -25,18 +25,18 @@ public final class HunterPounceRuntime {
         }
     }
 
-    public static float getPounceDamage(ServerPlayerEntity player) {
+    public static float getPounceDamage(ServerPlayer player) {
         String damageStr = PlayerStateManager.getPersistent(player, POUNCE_DAMAGE_KEY);
         if (damageStr == null) return 0.0F;
         return Float.parseFloat(damageStr);
     }
 
-    public static void clearPounce(ServerPlayerEntity player) {
+    public static void clearPounce(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, POUNCE_TARGET_KEY);
         PlayerStateManager.clearPersistent(player, POUNCE_DAMAGE_KEY);
     }
 
-    public static boolean isPouncing(ServerPlayerEntity player) {
+    public static boolean isPouncing(ServerPlayer player) {
         return getPounceTarget(player) != null;
     }
 }

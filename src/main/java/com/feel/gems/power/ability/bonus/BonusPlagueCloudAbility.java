@@ -2,19 +2,17 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.AreaEffectCloudEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.World;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.AreaEffectCloud;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Plague Cloud - Create a lingering cloud that poisons and weakens.
@@ -45,30 +43,30 @@ public final class BonusPlagueCloudAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Vec3d start = player.getEyePos();
-        Vec3d direction = player.getRotationVector();
-        Vec3d end = start.add(direction.multiply(RANGE));
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        Vec3 start = player.getEyePosition();
+        Vec3 direction = player.getLookAngle();
+        Vec3 end = start.add(direction.scale(RANGE));
         
-        HitResult hit = world.raycast(new RaycastContext(
-                start, end, RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, player));
-        Vec3d targetPos = hit.getPos();
+        HitResult hit = world.clip(new ClipContext(
+                start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+        Vec3 targetPos = hit.getLocation();
 
         // Create area effect cloud
-        AreaEffectCloudEntity cloud = new AreaEffectCloudEntity(world, targetPos.x, targetPos.y, targetPos.z);
+        AreaEffectCloud cloud = new AreaEffectCloud(world, targetPos.x, targetPos.y, targetPos.z);
         cloud.setOwner(player);
         cloud.setRadius(CLOUD_RADIUS);
         cloud.setDuration(CLOUD_DURATION);
-        cloud.setRadiusGrowth(-0.01f);
+        cloud.setRadiusPerTick(-0.01f);
         cloud.setWaitTime(0);
-        cloud.addEffect(new StatusEffectInstance(StatusEffects.POISON, 100, 1));
-        cloud.addEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 100, 1));
+        cloud.addEffect(new MobEffectInstance(MobEffects.POISON, 100, 1));
+        cloud.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 1));
         
-        world.spawnEntity(cloud);
+        world.addFreshEntity(cloud);
 
         world.playSound(null, targetPos.x, targetPos.y, targetPos.z,
-                SoundEvents.ENTITY_EVOKER_PREPARE_ATTACK, SoundCategory.PLAYERS, 1.0f, 0.5f);
+                SoundEvents.EVOKER_PREPARE_ATTACK, SoundSource.PLAYERS, 1.0f, 0.5f);
         return true;
     }
 }

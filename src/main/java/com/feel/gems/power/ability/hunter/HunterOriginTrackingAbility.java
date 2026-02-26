@@ -10,12 +10,12 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.AbilityRuntime;
 import java.util.UUID;
-import net.minecraft.item.ItemStack;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.ItemStack;
 
 
 /**
@@ -44,36 +44,36 @@ public final class HunterOriginTrackingAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ItemStack stack = player.getMainHandStack();
+    public boolean activate(ServerPlayer player) {
+        ItemStack stack = player.getMainHandItem();
         if (stack.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.ability.hunter.origin.hold_item"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.hunter.origin.hold_item"), true);
             return false;
         }
         UUID firstOwner = AbilityRuntime.getFirstOwner(stack);
         if (firstOwner == null) {
-            player.sendMessage(Text.translatable("gems.ability.hunter.origin.no_origin"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.hunter.origin.no_origin"), true);
             return false;
         }
-        if (firstOwner.equals(player.getUuid())) {
-            player.sendMessage(Text.translatable("gems.ability.hunter.origin.own_item"), true);
+        if (firstOwner.equals(player.getUUID())) {
+            player.sendSystemMessage(Component.translatable("gems.ability.hunter.origin.own_item"), true);
             return false;
         }
-        var server = player.getEntityWorld().getServer();
+        var server = player.level().getServer();
         if (server == null) {
             return false;
         }
         if (SpySystem.hidesTracking(server, firstOwner)) {
-            player.sendMessage(Text.translatable("gems.tracking.hidden"), true);
+            player.sendSystemMessage(Component.translatable("gems.tracking.hidden"), true);
             return false;
         }
         LegendaryPlayerTracker.Snapshot snapshot = LegendaryPlayerTracker.snapshot(server, firstOwner);
         if (snapshot == null) {
             String name = AbilityRuntime.getFirstOwnerName(stack);
             if (name != null && !name.isEmpty()) {
-                player.sendMessage(Text.translatable("gems.ability.hunter.origin.owner_offline_named", name), true);
+                player.sendSystemMessage(Component.translatable("gems.ability.hunter.origin.owner_offline_named", name), true);
             } else {
-                player.sendMessage(Text.translatable("gems.ability.hunter.origin.owner_offline"), true);
+                player.sendSystemMessage(Component.translatable("gems.ability.hunter.origin.owner_offline"), true);
             }
             return false;
         }
@@ -81,9 +81,9 @@ public final class HunterOriginTrackingAbility implements GemAbility {
         // Don't consume the item - origin tracking is non-destructive
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.HUNTER, GemsBalance.v().hunter().originTrackingDurationTicks());
         AbilityRuntime.startBounty(player, firstOwner, duration);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_FOX_SNIFF, 0.8F, 1.0F);
+        AbilityFeedback.sound(player, SoundEvents.FOX_SNIFF, 0.8F, 1.0F);
         AbilityFeedback.burst(player, ParticleTypes.GLOW, 15, 0.3D);
-        player.sendMessage(Text.translatable("gems.ability.hunter.origin.tracking", snapshot.name()), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.hunter.origin.tracking", snapshot.name()), true);
         return true;
     }
 }

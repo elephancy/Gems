@@ -3,28 +3,28 @@ package com.feel.gems.screen;
 import com.feel.gems.core.GemId;
 import com.feel.gems.item.GemPurchaseItem;
 import com.feel.gems.trade.GemTrading;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.Property;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.DataSlot;
+import net.minecraft.world.item.ItemStack;
 import com.feel.gems.state.GemPlayerState;
 
 
 
 
-public final class TraderScreenHandler extends ScreenHandler {
+public final class TraderScreenHandler extends AbstractContainerMenu {
     private static final int MODE_TRADE = 0;
     private static final int MODE_PURCHASE = 1;
 
-    private final Property mode = Property.create();
+    private final DataSlot mode = DataSlot.standalone();
 
-    public TraderScreenHandler(int syncId, PlayerInventory playerInventory) {
+    public TraderScreenHandler(int syncId, Inventory playerInventory) {
         super(ModScreenHandlers.TRADER, syncId);
-        addProperty(mode);
+        addDataSlot(mode);
 
-        if (playerInventory.player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer) {
+        if (playerInventory.player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
             if (GemPurchaseItem.consumePending(serverPlayer)) {
                 mode.set(MODE_PURCHASE);
             }
@@ -32,18 +32,18 @@ public final class TraderScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public boolean canUse(PlayerEntity player) {
+    public boolean stillValid(Player player) {
         return true;
     }
 
     @Override
-    public ItemStack quickMove(PlayerEntity player, int slot) {
+    public ItemStack quickMoveStack(Player player, int slot) {
         return ItemStack.EMPTY;
     }
 
     @Override
-    public boolean onButtonClick(PlayerEntity player, int id) {
-        if (!(player instanceof net.minecraft.server.network.ServerPlayerEntity serverPlayer)) {
+    public boolean clickMenuButton(Player player, int id) {
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
             return false;
         }
 
@@ -58,19 +58,19 @@ public final class TraderScreenHandler extends ScreenHandler {
             if (!result.success()) {
                 return false;
             }
-            serverPlayer.sendMessage(Text.translatable("gems.trade.purchased", gemId.name()), true);
+            serverPlayer.sendSystemMessage(Component.translatable("gems.trade.purchased", gemId.name()), true);
         } else {
             if (GemPlayerState.getActiveGem(serverPlayer) == gemId) {
-                serverPlayer.sendMessage(Text.translatable("gems.trade.gem_already_active"), true);
+                serverPlayer.sendSystemMessage(Component.translatable("gems.trade.gem_already_active"), true);
                 return false;
             }
             GemTrading.Result result = GemTrading.trade(serverPlayer, gemId);
             if (!result.success()) {
                 return false;
             }
-            serverPlayer.sendMessage(Text.translatable("gems.trade.traded_for", gemId.name()), true);
+            serverPlayer.sendSystemMessage(Component.translatable("gems.trade.traded_for", gemId.name()), true);
         }
-        serverPlayer.closeHandledScreen();
+        serverPlayer.closeContainer();
         return true;
     }
 

@@ -7,15 +7,15 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTeleport;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Glitch Step - short-range teleport that leaves a damaging afterimage at your origin.
@@ -42,38 +42,38 @@ public final class TricksterGlitchStepAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int distance = GemsBalance.v().trickster().glitchStepDistanceBlocks();
         float afterimgDamage = GemsBalance.v().trickster().glitchStepAfterimgDamage();
         int afterimgRadius = GemsBalance.v().trickster().glitchStepAfterimgRadiusBlocks();
 
-        Vec3d origin = player.getEntityPos();
-        Vec3d dir = player.getRotationVec(1.0F).normalize();
-        Vec3d destination = origin.add(dir.multiply(distance));
+        Vec3 origin = player.position();
+        Vec3 dir = player.getViewVector(1.0F).normalize();
+        Vec3 destination = origin.add(dir.scale(distance));
 
         // Teleport
-        GemsTeleport.teleport(player, world, destination.x, destination.y, destination.z, player.getYaw(), player.getPitch());
-        player.velocityDirty = true;
+        GemsTeleport.teleport(player, world, destination.x, destination.y, destination.z, player.getYRot(), player.getXRot());
+        player.needsSync = true;
 
         // Damage enemies near origin (afterimage explosion)
-        Box damageBox = new Box(origin.subtract(afterimgRadius, afterimgRadius, afterimgRadius), 
+        AABB damageBox = new AABB(origin.subtract(afterimgRadius, afterimgRadius, afterimgRadius),
                                  origin.add(afterimgRadius, afterimgRadius, afterimgRadius));
-        for (Entity e : world.getOtherEntities(player, damageBox, ent -> ent instanceof LivingEntity living && living.isAlive())) {
-            if (e instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
+        for (Entity e : world.getEntities(player, damageBox, ent -> ent instanceof LivingEntity living && living.isAlive())) {
+            if (e instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
                 continue;
             }
-            if (e instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
+            if (e instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
                 continue;
             }
-            ((LivingEntity) e).damage(world, player.getDamageSources().indirectMagic(player, player), afterimgDamage);
+            ((LivingEntity) e).hurtServer(world, player.damageSources().indirectMagic(player, player), afterimgDamage);
         }
 
         // Visual effects
         AbilityFeedback.burstAt(world, origin.add(0, 1, 0), ParticleTypes.PORTAL, 30, 0.8D);
         AbilityFeedback.burstAt(world, destination.add(0, 1, 0), ParticleTypes.REVERSE_PORTAL, 20, 0.5D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDERMAN_TELEPORT, 0.8F, 1.5F);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_GENERIC_EXPLODE.value(), 0.5F, 1.8F);
+        AbilityFeedback.sound(player, SoundEvents.ENDERMAN_TELEPORT, 0.8F, 1.5F);
+        AbilityFeedback.sound(player, SoundEvents.GENERIC_EXPLODE.value(), 0.5F, 1.8F);
         return true;
     }
 }

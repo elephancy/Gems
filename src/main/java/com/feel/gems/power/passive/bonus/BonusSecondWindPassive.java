@@ -2,8 +2,8 @@ package com.feel.gems.power.passive.bonus;
 
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Second Wind - Once per life, survive a killing blow with 1 HP.
@@ -26,13 +26,13 @@ public final class BonusSecondWindPassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         // Reset second wind availability
-        player.removeCommandTag("gems_second_wind_used");
+        player.removeTag("gems_second_wind_used");
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeCommandTag("gems_second_wind_used");
+    public void remove(ServerPlayer player) {
+        player.removeTag("gems_second_wind_used");
     }
 }

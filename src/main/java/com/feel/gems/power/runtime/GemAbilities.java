@@ -22,10 +22,10 @@ import com.feel.gems.stats.GemsStats;
 import com.feel.gems.util.GemsTime;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -34,22 +34,22 @@ public final class GemAbilities {
     private GemAbilities() {
     }
 
-    public static void activateByIndex(ServerPlayerEntity player, int abilityIndex) {
+    public static void activateByIndex(ServerPlayer player, int abilityIndex) {
         GemPlayerState.initIfNeeded(player);
 
         if (AbilityRestrictions.isStunned(player)) {
-            player.sendMessage(Text.translatable("gems.ability.stunned"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.stunned"), true);
             return;
         }
         if (AbilityRestrictions.isSuppressed(player)) {
-            player.sendMessage(Text.translatable("gems.ability.suppressed"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.suppressed"), true);
             return;
         }
 
         GemId gemId = GemPlayerState.getActiveGem(player);
         int energy = GemPlayerState.getEnergy(player);
         if (energy <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.no_abilities_unlocked"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.no_abilities_unlocked"), true);
             return;
         }
 
@@ -60,7 +60,7 @@ public final class GemAbilities {
         }
 
         if (energy <= 1) {
-            player.sendMessage(Text.translatable("gems.ability.no_abilities_unlocked"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.no_abilities_unlocked"), true);
             return;
         }
 
@@ -73,26 +73,26 @@ public final class GemAbilities {
         List<Identifier> abilities = LoadoutManager.getAbilityOrder(player, gemId);
         int unlocked = new GemEnergyState(energy).unlockedAbilityCount(abilities.size());
         if (unlocked <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.no_abilities_unlocked"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.no_abilities_unlocked"), true);
             return;
         }
         if (abilityIndex < 0 || abilityIndex >= unlocked) {
-            player.sendMessage(Text.translatable("gems.ability.not_unlocked"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.not_unlocked"), true);
             return;
         }
 
         Identifier abilityId = abilities.get(abilityIndex);
         if (GemsDisables.isAbilityDisabledFor(player, abilityId)) {
-            player.sendMessage(Text.translatable("gems.ability.disabled_server"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.disabled_server"), true);
             return;
         }
         GemAbility ability = ModAbilities.get(abilityId);
         if (ability == null) {
-            player.sendMessage(Text.translatable("gems.ability.not_registered", abilityId.toString()), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.not_registered", abilityId.toString()), true);
             return;
         }
         if (AbilityDisables.isDisabled(player, abilityId)) {
-            player.sendMessage(Text.translatable("gems.ability.stolen"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.stolen"), true);
             return;
         }
 
@@ -102,7 +102,7 @@ public final class GemAbilities {
             long nextAllowed = GemAbilityCooldowns.nextAllowedTick(player, abilityId);
             if (nextAllowed > now) {
                 long remainingTicks = nextAllowed - now;
-                player.sendMessage(Text.translatable("gems.ability.on_cooldown", ability.name(), ticksToSeconds(remainingTicks)), true);
+                player.sendSystemMessage(Component.translatable("gems.ability.on_cooldown", ability.name(), ticksToSeconds(remainingTicks)), true);
                 return;
             }
         }
@@ -121,7 +121,7 @@ public final class GemAbilities {
         SynergyRuntime.onAbilityCast(player, gemId, abilityId);
 
         com.feel.gems.power.gem.trickster.TricksterPassiveRuntime.applyChaosEffect(player);
-        SpySystem.onAbilityUsed(player.getEntityWorld().getServer(), player, abilityId);
+        SpySystem.onAbilityUsed(player.level().getServer(), player, abilityId);
 
         int cooldown = Math.max(0, ability.cooldownTicks());
         cooldown = applyCooldownModifiers(player, cooldown, gemId);
@@ -138,53 +138,53 @@ public final class GemAbilities {
         return (int) Math.max(1, (ticks + 19) / 20);
     }
 
-    public static int adjustedCooldownTicks(ServerPlayerEntity player, GemId gemId, int baseTicks) {
+    public static int adjustedCooldownTicks(ServerPlayer player, GemId gemId, int baseTicks) {
         return applyCooldownModifiers(player, baseTicks, gemId);
     }
 
     /**
      * Activate a Prism gem ability from player's selections.
      */
-    private static void activatePrismAbility(ServerPlayerEntity player, int abilityIndex, int energy) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void activatePrismAbility(ServerPlayer player, int abilityIndex, int energy) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
 
         PrismSelectionsState prismState = PrismSelectionsState.get(server);
-        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUuid());
+        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUUID());
         List<Identifier> abilities = selection.gemAbilities();
 
         if (abilities.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.ability.no_abilities_unlocked"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.no_abilities_unlocked"), true);
             return;
         }
 
         // Prism abilities unlock progressively like other gems
         int unlocked = new GemEnergyState(energy).unlockedAbilityCount(abilities.size());
         if (unlocked <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.no_abilities_unlocked"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.no_abilities_unlocked"), true);
             return;
         }
         if (abilityIndex < 0 || abilityIndex >= unlocked) {
-            player.sendMessage(Text.translatable("gems.ability.not_unlocked"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.not_unlocked"), true);
             return;
         }
 
         Identifier abilityId = abilities.get(abilityIndex);
         if (GemsDisables.isAbilityDisabledFor(player, abilityId) || 
             GemsDisables.isBonusAbilityDisabledFor(player, abilityId)) {
-            player.sendMessage(Text.translatable("gems.ability.disabled_server"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.disabled_server"), true);
             return;
         }
 
         GemAbility ability = ModAbilities.get(abilityId);
         if (ability == null) {
-            player.sendMessage(Text.translatable("gems.ability.not_registered", abilityId.toString()), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.not_registered", abilityId.toString()), true);
             return;
         }
         if (AbilityDisables.isDisabled(player, abilityId)) {
-            player.sendMessage(Text.translatable("gems.ability.stolen"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.stolen"), true);
             return;
         }
 
@@ -194,7 +194,7 @@ public final class GemAbilities {
             long nextAllowed = GemAbilityCooldowns.nextAllowedTick(player, abilityId);
             if (nextAllowed > now) {
                 long remainingTicks = nextAllowed - now;
-                player.sendMessage(Text.translatable("gems.ability.on_cooldown", ability.name(), ticksToSeconds(remainingTicks)), true);
+                player.sendSystemMessage(Component.translatable("gems.ability.on_cooldown", ability.name(), ticksToSeconds(remainingTicks)), true);
                 return;
             }
         }
@@ -231,7 +231,7 @@ public final class GemAbilities {
         }
     }
 
-    private static int applyCooldownModifiers(ServerPlayerEntity player, int baseTicks, GemId gemId) {
+    private static int applyCooldownModifiers(ServerPlayer player, int baseTicks, GemId gemId) {
         if (baseTicks <= 0) {
             return 0;
         }

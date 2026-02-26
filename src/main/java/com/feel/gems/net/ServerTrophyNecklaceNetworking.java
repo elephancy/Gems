@@ -6,9 +6,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Server-side networking for the Trophy Necklace passive steal UI.
@@ -21,34 +21,34 @@ public final class ServerTrophyNecklaceNetworking {
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(TrophyNecklaceOpenRequestPayload.ID, (payload, context) ->
-            context.player().getEntityWorld().getServer().execute(() -> handleOpen(context.player())));
+            context.player().level().getServer().execute(() -> handleOpen(context.player())));
 
         ServerPlayNetworking.registerGlobalReceiver(TrophyNecklaceClaimPayload.ID, (payload, context) ->
-                context.player().getEntityWorld().getServer().execute(() -> handleClaim(context.player(), payload)));
+                context.player().level().getServer().execute(() -> handleClaim(context.player(), payload)));
     }
 
-    public static void setSession(ServerPlayerEntity player, Set<Identifier> offeredPassives) {
+    public static void setSession(ServerPlayer player, Set<Identifier> offeredPassives) {
         if (player == null) {
             return;
         }
         if (offeredPassives == null || offeredPassives.isEmpty()) {
-            OPEN_SESSIONS.remove(player.getUuid());
+            OPEN_SESSIONS.remove(player.getUUID());
             return;
         }
-        OPEN_SESSIONS.put(player.getUuid(), Set.copyOf(offeredPassives));
+        OPEN_SESSIONS.put(player.getUUID(), Set.copyOf(offeredPassives));
     }
 
-    private static boolean isOffered(ServerPlayerEntity player, Identifier passiveId) {
-        Set<Identifier> offered = OPEN_SESSIONS.get(player.getUuid());
+    private static boolean isOffered(ServerPlayer player, Identifier passiveId) {
+        Set<Identifier> offered = OPEN_SESSIONS.get(player.getUUID());
         return offered != null && offered.contains(passiveId);
     }
 
-    private static void handleClaim(ServerPlayerEntity player, TrophyNecklaceClaimPayload payload) {
+    private static void handleClaim(ServerPlayer player, TrophyNecklaceClaimPayload payload) {
         if (player == null || payload == null) {
             return;
         }
         if (!HuntersTrophyNecklaceItem.hasNecklace(player)) {
-            player.sendMessage(Text.translatable("gems.item.trophy_necklace.need_necklace"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.need_necklace"), true);
             return;
         }
         Identifier passiveId = payload.passiveId();
@@ -66,7 +66,7 @@ public final class ServerTrophyNecklaceNetworking {
                     source = HuntersTrophyNecklaceItem.getLastKillTargetUuid(player);
                 }
                 if (source == null) {
-                    player.sendMessage(Text.translatable("gems.item.trophy_necklace.need_kill"), true);
+                    player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.need_kill"), true);
                     return;
                 }
                 ok = HuntersTrophyNecklaceItem.stealPassiveFrom(player, passiveId, source);
@@ -83,22 +83,22 @@ public final class ServerTrophyNecklaceNetworking {
         HuntersTrophyNecklaceItem.openLastTargetScreen(player);
     }
 
-    private static void handleOpen(ServerPlayerEntity player) {
+    private static void handleOpen(ServerPlayer player) {
         if (player == null) {
             return;
         }
         if (!HuntersTrophyNecklaceItem.hasNecklace(player)) {
-            player.sendMessage(Text.translatable("gems.item.trophy_necklace.need_necklace"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.need_necklace"), true);
             return;
         }
-        ServerPlayerEntity target = Targeting.raycastPlayer(player, 15.0D);
+        ServerPlayer target = Targeting.raycastPlayer(player, 15.0D);
         if (target != null && target != player) {
             HuntersTrophyNecklaceItem.openScreenForTarget(player, target);
             return;
         }
         boolean opened = HuntersTrophyNecklaceItem.openLastTargetScreen(player);
         if (!opened) {
-            player.sendMessage(Text.translatable("gems.item.trophy_necklace.no_session"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.no_session"), true);
         }
     }
 }

@@ -5,15 +5,15 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.util.RangeLimitedProjectile;
-import net.minecraft.entity.projectile.FireballEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.projectile.hurtingprojectile.LargeFireball;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -39,11 +39,11 @@ public final class MeteorShowerAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        HitResult hit = player.raycast(GemsBalance.v().fire().meteorShowerTargetRangeBlocks(), 1.0F, false);
-        BlockPos center = BlockPos.ofFloored(hit.getPos());
-        AbilityFeedback.ring(world, new Vec3d(center.getX() + 0.5D, center.getY() + 0.2D, center.getZ() + 0.5D), 3.0D, ParticleTypes.FLAME, 24);
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        HitResult hit = player.pick(GemsBalance.v().fire().meteorShowerTargetRangeBlocks(), 1.0F, false);
+        BlockPos center = BlockPos.containing(hit.getLocation());
+        AbilityFeedback.ring(world, new Vec3(center.getX() + 0.5D, center.getY() + 0.2D, center.getZ() + 0.5D), 3.0D, ParticleTypes.FLAME, 24);
 
         int count = GemsBalance.v().fire().meteorShowerCount();
         int spread = GemsBalance.v().fire().meteorShowerSpreadBlocks();
@@ -53,35 +53,35 @@ public final class MeteorShowerAbility implements GemAbility {
         double lineLength = Math.max(0.0D, spread);
         double halfLength = lineLength / 2.0D;
         double step = count > 1 ? lineLength / (count - 1.0D) : 0.0D;
-        Vec3d look = player.getRotationVec(1.0F);
-        Vec3d flat = new Vec3d(look.x, 0.0D, look.z);
-        if (flat.lengthSquared() < 1.0E-4D) {
-            flat = new Vec3d(0.0D, 0.0D, 1.0D);
+        Vec3 look = player.getViewVector(1.0F);
+        Vec3 flat = new Vec3(look.x, 0.0D, look.z);
+        if (flat.lengthSqr() < 1.0E-4D) {
+            flat = new Vec3(0.0D, 0.0D, 1.0D);
         } else {
             flat = flat.normalize();
         }
 
         for (int i = 0; i < count; i++) {
             double offset = -halfLength + (step * i);
-            Vec3d impact = new Vec3d(center.getX() + 0.5D, center.getY() + 0.5D, center.getZ() + 0.5D)
-                    .add(flat.multiply(offset));
+            Vec3 impact = new Vec3(center.getX() + 0.5D, center.getY() + 0.5D, center.getZ() + 0.5D)
+                    .add(flat.scale(offset));
             double impactX = impact.x;
             double impactZ = impact.z;
-            Vec3d spawn = new Vec3d(impactX, center.getY() + height, impactZ);
-            Vec3d dir = new Vec3d(0.0D, -1.0D, 0.0D);
+            Vec3 spawn = new Vec3(impactX, center.getY() + height, impactZ);
+            Vec3 dir = new Vec3(0.0D, -1.0D, 0.0D);
 
             // Use zero acceleration (for consistency) and set explicit velocity.
-            FireballEntity meteor = new FireballEntity(world, player, Vec3d.ZERO, explosionPower);
-            meteor.refreshPositionAndAngles(spawn.x, spawn.y, spawn.z, 0.0F, 0.0F);
-            meteor.setVelocity(dir.multiply(Math.max(0.1D, velocity)));
-            meteor.addCommandTag("gems_meteor");
+            LargeFireball meteor = new LargeFireball(world, player, Vec3.ZERO, explosionPower);
+            meteor.snapTo(spawn.x, spawn.y, spawn.z, 0.0F, 0.0F);
+            meteor.setDeltaMovement(dir.scale(Math.max(0.1D, velocity)));
+            meteor.addTag("gems_meteor");
             if (meteor instanceof RangeLimitedProjectile limited) {
                 limited.gems$setRangeLimit(spawn, height + 64.0D);
             }
-            world.spawnEntity(meteor);
+            world.addFreshEntity(meteor);
         }
 
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_BLAZE_SHOOT, 1.0F, 0.8F);
+        AbilityFeedback.sound(player, SoundEvents.BLAZE_SHOOT, 1.0F, 0.8F);
         return true;
     }
 }

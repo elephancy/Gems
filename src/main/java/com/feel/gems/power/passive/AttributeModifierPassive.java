@@ -1,12 +1,12 @@
 package com.feel.gems.power.passive;
 
 import com.feel.gems.power.api.GemPassive;
-import net.minecraft.entity.attribute.EntityAttribute;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 
 
 
@@ -15,16 +15,16 @@ public final class AttributeModifierPassive implements GemPassive {
     private final Identifier id;
     private final String name;
     private final String description;
-    private final RegistryEntry<EntityAttribute> attribute;
-    private final EntityAttributeModifier.Operation operation;
+    private final Holder<Attribute> attribute;
+    private final AttributeModifier.Operation operation;
     private final double value;
 
     public AttributeModifierPassive(
             Identifier id,
             String name,
             String description,
-            RegistryEntry<EntityAttribute> attribute,
-            EntityAttributeModifier.Operation operation,
+            Holder<Attribute> attribute,
+            AttributeModifier.Operation operation,
             double value
     ) {
         this.id = id;
@@ -51,18 +51,18 @@ public final class AttributeModifierPassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
-        EntityAttributeInstance instance = player.getAttributeInstance(attribute);
+    public void apply(ServerPlayer player) {
+        AttributeInstance instance = player.getAttribute(attribute);
         if (instance == null) {
             return;
         }
         instance.removeModifier(id);
-        instance.addPersistentModifier(new EntityAttributeModifier(id, value, operation));
+        instance.addPermanentModifier(new AttributeModifier(id, value, operation));
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        EntityAttributeInstance instance = player.getAttributeInstance(attribute);
+    public void remove(ServerPlayer player) {
+        AttributeInstance instance = player.getAttribute(attribute);
         if (instance == null) {
             return;
         }

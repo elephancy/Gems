@@ -1,10 +1,10 @@
 package com.feel.gems.synergy;
 
 import com.feel.gems.core.GemId;
-import net.minecraft.util.Identifier;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import net.minecraft.resources.Identifier;
 
 /**
  * Defines a synergy combo between gems.
@@ -65,7 +65,7 @@ public record SynergyDefinition(
      * Record of a player's contribution to a synergy.
      */
     public record SynergyParticipant(
-            net.minecraft.server.network.ServerPlayerEntity player,
+            net.minecraft.server.level.ServerPlayer player,
             GemId gem,
             Identifier abilityId,
             long castTick

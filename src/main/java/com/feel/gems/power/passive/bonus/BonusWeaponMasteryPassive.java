@@ -3,18 +3,18 @@ package com.feel.gems.power.passive.bonus;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 /**
  * Weapon Mastery - Deal increased damage with all weapons.
  * Implementation via attribute modifier.
  */
 public final class BonusWeaponMasteryPassive implements GemPassive {
-    private static final Identifier MODIFIER_ID = Identifier.of("gems", "bonus_weapon_mastery");
+    private static final Identifier MODIFIER_ID = Identifier.fromNamespaceAndPath("gems", "bonus_weapon_mastery");
     @Override
     public Identifier id() {
         return PowerIds.BONUS_WEAPON_MASTERY;
@@ -31,19 +31,19 @@ public final class BonusWeaponMasteryPassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
-        EntityAttributeInstance attr = player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
+    public void apply(ServerPlayer player) {
+        AttributeInstance attr = player.getAttribute(Attributes.ATTACK_DAMAGE);
         if (attr != null && attr.getModifier(MODIFIER_ID) == null) {
-            attr.addPersistentModifier(new EntityAttributeModifier(
+            attr.addPermanentModifier(new AttributeModifier(
                     MODIFIER_ID,
                     GemsBalance.v().bonusPool().weaponMasteryBonusDamage,
-                    EntityAttributeModifier.Operation.ADD_VALUE));
+                    AttributeModifier.Operation.ADD_VALUE));
         }
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        EntityAttributeInstance attr = player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
+    public void remove(ServerPlayer player) {
+        AttributeInstance attr = player.getAttribute(Attributes.ATTACK_DAMAGE);
         if (attr != null) {
             attr.removeModifier(MODIFIER_ID);
         }

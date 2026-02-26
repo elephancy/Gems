@@ -6,9 +6,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class ServerBountyNetworking {
     private ServerBountyNetworking() {
@@ -24,11 +24,11 @@ public final class ServerBountyNetworking {
         );
     }
 
-    public static void open(ServerPlayerEntity player) {
+    public static void open(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
@@ -45,50 +45,50 @@ public final class ServerBountyNetworking {
                 ))
                 .toList();
 
-        List<BountyBoardPayload.PlayerEntry> players = server.getPlayerManager().getPlayerList().stream()
-                .filter(p -> !p.getUuid().equals(player.getUuid()))
+        List<BountyBoardPayload.PlayerEntry> players = server.getPlayerList().getPlayers().stream()
+                .filter(p -> !p.getUUID().equals(player.getUUID()))
                 .sorted(Comparator.comparing(p -> p.getName().getString().toLowerCase(Locale.ROOT)))
-                .map(p -> new BountyBoardPayload.PlayerEntry(p.getUuid(), p.getName().getString()))
+                .map(p -> new BountyBoardPayload.PlayerEntry(p.getUUID(), p.getName().getString()))
                 .toList();
 
         int maxHearts = BountyBoard.maxAdditionalHearts(player);
         int maxEnergy = BountyBoard.maxAdditionalEnergy(player);
 
-        ServerPlayNetworking.send(player, new BountyBoardPayload(player.getUuid(), maxHearts, maxEnergy, bounties, players));
+        ServerPlayNetworking.send(player, new BountyBoardPayload(player.getUUID(), maxHearts, maxEnergy, bounties, players));
     }
 
-    private static void handlePlace(ServerPlayerEntity placer, BountyPlacePayload payload) {
+    private static void handlePlace(ServerPlayer placer, BountyPlacePayload payload) {
         if (placer == null) {
             return;
         }
-        MinecraftServer server = placer.getEntityWorld().getServer();
+        MinecraftServer server = placer.level().getServer();
         if (server == null) {
             return;
         }
-        ServerPlayerEntity target = server.getPlayerManager().getPlayer(payload.targetId());
+        ServerPlayer target = server.getPlayerList().getPlayer(payload.targetId());
         if (target == null) {
-            placer.sendMessage(Text.translatable("gems.bounty.error.target_offline"), true);
+            placer.sendSystemMessage(Component.translatable("gems.bounty.error.target_offline"), true);
             return;
         }
         BountyBoard.PlaceResult result = BountyBoard.placeBounty(placer, target, payload.hearts(), payload.energy());
         if (result == BountyBoard.PlaceResult.SUCCESS) {
-            placer.sendMessage(Text.translatable("gems.bounty.place.success", target.getName().getString(), payload.hearts(), payload.energy()), true);
-            target.sendMessage(Text.translatable("gems.bounty.placed_on_you", placer.getName().getString(), payload.hearts(), payload.energy()), false);
+            placer.sendSystemMessage(Component.translatable("gems.bounty.place.success", target.getName().getString(), payload.hearts(), payload.energy()), true);
+            target.sendSystemMessage(Component.translatable("gems.bounty.placed_on_you", placer.getName().getString(), payload.hearts(), payload.energy()), false);
             return;
         }
-        placer.sendMessage(messageFor(result), true);
+        placer.sendSystemMessage(messageFor(result), true);
     }
 
-    private static Text messageFor(BountyBoard.PlaceResult result) {
+    private static Component messageFor(BountyBoard.PlaceResult result) {
         return switch (result) {
-            case ASSASSIN_BLOCKED -> Text.translatable("gems.bounty.error.assassin_blocked");
-            case INVALID_TARGET -> Text.translatable("gems.bounty.error.invalid_target");
-            case INVALID_AMOUNT -> Text.translatable("gems.bounty.error.invalid_amount");
-            case NOT_HIGHER -> Text.translatable("gems.bounty.error.not_higher");
-            case NO_CHANGE -> Text.translatable("gems.bounty.error.no_change");
-            case INSUFFICIENT_HEARTS -> Text.translatable("gems.bounty.error.insufficient_hearts");
-            case INSUFFICIENT_ENERGY -> Text.translatable("gems.bounty.error.insufficient_energy");
-            default -> Text.translatable("gems.bounty.error.unknown");
+            case ASSASSIN_BLOCKED -> Component.translatable("gems.bounty.error.assassin_blocked");
+            case INVALID_TARGET -> Component.translatable("gems.bounty.error.invalid_target");
+            case INVALID_AMOUNT -> Component.translatable("gems.bounty.error.invalid_amount");
+            case NOT_HIGHER -> Component.translatable("gems.bounty.error.not_higher");
+            case NO_CHANGE -> Component.translatable("gems.bounty.error.no_change");
+            case INSUFFICIENT_HEARTS -> Component.translatable("gems.bounty.error.insufficient_hearts");
+            case INSUFFICIENT_ENERGY -> Component.translatable("gems.bounty.error.insufficient_energy");
+            default -> Component.translatable("gems.bounty.error.unknown");
         };
     }
 }

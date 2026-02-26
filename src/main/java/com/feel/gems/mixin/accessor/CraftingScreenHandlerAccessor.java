@@ -1,15 +1,15 @@
 package com.feel.gems.mixin.accessor;
 
-import net.minecraft.screen.CraftingScreenHandler;
-import net.minecraft.screen.ScreenHandlerContext;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.CraftingMenu;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 
 
 
-@Mixin(CraftingScreenHandler.class)
+@Mixin(CraftingMenu.class)
 public interface CraftingScreenHandlerAccessor {
-    @Accessor("context")
-    ScreenHandlerContext gems$getContext();
+    @Accessor("access")
+    ContainerLevelAccess gems$getContext();
 }

@@ -1,8 +1,8 @@
 package com.feel.gems.mixin;
 
 import com.feel.gems.power.ability.hunter.HunterNetShotAbility;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,7 +19,7 @@ public abstract class LivingEntityElytraNetMixin {
     @Inject(method = "canGlide", at = @At("HEAD"), cancellable = true)
     private void gems$blockElytraWhenNetted(CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity) (Object) this;
-        if (self instanceof ServerPlayerEntity player && HunterNetShotAbility.isNetted(player)) {
+        if (self instanceof ServerPlayer player && HunterNetShotAbility.isNetted(player)) {
             cir.setReturnValue(false);
         }
     }

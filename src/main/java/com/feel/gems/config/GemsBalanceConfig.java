@@ -103,14 +103,9 @@ public final class GemsBalanceConfig {
     }
 
     /**
-     * Special gem: Chaos. Provides randomized abilities/passives on a timer or per-slot basis.
+     * Special gem: Chaos. Provides independent randomized ability/passive slots.
      */
     public static final class Chaos {
-        /** How often the Chaos rotation changes (seconds). */
-        public int rotationSeconds = 300;
-        /** Cooldown between using the currently-rotated Chaos ability (seconds). */
-        public int rotationAbilityCooldownSeconds = 10;
-
         /** Duration a Chaos slot stays active after rolling (seconds). */
         public int slotDurationSeconds = 300;
         /** Cooldown between uses of a rolled Chaos slot ability (seconds). */

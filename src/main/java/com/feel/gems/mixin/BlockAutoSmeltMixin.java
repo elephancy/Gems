@@ -7,15 +7,17 @@ import com.feel.gems.power.runtime.AbilityRuntime;
 import com.feel.gems.power.runtime.GemPowers;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemInstance;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,20 +29,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Block.class)
 public abstract class BlockAutoSmeltMixin {
     @Inject(
-            method = "getDroppedStacks(Lnet/minecraft/block/BlockState;Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/entity/BlockEntity;Lnet/minecraft/entity/Entity;Lnet/minecraft/item/ItemStack;)Ljava/util/List;",
+            method = "getDrops(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/item/ItemInstance;)Ljava/util/List;",
             at = @At("RETURN"),
             cancellable = true
     )
     private static void gems$autoSmelt(
             BlockState state,
-            ServerWorld world,
+            ServerLevel world,
             BlockPos pos,
             BlockEntity blockEntity,
             Entity entity,
-            ItemStack tool,
+            ItemInstance tool,
             CallbackInfoReturnable<List<ItemStack>> cir
     ) {
-        if (!(entity instanceof ServerPlayerEntity player)) {
+        if (!(entity instanceof ServerPlayer player)) {
             return;
         }
         boolean autoSmelt = GemPowers.isPassiveActive(player, PowerIds.AUTO_SMELT);
@@ -88,32 +90,32 @@ public abstract class BlockAutoSmeltMixin {
     }
 
     private static boolean isOre(BlockState state) {
-        return state.isIn(BlockTags.COAL_ORES)
-                || state.isIn(BlockTags.COPPER_ORES)
-                || state.isIn(BlockTags.DIAMOND_ORES)
-                || state.isIn(BlockTags.EMERALD_ORES)
-                || state.isIn(BlockTags.GOLD_ORES)
-                || state.isIn(BlockTags.IRON_ORES)
-                || state.isIn(BlockTags.LAPIS_ORES)
-                || state.isIn(BlockTags.REDSTONE_ORES);
+        return (state.is(Blocks.COAL_ORE) || state.is(Blocks.DEEPSLATE_COAL_ORE))
+                || state.is(BlockTags.COPPER_ORES)
+                || (state.is(Blocks.DIAMOND_ORE) || state.is(Blocks.DEEPSLATE_DIAMOND_ORE))
+                || (state.is(Blocks.EMERALD_ORE) || state.is(Blocks.DEEPSLATE_EMERALD_ORE))
+                || state.is(BlockTags.GOLD_ORES)
+                || state.is(BlockTags.IRON_ORES)
+                || (state.is(Blocks.LAPIS_ORE) || state.is(Blocks.DEEPSLATE_LAPIS_ORE))
+                || (state.is(Blocks.REDSTONE_ORE) || state.is(Blocks.DEEPSLATE_REDSTONE_ORE));
     }
 
-    private static boolean hasSilkTouch(ServerWorld world, ItemStack tool) {
-        if (tool == null || tool.isEmpty() || world == null) {
+    private static boolean hasSilkTouch(ServerLevel world, ItemInstance tool) {
+        if (tool == null || tool.count() <= 0 || world == null) {
             return false;
         }
-        var entry = world.getRegistryManager()
-                .getOptionalEntry(net.minecraft.enchantment.Enchantments.SILK_TOUCH)
+        var entry = world.registryAccess()
+                .get(net.minecraft.world.item.enchantment.Enchantments.SILK_TOUCH)
                 .orElse(null);
         if (entry == null) {
             return false;
         }
-        return net.minecraft.enchantment.EnchantmentHelper.getLevel(entry, tool) > 0;
+        return net.minecraft.world.item.enchantment.EnchantmentHelper.getItemEnchantmentLevel(entry, tool) > 0;
     }
 
     private static void splitAndAdd(List<ItemStack> out, ItemStack stack) {
         int remaining = stack.getCount();
-        int max = stack.getMaxCount();
+        int max = stack.getMaxStackSize();
         while (remaining > 0) {
             int part = Math.min(max, remaining);
             ItemStack copy = stack.copy();

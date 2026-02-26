@@ -8,17 +8,17 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class PuffGustAbility implements GemAbility {
     @Override
@@ -42,15 +42,15 @@ public final class PuffGustAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         var cfg = GemsBalance.v().puff();
         int radius = cfg.gustRadiusBlocks();
         if (radius <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.puff.gust.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.puff.gust.disabled"), true);
             return false;
         }
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         double knockback = cfg.gustKnockback();
@@ -59,36 +59,36 @@ public final class PuffGustAbility implements GemAbility {
         int slownessAmplifier = cfg.gustSlownessAmplifier();
         int slowFallDuration = AugmentRuntime.applyDurationMultiplier(player, GemId.PUFF, cfg.gustSlowFallingDurationTicks());
         int hits = 0;
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                 continue;
             }
-            if (other instanceof ServerPlayerEntity otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
+            if (other instanceof ServerPlayer otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
                 continue;
             }
-            Vec3d delta = other.getEntityPos().subtract(player.getEntityPos());
-            if (delta.lengthSquared() > 1.0E-4D) {
-                Vec3d norm = delta.normalize();
-                other.addVelocity(norm.x * knockback, up, norm.z * knockback);
-                other.velocityDirty = true;
+            Vec3 delta = other.position().subtract(player.position());
+            if (delta.lengthSqr() > 1.0E-4D) {
+                Vec3 norm = delta.normalize();
+                other.push(norm.x * knockback, up, norm.z * knockback);
+                other.needsSync = true;
             }
             if (slownessDuration > 0) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, slownessDuration, slownessAmplifier, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, slownessDuration, slownessAmplifier, true, false, false));
             }
             if (slowFallDuration > 0) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, slowFallDuration, 0, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, slowFallDuration, 0, true, false, false));
             }
             hits++;
         }
 
         if (slowFallDuration > 0) {
-            player.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, slowFallDuration, 0, true, false, false));
+            player.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, slowFallDuration, 0, true, false, false));
         }
 
         AbilityFeedback.burst(player, ParticleTypes.CLOUD, 30, 0.6D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_PHANTOM_FLAP, 0.8F, 0.9F);
-        player.sendMessage(Text.translatable("gems.ability.puff.gust.hit", hits), true);
+        AbilityFeedback.sound(player, SoundEvents.PHANTOM_FLAP, 0.8F, 0.9F);
+        player.sendSystemMessage(Component.translatable("gems.ability.puff.gust.hit", hits), true);
         return true;
     }
 }

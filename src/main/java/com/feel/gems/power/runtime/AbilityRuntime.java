@@ -23,27 +23,27 @@ import com.feel.gems.util.GemsTeleport;
 import com.feel.gems.util.GemsTime;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -93,14 +93,12 @@ public final class AbilityRuntime {
     private static final String KEY_AMPLIFICATION_UNTIL = "amplificationUntil";
 
     private static final String KEY_DUELIST_RAPID_UNTIL = "duelistRapidUntil";
-    private static final Identifier MOD_DUELIST_RAPID_ATTACK_SPEED = Identifier.of("gems", "duelist_rapid_attack_speed");
+    private static final Identifier MOD_DUELIST_RAPID_ATTACK_SPEED = Identifier.fromNamespaceAndPath("gems", "duelist_rapid_attack_speed");
 
     // Reaper runtime state
     private static final String KEY_REAPER_WITHERING_UNTIL = "reaperWitheringUntil";
     private static final String KEY_REAPER_OATH_UNTIL = "reaperDeathOathUntil";
     private static final String KEY_REAPER_OATH_TARGET = "reaperDeathOathTarget";
-    private static final String KEY_REAPER_STEED_UNTIL = "reaperGraveSteedUntil";
-    private static final String KEY_REAPER_STEED_UUID = "reaperGraveSteedUuid";
     private static final String KEY_REAPER_STEED_LIST = "reaperGraveSteedList";
     private static final String KEY_REAPER_CLONE_UNTIL = "reaperShadowCloneUntil";
     private static final String KEY_REAPER_CLONE_UUIDS = "reaperShadowCloneUuids";
@@ -117,7 +115,7 @@ public final class AbilityRuntime {
     private AbilityRuntime() {
     }
 
-    public static void tickEverySecond(ServerPlayerEntity player) {
+    public static void tickEverySecond(ServerPlayer player) {
         long now = GemsTime.now(player);
 
         FireballAbility.tickCharging(player, now);
@@ -143,32 +141,32 @@ public final class AbilityRuntime {
         tickDuelistRapidStrike(player, now);
     }
 
-    public static void startCosyCampfire(ServerPlayerEntity player, int durationTicks) {
+    public static void startCosyCampfire(ServerPlayer player, int durationTicks) {
         persistent(player).putLong(KEY_CAMPFIRE_UNTIL, GemsTime.now(player) + durationTicks);
     }
 
-    public static void startHeatHazeZone(ServerPlayerEntity player, int durationTicks) {
+    public static void startHeatHazeZone(ServerPlayer player, int durationTicks) {
         persistent(player).putLong(KEY_HEAT_HAZE_UNTIL, GemsTime.now(player) + durationTicks);
     }
 
-    public static void startSpeedStorm(ServerPlayerEntity player, int durationTicks, float scale) {
+    public static void startSpeedStorm(ServerPlayer player, int durationTicks, float scale) {
         long now = GemsTime.now(player);
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_SPEED_STORM_UNTIL, now + durationTicks);
         nbt.putFloat(KEY_SPEED_STORM_SCALE, scale);
     }
 
-    public static void startSpeedSlipstream(ServerPlayerEntity player, Vec3d direction, int durationTicks, float scale) {
+    public static void startSpeedSlipstream(ServerPlayer player, Vec3 direction, int durationTicks, float scale) {
         if (durationTicks <= 0) {
             return;
         }
-        Vec3d flat = new Vec3d(direction.x, 0.0D, direction.z);
-        if (flat.lengthSquared() <= 1.0E-4D) {
+        Vec3 flat = new Vec3(direction.x, 0.0D, direction.z);
+        if (flat.lengthSqr() <= 1.0E-4D) {
             return;
         }
         flat = flat.normalize();
 
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_SPEED_SLIPSTREAM_UNTIL, GemsTime.now(player) + durationTicks);
         nbt.putFloat(KEY_SPEED_SLIPSTREAM_SCALE, scale);
         nbt.putDouble(KEY_SPEED_SLIPSTREAM_DIR_X, flat.x);
@@ -178,125 +176,125 @@ public final class AbilityRuntime {
         nbt.putDouble(KEY_SPEED_SLIPSTREAM_ORIGIN_Z, player.getZ());
     }
 
-    public static void startSpeedAfterimage(ServerPlayerEntity player, int durationTicks) {
+    public static void startSpeedAfterimage(ServerPlayer player, int durationTicks) {
         if (durationTicks <= 0) {
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_SPEED_AFTERIMAGE_UNTIL, GemsTime.now(player) + durationTicks);
 
         int speedAmp = GemsBalance.v().speed().afterimageSpeedAmplifier();
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, durationTicks, speedAmp, true, false, false));
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, durationTicks, 0, true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.SPEED, durationTicks, speedAmp, true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, durationTicks, 0, true, false, false));
     }
 
-    public static void startSpeedTempoShift(ServerPlayerEntity player, int durationTicks) {
+    public static void startSpeedTempoShift(ServerPlayer player, int durationTicks) {
         if (durationTicks <= 0) {
             return;
         }
         persistent(player).putLong(KEY_SPEED_TEMPO_UNTIL, GemsTime.now(player) + durationTicks);
     }
 
-    public static void startDuelistRapidStrike(ServerPlayerEntity player, int durationTicks) {
+    public static void startDuelistRapidStrike(ServerPlayer player, int durationTicks) {
         if (durationTicks <= 0) {
             clearDuelistRapidStrike(player);
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_DUELIST_RAPID_UNTIL, GemsTime.now(player) + durationTicks);
-        EntityAttributeInstance attackSpeed = player.getAttributeInstance(EntityAttributes.ATTACK_SPEED);
+        AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
         if (attackSpeed != null) {
             attackSpeed.removeModifier(MOD_DUELIST_RAPID_ATTACK_SPEED);
-            attackSpeed.addPersistentModifier(new EntityAttributeModifier(
+            attackSpeed.addPermanentModifier(new AttributeModifier(
                     MOD_DUELIST_RAPID_ATTACK_SPEED,
                     100.0F,
-                    EntityAttributeModifier.Operation.ADD_VALUE
+                    AttributeModifier.Operation.ADD_VALUE
             ));
         }
     }
 
-    public static void breakSpeedAfterimage(ServerPlayerEntity player) {
+    public static void breakSpeedAfterimage(ServerPlayer player) {
         if (!isSpeedAfterimageActive(player)) {
             return;
         }
         clearSpeedAfterimage(player);
-        AbilityFeedback.burst(player, net.minecraft.particle.ParticleTypes.SMOKE, 10, 0.2D);
+        AbilityFeedback.burst(player, net.minecraft.core.particles.ParticleTypes.SMOKE, 10, 0.2D);
     }
 
-    private static boolean isSpeedAfterimageActive(ServerPlayerEntity player) {
-        return persistent(player).getLong(KEY_SPEED_AFTERIMAGE_UNTIL, 0L) > GemsTime.now(player);
+    private static boolean isSpeedAfterimageActive(ServerPlayer player) {
+        return persistent(player).getLongOr(KEY_SPEED_AFTERIMAGE_UNTIL, 0L) > GemsTime.now(player);
     }
 
-    public static void startSpaceGravityField(ServerPlayerEntity player, int durationTicks) {
-        NbtCompound nbt = persistent(player);
+    public static void startSpaceGravityField(ServerPlayer player, int durationTicks) {
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_SPACE_GRAVITY_UNTIL, GemsTime.now(player) + durationTicks);
-        GemsNbt.putUuid(nbt, KEY_SPACE_GRAVITY_CASTER, player.getUuid());
+        GemsNbt.putUuid(nbt, KEY_SPACE_GRAVITY_CASTER, player.getUUID());
     }
 
-    public static void startReaperWitheringStrikes(ServerPlayerEntity player, int durationTicks) {
+    public static void startReaperWitheringStrikes(ServerPlayer player, int durationTicks) {
         if (durationTicks <= 0) {
             return;
         }
         persistent(player).putLong(KEY_REAPER_WITHERING_UNTIL, GemsTime.now(player) + durationTicks);
     }
 
-    public static boolean isReaperWitheringStrikesActive(ServerPlayerEntity player, long now) {
-        long until = persistent(player).getLong(KEY_REAPER_WITHERING_UNTIL, 0L);
+    public static boolean isReaperWitheringStrikesActive(ServerPlayer player, long now) {
+        long until = persistent(player).getLongOr(KEY_REAPER_WITHERING_UNTIL, 0L);
         return until > now;
     }
 
-    public static void startReaperDeathOath(ServerPlayerEntity player, UUID target, int durationTicks) {
+    public static void startReaperDeathOath(ServerPlayer player, UUID target, int durationTicks) {
         if (durationTicks <= 0 || target == null) {
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_REAPER_OATH_UNTIL, GemsTime.now(player) + durationTicks);
         GemsNbt.putUuid(nbt, KEY_REAPER_OATH_TARGET, target);
     }
 
-    public static UUID reaperDeathOathTarget(ServerPlayerEntity player) {
+    public static UUID reaperDeathOathTarget(ServerPlayer player) {
         return GemsNbt.getUuid(persistent(player), KEY_REAPER_OATH_TARGET);
     }
 
-    public static void clearReaperDeathOath(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
+    public static void clearReaperDeathOath(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
         nbt.remove(KEY_REAPER_OATH_UNTIL);
         nbt.remove(KEY_REAPER_OATH_TARGET);
     }
 
-    public static void startReaperGraveSteed(ServerPlayerEntity player, UUID steedUuid, int durationTicks) {
+    public static void startReaperGraveSteed(ServerPlayer player, UUID steedUuid, int durationTicks) {
         if (durationTicks <= 0 || steedUuid == null) {
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         long until = GemsTime.now(player) + durationTicks;
-        NbtList list = nbt.getList(KEY_REAPER_STEED_LIST).orElse(new NbtList());
-        NbtCompound entry = new NbtCompound();
+        ListTag list = nbt.getList(KEY_REAPER_STEED_LIST).orElse(new ListTag());
+        CompoundTag entry = new CompoundTag();
         GemsNbt.putUuid(entry, "uuid", steedUuid);
         entry.putLong("until", until);
         list.add(entry);
         nbt.put(KEY_REAPER_STEED_LIST, list);
     }
 
-    public static void startReaperShadowClone(ServerPlayerEntity player, java.util.List<UUID> cloneUuids, int durationTicks) {
+    public static void startReaperShadowClone(ServerPlayer player, java.util.List<UUID> cloneUuids, int durationTicks) {
         if (durationTicks <= 0 || cloneUuids == null || cloneUuids.isEmpty()) {
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_REAPER_CLONE_UNTIL, GemsTime.now(player) + durationTicks);
         writeUuidList(nbt, KEY_REAPER_CLONE_UUIDS, cloneUuids);
     }
 
-    public static void startReaperRetribution(ServerPlayerEntity player, int durationTicks) {
+    public static void startReaperRetribution(ServerPlayer player, int durationTicks) {
         if (durationTicks <= 0) {
             return;
         }
         persistent(player).putLong(KEY_REAPER_RETRIBUTION_UNTIL, GemsTime.now(player) + durationTicks);
     }
 
-    public static boolean isReaperRetributionActive(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_REAPER_RETRIBUTION_UNTIL, 0L);
+    public static boolean isReaperRetributionActive(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_REAPER_RETRIBUTION_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
@@ -308,9 +306,9 @@ public final class AbilityRuntime {
         return true;
     }
 
-    public static boolean isReaperDeathOathActive(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_REAPER_OATH_UNTIL, 0L);
+    public static boolean isReaperDeathOathActive(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_REAPER_OATH_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
@@ -322,22 +320,22 @@ public final class AbilityRuntime {
         return true;
     }
 
-    public static void startReaperBloodChargeCharging(ServerPlayerEntity player, int maxChargeTicks) {
+    public static void startReaperBloodChargeCharging(ServerPlayer player, int maxChargeTicks) {
         if (maxChargeTicks <= 0) {
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(ReaperBloodCharge.KEY_CHARGING_UNTIL, GemsTime.now(player) + maxChargeTicks);
         nbt.putInt(ReaperBloodCharge.KEY_CHARGED_TICKS, 0);
     }
 
-    public static boolean finishReaperBloodChargeCharging(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(ReaperBloodCharge.KEY_CHARGING_UNTIL, 0L);
+    public static boolean finishReaperBloodChargeCharging(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(ReaperBloodCharge.KEY_CHARGING_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
-        int charged = nbt.getInt(ReaperBloodCharge.KEY_CHARGED_TICKS, 0);
+        int charged = nbt.getIntOr(ReaperBloodCharge.KEY_CHARGED_TICKS, 0);
         int maxCharge = GemsBalance.v().reaper().bloodChargeMaxChargeTicks();
         float mult = ReaperBloodCharge.computeMultiplier(charged, Math.max(1, maxCharge));
         int buffDuration = GemsBalance.v().reaper().bloodChargeBuffDurationTicks();
@@ -346,89 +344,89 @@ public final class AbilityRuntime {
         return true;
     }
 
-    public static void startUnbounded(ServerPlayerEntity player, int durationTicks) {
-        NbtCompound nbt = persistent(player);
+    public static void startUnbounded(ServerPlayer player, int durationTicks) {
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_UNBOUNDED_UNTIL, GemsTime.now(player) + durationTicks);
-        nbt.putString(KEY_UNBOUNDED_PREV_GAMEMODE, player.interactionManager.getGameMode().getId());
-        player.changeGameMode(GameMode.SPECTATOR);
+        nbt.putString(KEY_UNBOUNDED_PREV_GAMEMODE, player.gameMode.getGameModeForPlayer().getName());
+        player.setGameMode(GameType.SPECTATOR);
     }
 
-    public static void startAstralCamera(ServerPlayerEntity player, int durationTicks) {
-        NbtCompound nbt = persistent(player);
+    public static void startAstralCamera(ServerPlayer player, int durationTicks) {
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_ASTRAL_CAMERA_UNTIL, GemsTime.now(player) + durationTicks);
-        nbt.putString(KEY_ASTRAL_CAMERA_PREV_GAMEMODE, player.interactionManager.getGameMode().getId());
-        nbt.putString(KEY_ASTRAL_CAMERA_RETURN_DIM, player.getEntityWorld().getRegistryKey().getValue().toString());
-        nbt.putLong(KEY_ASTRAL_CAMERA_RETURN_POS, player.getBlockPos().asLong());
-        nbt.putFloat(KEY_ASTRAL_CAMERA_RETURN_YAW, player.getYaw());
-        nbt.putFloat(KEY_ASTRAL_CAMERA_RETURN_PITCH, player.getPitch());
-        player.changeGameMode(GameMode.SPECTATOR);
+        nbt.putString(KEY_ASTRAL_CAMERA_PREV_GAMEMODE, player.gameMode.getGameModeForPlayer().getName());
+        nbt.putString(KEY_ASTRAL_CAMERA_RETURN_DIM, player.level().dimension().identifier().toString());
+        nbt.putLong(KEY_ASTRAL_CAMERA_RETURN_POS, player.blockPosition().asLong());
+        nbt.putFloat(KEY_ASTRAL_CAMERA_RETURN_YAW, player.getYRot());
+        nbt.putFloat(KEY_ASTRAL_CAMERA_RETURN_PITCH, player.getXRot());
+        player.setGameMode(GameType.SPECTATOR);
     }
 
-    public static void startLifeCircle(ServerPlayerEntity caster, int durationTicks) {
-        NbtCompound nbt = persistent(caster);
+    public static void startLifeCircle(ServerPlayer caster, int durationTicks) {
+        CompoundTag nbt = persistent(caster);
         nbt.putLong(KEY_LIFE_CIRCLE_UNTIL, GemsTime.now(caster) + durationTicks);
-        GemsNbt.putUuid(nbt, KEY_LIFE_CIRCLE_CASTER, caster.getUuid());
+        GemsNbt.putUuid(nbt, KEY_LIFE_CIRCLE_CASTER, caster.getUUID());
     }
 
-    public static void startHeartLock(ServerPlayerEntity caster, ServerPlayerEntity target, int durationTicks) {
-        NbtCompound nbt = persistent(target);
+    public static void startHeartLock(ServerPlayer caster, ServerPlayer target, int durationTicks) {
+        CompoundTag nbt = persistent(target);
         nbt.putLong(KEY_HEART_LOCK_UNTIL, GemsTime.now(target) + durationTicks);
-        GemsNbt.putUuid(nbt, KEY_HEART_LOCK_CASTER, caster.getUuid());
+        GemsNbt.putUuid(nbt, KEY_HEART_LOCK_CASTER, caster.getUUID());
 
-        double currentMax = target.getAttributeValue(EntityAttributes.MAX_HEALTH);
+        double currentMax = target.getAttributeValue(Attributes.MAX_HEALTH);
         double lockedMax = Math.max(2.0D, target.getHealth());
         nbt.putFloat(KEY_HEART_LOCK_LOCKED_MAX, (float) lockedMax);
         double delta = lockedMax - currentMax;
-        Identifier modifierId = heartLockModifierId(caster.getUuid());
+        Identifier modifierId = heartLockModifierId(caster.getUUID());
         applyMaxHealthModifier(target, modifierId, delta);
     }
 
-    public static void startBounty(ServerPlayerEntity hunter, UUID target, int durationTicks) {
-        NbtCompound nbt = persistent(hunter);
+    public static void startBounty(ServerPlayer hunter, UUID target, int durationTicks) {
+        CompoundTag nbt = persistent(hunter);
         nbt.putLong(KEY_BOUNTY_UNTIL, GemsTime.now(hunter) + durationTicks);
         GemsNbt.putUuid(nbt, KEY_BOUNTY_TARGET, target);
     }
 
-    public static void startChadStrength(ServerPlayerEntity player, int durationTicks) {
-        NbtCompound nbt = persistent(player);
+    public static void startChadStrength(ServerPlayer player, int durationTicks) {
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_CHAD_UNTIL, GemsTime.now(player) + durationTicks);
         nbt.putInt(KEY_CHAD_HITS, 0);
     }
 
-    public static boolean isChadStrengthActive(ServerPlayerEntity player) {
+    public static boolean isChadStrengthActive(ServerPlayer player) {
         long now = GemsTime.now(player);
-        return persistent(player).getLong(KEY_CHAD_UNTIL, 0L) > now;
+        return persistent(player).getLongOr(KEY_CHAD_UNTIL, 0L) > now;
     }
 
-    public static int incrementChadHit(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
-        int next = nbt.getInt(KEY_CHAD_HITS, 0) + 1;
+    public static int incrementChadHit(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
+        int next = nbt.getIntOr(KEY_CHAD_HITS, 0) + 1;
         nbt.putInt(KEY_CHAD_HITS, next);
         return next;
     }
 
-    public static void startRichRush(ServerPlayerEntity player, int durationTicks) {
+    public static void startRichRush(ServerPlayer player, int durationTicks) {
         persistent(player).putLong(KEY_RICH_RUSH_UNTIL, GemsTime.now(player) + durationTicks);
     }
 
-    public static void startAmplification(ServerPlayerEntity player, int durationTicks) {
+    public static void startAmplification(ServerPlayer player, int durationTicks) {
         persistent(player).putLong(KEY_AMPLIFICATION_UNTIL, GemsTime.now(player) + durationTicks);
     }
 
-    public static boolean isRichRushActive(ServerPlayerEntity player) {
+    public static boolean isRichRushActive(ServerPlayer player) {
         long now = GemsTime.now(player);
-        return persistent(player).getLong(KEY_RICH_RUSH_UNTIL, 0L) > now;
+        return persistent(player).getLongOr(KEY_RICH_RUSH_UNTIL, 0L) > now;
     }
 
     public static void setOwnerIfMissing(ItemStack stack, UUID owner) {
         if (stack.isEmpty()) {
             return;
         }
-        NbtComponent existing = stack.get(DataComponentTypes.CUSTOM_DATA);
-        if (existing != null && GemsNbt.containsUuid(existing.copyNbt(), CUSTOM_DATA_KEY_OWNER)) {
+        CustomData existing = stack.get(DataComponents.CUSTOM_DATA);
+        if (existing != null && GemsNbt.containsUuid(existing.copyTag(), CUSTOM_DATA_KEY_OWNER)) {
             return;
         }
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> GemsNbt.putUuid(nbt, CUSTOM_DATA_KEY_OWNER, owner));
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> GemsNbt.putUuid(nbt, CUSTOM_DATA_KEY_OWNER, owner));
     }
 
     /**
@@ -439,11 +437,11 @@ public final class AbilityRuntime {
         if (stack.isEmpty()) {
             return;
         }
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             UUID current = GemsNbt.getUuid(nbt, CUSTOM_DATA_KEY_OWNER);
             if (current != null && !current.equals(owner)) {
                 GemsNbt.putUuid(nbt, CUSTOM_DATA_KEY_PREV_OWNER, current);
-                String currentName = nbt.getString(CUSTOM_DATA_KEY_OWNER_NAME, "");
+                String currentName = nbt.getStringOr(CUSTOM_DATA_KEY_OWNER_NAME, "");
                 if (!currentName.isEmpty()) {
                     nbt.putString(CUSTOM_DATA_KEY_PREV_OWNER_NAME, currentName);
                 }
@@ -463,22 +461,22 @@ public final class AbilityRuntime {
     }
 
     public static UUID getOwner(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return null;
         }
-        return GemsNbt.getUuid(custom.copyNbt(), CUSTOM_DATA_KEY_OWNER);
+        return GemsNbt.getUuid(custom.copyTag(), CUSTOM_DATA_KEY_OWNER);
     }
 
     /**
      * Gets the owner name stored on an item, if available.
      */
     public static String getOwnerName(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return null;
         }
-        NbtCompound nbt = custom.copyNbt();
+        CompoundTag nbt = custom.copyTag();
         if (!nbt.contains(CUSTOM_DATA_KEY_OWNER_NAME)) {
             return null;
         }
@@ -489,33 +487,33 @@ public final class AbilityRuntime {
      * Gets the FIRST owner UUID from an item (the original crafter/finder).
      */
     public static UUID getFirstOwner(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return null;
         }
-        return GemsNbt.getUuid(custom.copyNbt(), CUSTOM_DATA_KEY_FIRST_OWNER);
+        return GemsNbt.getUuid(custom.copyTag(), CUSTOM_DATA_KEY_FIRST_OWNER);
     }
 
     /**
      * Gets the PREVIOUS owner UUID from an item, if available.
      */
     public static UUID getPreviousOwner(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return null;
         }
-        return GemsNbt.getUuid(custom.copyNbt(), CUSTOM_DATA_KEY_PREV_OWNER);
+        return GemsNbt.getUuid(custom.copyTag(), CUSTOM_DATA_KEY_PREV_OWNER);
     }
 
     /**
      * Gets the FIRST owner name stored on an item, if available.
      */
     public static String getFirstOwnerName(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return null;
         }
-        NbtCompound nbt = custom.copyNbt();
+        CompoundTag nbt = custom.copyTag();
         if (!nbt.contains(CUSTOM_DATA_KEY_FIRST_OWNER_NAME)) {
             return null;
         }
@@ -526,19 +524,19 @@ public final class AbilityRuntime {
      * Gets the PREVIOUS owner name stored on an item, if available.
      */
     public static String getPreviousOwnerName(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return null;
         }
-        NbtCompound nbt = custom.copyNbt();
+        CompoundTag nbt = custom.copyTag();
         if (!nbt.contains(CUSTOM_DATA_KEY_PREV_OWNER_NAME)) {
             return null;
         }
         return nbt.getString(CUSTOM_DATA_KEY_PREV_OWNER_NAME).orElse(null);
     }
 
-    private static java.util.List<UUID> readUuidList(NbtCompound nbt, String key) {
-        NbtList list = nbt.getList(key).orElse(null);
+    private static java.util.List<UUID> readUuidList(CompoundTag nbt, String key) {
+        ListTag list = nbt.getList(key).orElse(null);
         if (list == null || list.isEmpty()) {
             return java.util.List.of();
         }
@@ -552,75 +550,75 @@ public final class AbilityRuntime {
         return out;
     }
 
-    private static void writeUuidList(NbtCompound nbt, String key, java.util.Collection<UUID> uuids) {
-        NbtList list = new NbtList();
+    private static void writeUuidList(CompoundTag nbt, String key, java.util.Collection<UUID> uuids) {
+        ListTag list = new ListTag();
         for (UUID uuid : uuids) {
             list.add(GemsNbt.fromUuid(uuid));
         }
         nbt.put(key, list);
     }
 
-    private static void tickCosyCampfire(ServerPlayerEntity player, long now) {
-        if (persistent(player).getLong(KEY_CAMPFIRE_UNTIL, 0L) <= now) {
+    private static void tickCosyCampfire(ServerPlayer player, long now) {
+        if (persistent(player).getLongOr(KEY_CAMPFIRE_UNTIL, 0L) <= now) {
             return;
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
         int radius = GemsBalance.v().fire().cosyCampfireRadiusBlocks();
         int amp = GemsBalance.v().fire().cosyCampfireRegenAmplifier();
-        Vec3d origin = player.getEntityPos();
-        AbilityFeedback.ring(world, origin.add(0.0D, 0.2D, 0.0D), Math.min(6.0D, radius), net.minecraft.particle.ParticleTypes.CAMPFIRE_COSY_SMOKE, 20);
+        Vec3 origin = player.position();
+        AbilityFeedback.ring(world, origin.add(0.0D, 0.2D, 0.0D), Math.min(6.0D, radius), net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE, 20);
         for (LivingEntity other : livingInRadius(world, origin, radius)) {
-            if (!(other instanceof ServerPlayerEntity otherPlayer) || !GemTrust.isTrusted(player, otherPlayer)) {
+            if (!(other instanceof ServerPlayer otherPlayer) || !GemTrust.isTrusted(player, otherPlayer)) {
                 continue;
             }
             if (VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                 continue;
             }
-            other.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 40, amp, true, false, false));
-            AbilityFeedback.burstAt(world, other.getEntityPos().add(0.0D, 1.0D, 0.0D), net.minecraft.particle.ParticleTypes.HEART, 1, 0.1D);
+            other.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, amp, true, false, false));
+            AbilityFeedback.burstAt(world, other.position().add(0.0D, 1.0D, 0.0D), net.minecraft.core.particles.ParticleTypes.HEART, 1, 0.1D);
         }
     }
 
-    private static void tickHeatHazeZone(ServerPlayerEntity player, long now) {
-        if (persistent(player).getLong(KEY_HEAT_HAZE_UNTIL, 0L) <= now) {
+    private static void tickHeatHazeZone(ServerPlayer player, long now) {
+        if (persistent(player).getLongOr(KEY_HEAT_HAZE_UNTIL, 0L) <= now) {
             return;
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
         int duration = 40;
         int radius = GemsBalance.v().fire().heatHazeRadiusBlocks();
         int fatigueAmp = GemsBalance.v().fire().heatHazeEnemyMiningFatigueAmplifier();
         int weaknessAmp = GemsBalance.v().fire().heatHazeEnemyWeaknessAmplifier();
-        Vec3d origin = player.getEntityPos();
-        AbilityFeedback.ring(world, origin.add(0.0D, 0.2D, 0.0D), Math.min(7.0D, radius), net.minecraft.particle.ParticleTypes.FLAME, 24);
+        Vec3 origin = player.position();
+        AbilityFeedback.ring(world, origin.add(0.0D, 0.2D, 0.0D), Math.min(7.0D, radius), net.minecraft.core.particles.ParticleTypes.FLAME, 24);
         for (LivingEntity other : livingInRadius(world, origin, radius)) {
-            if (other instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
+            if (other instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                 continue;
             }
-            boolean ally = other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer);
+            boolean ally = other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer);
             if (ally) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, duration, 0, true, false, false));
-                AbilityFeedback.burstAt(world, other.getEntityPos().add(0.0D, 1.0D, 0.0D), net.minecraft.particle.ParticleTypes.FLAME, 1, 0.05D);
+                other.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, duration, 0, true, false, false));
+                AbilityFeedback.burstAt(world, other.position().add(0.0D, 1.0D, 0.0D), net.minecraft.core.particles.ParticleTypes.FLAME, 1, 0.05D);
             } else {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.MINING_FATIGUE, duration, fatigueAmp, true, false, false));
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, duration, weaknessAmp, true, false, false));
-                AbilityFeedback.burstAt(world, other.getEntityPos().add(0.0D, 1.0D, 0.0D), net.minecraft.particle.ParticleTypes.SMOKE, 1, 0.08D);
+                other.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, duration, fatigueAmp, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, weaknessAmp, true, false, false));
+                AbilityFeedback.burstAt(world, other.position().add(0.0D, 1.0D, 0.0D), net.minecraft.core.particles.ParticleTypes.SMOKE, 1, 0.08D);
             }
         }
     }
 
-    private static void tickSpeedStorm(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        if (nbt.getLong(KEY_SPEED_STORM_UNTIL, 0L) <= now) {
+    private static void tickSpeedStorm(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        if (nbt.getLongOr(KEY_SPEED_STORM_UNTIL, 0L) <= now) {
             return;
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        float scale = nbt.getFloat(KEY_SPEED_STORM_SCALE, 1.0F);
+        float scale = nbt.getFloatOr(KEY_SPEED_STORM_SCALE, 1.0F);
         if (scale <= 0.0F) {
             scale = 1.0F;
         }
@@ -629,28 +627,28 @@ public final class AbilityRuntime {
         int allyHaste = SpeedMomentum.scaleInt(GemsBalance.v().speed().speedStormAllyHasteAmplifier(), scale, 0);
         int enemySlow = SpeedMomentum.scaleInt(GemsBalance.v().speed().speedStormEnemySlownessAmplifier(), scale, 0);
         int enemyFatigue = SpeedMomentum.scaleInt(GemsBalance.v().speed().speedStormEnemyMiningFatigueAmplifier(), scale, 0);
-        Vec3d origin = player.getEntityPos();
-        AbilityFeedback.ring(world, origin.add(0.0D, 0.2D, 0.0D), Math.min(7.0D, radius), net.minecraft.particle.ParticleTypes.CLOUD, 24);
+        Vec3 origin = player.position();
+        AbilityFeedback.ring(world, origin.add(0.0D, 0.2D, 0.0D), Math.min(7.0D, radius), net.minecraft.core.particles.ParticleTypes.CLOUD, 24);
         for (LivingEntity other : livingInRadius(world, origin, radius)) {
-            if (other instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
+            if (other instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                 continue;
             }
-            boolean ally = other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer);
+            boolean ally = other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer);
             if (ally) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 40, allySpeed, true, false, false));
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE, 40, allyHaste, true, false, false));
-                AbilityFeedback.burstAt(world, other.getEntityPos().add(0.0D, 1.0D, 0.0D), net.minecraft.particle.ParticleTypes.CLOUD, 1, 0.1D);
+                other.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, allySpeed, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.HASTE, 40, allyHaste, true, false, false));
+                AbilityFeedback.burstAt(world, other.position().add(0.0D, 1.0D, 0.0D), net.minecraft.core.particles.ParticleTypes.CLOUD, 1, 0.1D);
             } else {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 40, enemySlow, true, false, false));
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.MINING_FATIGUE, 40, enemyFatigue, true, false, false));
-                AbilityFeedback.burstAt(world, other.getEntityPos().add(0.0D, 1.0D, 0.0D), net.minecraft.particle.ParticleTypes.SNOWFLAKE, 1, 0.1D);
+                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 40, enemySlow, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, 40, enemyFatigue, true, false, false));
+                AbilityFeedback.burstAt(world, other.position().add(0.0D, 1.0D, 0.0D), net.minecraft.core.particles.ParticleTypes.SNOWFLAKE, 1, 0.1D);
             }
         }
     }
 
-    private static void tickSpeedSlipstream(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_SPEED_SLIPSTREAM_UNTIL, 0L);
+    private static void tickSpeedSlipstream(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_SPEED_SLIPSTREAM_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -663,22 +661,22 @@ public final class AbilityRuntime {
             return;
         }
 
-        float scale = nbt.getFloat(KEY_SPEED_SLIPSTREAM_SCALE, 1.0F);
+        float scale = nbt.getFloatOr(KEY_SPEED_SLIPSTREAM_SCALE, 1.0F);
         if (scale <= 0.0F) {
             scale = 1.0F;
         }
 
-        Vec3d dir = new Vec3d(nbt.getDouble(KEY_SPEED_SLIPSTREAM_DIR_X, 0.0D), 0.0D, nbt.getDouble(KEY_SPEED_SLIPSTREAM_DIR_Z, 0.0D));
-        if (dir.lengthSquared() <= 1.0E-4D) {
+        Vec3 dir = new Vec3(nbt.getDoubleOr(KEY_SPEED_SLIPSTREAM_DIR_X, 0.0D), 0.0D, nbt.getDoubleOr(KEY_SPEED_SLIPSTREAM_DIR_Z, 0.0D));
+        if (dir.lengthSqr() <= 1.0E-4D) {
             clearSpeedSlipstream(nbt);
             return;
         }
         dir = dir.normalize();
 
-        Vec3d origin = new Vec3d(
-                nbt.getDouble(KEY_SPEED_SLIPSTREAM_ORIGIN_X, player.getX()),
-                nbt.getDouble(KEY_SPEED_SLIPSTREAM_ORIGIN_Y, player.getY()),
-                nbt.getDouble(KEY_SPEED_SLIPSTREAM_ORIGIN_Z, player.getZ())
+        Vec3 origin = new Vec3(
+                nbt.getDoubleOr(KEY_SPEED_SLIPSTREAM_ORIGIN_X, player.getX()),
+                nbt.getDoubleOr(KEY_SPEED_SLIPSTREAM_ORIGIN_Y, player.getY()),
+                nbt.getDoubleOr(KEY_SPEED_SLIPSTREAM_ORIGIN_Z, player.getZ())
         );
 
         double length = SpeedMomentum.scaleDouble(GemsBalance.v().speed().slipstreamLengthBlocks(), scale);
@@ -687,46 +685,46 @@ public final class AbilityRuntime {
             return;
         }
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        Vec3d end = origin.add(dir.multiply(length));
-        Box box = new Box(origin, end).expand(radius, 2.0D, radius);
+        Vec3 end = origin.add(dir.scale(length));
+        AABB box = new AABB(origin, end).inflate(radius, 2.0D, radius);
 
         int allyAmp = SpeedMomentum.scaleInt(GemsBalance.v().speed().slipstreamAllySpeedAmplifier(), scale, 0);
         int enemyAmp = SpeedMomentum.scaleInt(GemsBalance.v().speed().slipstreamEnemySlownessAmplifier(), scale, 0);
         double knockback = GemsBalance.v().speed().slipstreamEnemyKnockback() * scale;
 
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive())) {
-            if (other instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive())) {
+            if (other instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                 continue;
             }
-            Vec3d pos = other.getEntityPos();
-            double t = pos.subtract(origin).dotProduct(dir);
+            Vec3 pos = other.position();
+            double t = pos.subtract(origin).dot(dir);
             if (t < 0.0D || t > length) {
                 continue;
             }
-            Vec3d closest = origin.add(dir.multiply(t));
-            if (pos.squaredDistanceTo(closest) > radius * radius) {
+            Vec3 closest = origin.add(dir.scale(t));
+            if (pos.distanceToSqr(closest) > radius * radius) {
                 continue;
             }
 
-            boolean trusted = other instanceof ServerPlayerEntity otherPlayer && (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer));
+            boolean trusted = other instanceof ServerPlayer otherPlayer && (otherPlayer == player || GemTrust.isTrusted(player, otherPlayer));
             if (trusted) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 40, allyAmp, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.SPEED, 40, allyAmp, true, false, false));
             } else {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 40, enemyAmp, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 40, enemyAmp, true, false, false));
                 if (knockback > 0.0D) {
-                    other.addVelocity(dir.x * knockback, 0.02D, dir.z * knockback);
-                    other.velocityDirty = true;
+                    other.push(dir.x * knockback, 0.02D, dir.z * knockback);
+                    other.needsSync = true;
                 }
             }
         }
     }
 
-    private static void tickSpeedAfterimage(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_SPEED_AFTERIMAGE_UNTIL, 0L);
+    private static void tickSpeedAfterimage(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_SPEED_AFTERIMAGE_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -735,9 +733,9 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void tickSpeedTempoShift(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_SPEED_TEMPO_UNTIL, 0L);
+    private static void tickSpeedTempoShift(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_SPEED_TEMPO_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -764,12 +762,12 @@ public final class AbilityRuntime {
             return;
         }
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
         double radiusSq = radius * (double) radius;
-        for (ServerPlayerEntity other : world.getPlayers()) {
-            if (other.squaredDistanceTo(player) > radiusSq) {
+        for (ServerPlayer other : world.players()) {
+            if (other.distanceToSqr(player) > radiusSq) {
                 continue;
             }
             if (other != player && VoidImmunity.shouldBlockEffect(player, other)) {
@@ -786,9 +784,9 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void tickDuelistRapidStrike(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_DUELIST_RAPID_UNTIL, 0L);
+    private static void tickDuelistRapidStrike(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_DUELIST_RAPID_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -797,36 +795,36 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void clearDuelistRapidStrike(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
+    private static void clearDuelistRapidStrike(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
         nbt.remove(KEY_DUELIST_RAPID_UNTIL);
-        EntityAttributeInstance attackSpeed = player.getAttributeInstance(EntityAttributes.ATTACK_SPEED);
+        AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
         if (attackSpeed != null) {
             attackSpeed.removeModifier(MOD_DUELIST_RAPID_ATTACK_SPEED);
         }
     }
 
-    private static void clearSpeedAfterimage(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
+    private static void clearSpeedAfterimage(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
         nbt.remove(KEY_SPEED_AFTERIMAGE_UNTIL);
 
-        player.removeStatusEffect(StatusEffects.INVISIBILITY);
+        player.removeEffect(MobEffects.INVISIBILITY);
         int amp = GemsBalance.v().speed().afterimageSpeedAmplifier();
-        StatusEffectInstance speed = player.getStatusEffect(StatusEffects.SPEED);
-        if (speed != null && speed.getAmplifier() == amp && !speed.isInfinite()) {
-            player.removeStatusEffect(StatusEffects.SPEED);
+        MobEffectInstance speed = player.getEffect(MobEffects.SPEED);
+        if (speed != null && speed.getAmplifier() == amp && !speed.isInfiniteDuration()) {
+            player.removeEffect(MobEffects.SPEED);
         }
     }
 
-    private static boolean shiftCooldowns(ServerPlayerEntity player, int deltaTicks, long now) {
+    private static boolean shiftCooldowns(ServerPlayer player, int deltaTicks, long now) {
         GemId activeGem = GemPlayerState.getActiveGem(player);
         List<Identifier> abilities;
         if (activeGem == GemId.PRISM) {
-            var server = player.getEntityWorld().getServer();
+            var server = player.level().getServer();
             if (server == null) {
                 return false;
             }
-            abilities = PrismSelectionsState.get(server).getSelection(player.getUuid()).allAbilities();
+            abilities = PrismSelectionsState.get(server).getSelection(player.getUUID()).allAbilities();
         } else {
             abilities = GemRegistry.definition(activeGem).abilities();
         }
@@ -845,7 +843,7 @@ public final class AbilityRuntime {
         return changed;
     }
 
-    private static void clearSpeedSlipstream(NbtCompound nbt) {
+    private static void clearSpeedSlipstream(CompoundTag nbt) {
         nbt.remove(KEY_SPEED_SLIPSTREAM_UNTIL);
         nbt.remove(KEY_SPEED_SLIPSTREAM_SCALE);
         nbt.remove(KEY_SPEED_SLIPSTREAM_DIR_X);
@@ -855,20 +853,20 @@ public final class AbilityRuntime {
         nbt.remove(KEY_SPEED_SLIPSTREAM_ORIGIN_Z);
     }
 
-    private static void tickSpaceGravityField(ServerPlayerEntity caster, long now) {
-        NbtCompound nbt = persistent(caster);
-        long until = nbt.getLong(KEY_SPACE_GRAVITY_UNTIL, 0L);
+    private static void tickSpaceGravityField(ServerPlayer caster, long now) {
+        CompoundTag nbt = persistent(caster);
+        long until = nbt.getLongOr(KEY_SPACE_GRAVITY_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
 
         UUID casterId = GemsNbt.getUuid(nbt, KEY_SPACE_GRAVITY_CASTER);
         if (casterId == null) {
-            casterId = caster.getUuid();
+            casterId = caster.getUUID();
         }
         Identifier modifierId = spaceGravityModifierId(casterId);
 
-        MinecraftServer server = caster.getEntityWorld().getServer();
+        MinecraftServer server = caster.level().getServer();
         if (server == null) {
             nbt.remove(KEY_SPACE_GRAVITY_UNTIL);
             nbt.remove(KEY_SPACE_GRAVITY_CASTER);
@@ -878,28 +876,28 @@ public final class AbilityRuntime {
         if (now >= until) {
             nbt.remove(KEY_SPACE_GRAVITY_UNTIL);
             nbt.remove(KEY_SPACE_GRAVITY_CASTER);
-            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 applyGravityMultiplier(p, modifierId, 1.0F);
             }
             return;
         }
 
-        if (!(caster.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(caster.level() instanceof ServerLevel world)) {
             return;
         }
         int radius = GemsBalance.v().space().gravityFieldRadiusBlocks();
         float allyMult = GemsBalance.v().space().gravityFieldAllyGravityMultiplier();
         float enemyMult = GemsBalance.v().space().gravityFieldEnemyGravityMultiplier();
         double radiusSq = radius * (double) radius;
-        AbilityFeedback.ring(world, caster.getEntityPos().add(0.0D, 0.25D, 0.0D), Math.min(7.0D, radius), net.minecraft.particle.ParticleTypes.END_ROD, 18);
+        AbilityFeedback.ring(world, caster.position().add(0.0D, 0.25D, 0.0D), Math.min(7.0D, radius), net.minecraft.core.particles.ParticleTypes.END_ROD, 18);
 
         // Update all players once per second: apply inside radius, remove if they left.
-        for (ServerPlayerEntity other : world.getPlayers()) {
+        for (ServerPlayer other : world.players()) {
             if (other != caster && VoidImmunity.shouldBlockEffect(caster, other)) {
                 applyGravityMultiplier(other, modifierId, 1.0F);
                 continue;
             }
-            double distSq = other.squaredDistanceTo(caster);
+            double distSq = other.distanceToSqr(caster);
             if (distSq > radiusSq) {
                 applyGravityMultiplier(other, modifierId, 1.0F);
                 continue;
@@ -910,41 +908,41 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void applyGravityMultiplier(ServerPlayerEntity player, Identifier modifierId, float multiplier) {
-        EntityAttributeInstance gravity = player.getAttributeInstance(EntityAttributes.GRAVITY);
+    private static void applyGravityMultiplier(ServerPlayer player, Identifier modifierId, float multiplier) {
+        AttributeInstance gravity = player.getAttribute(Attributes.GRAVITY);
         if (gravity == null) {
             return;
         }
         gravity.removeModifier(modifierId);
         if (multiplier != 1.0F) {
             double delta = (double) multiplier - 1.0D;
-            gravity.addTemporaryModifier(new EntityAttributeModifier(modifierId, delta, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            gravity.addTransientModifier(new AttributeModifier(modifierId, delta, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
     }
 
     private static Identifier spaceGravityModifierId(UUID caster) {
-        return Identifier.of("gems", "space_gravity_" + caster);
+        return Identifier.fromNamespaceAndPath("gems", "space_gravity_" + caster);
     }
 
-    private static void tickLifeCircle(ServerPlayerEntity caster, long now) {
-        NbtCompound nbt = persistent(caster);
-        long until = nbt.getLong(KEY_LIFE_CIRCLE_UNTIL, 0L);
+    private static void tickLifeCircle(ServerPlayer caster, long now) {
+        CompoundTag nbt = persistent(caster);
+        long until = nbt.getLongOr(KEY_LIFE_CIRCLE_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
         UUID casterId = GemsNbt.getUuid(nbt, KEY_LIFE_CIRCLE_CASTER);
         if (casterId == null) {
-            casterId = caster.getUuid();
+            casterId = caster.getUUID();
         }
         Identifier bonusId = lifeCircleBonusId(casterId);
         Identifier penaltyId = lifeCirclePenaltyId(casterId);
 
-        if (!(caster.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(caster.level() instanceof ServerLevel world)) {
             return;
         }
 
         if (until <= now) {
-            for (ServerPlayerEntity p : world.getPlayers()) {
+            for (ServerPlayer p : world.players()) {
                 removeMaxHealthModifier(p, bonusId);
                 removeMaxHealthModifier(p, penaltyId);
             }
@@ -955,14 +953,14 @@ public final class AbilityRuntime {
 
         int radius = GemsBalance.v().life().lifeCircleRadiusBlocks();
         double deltaHealth = GemsBalance.v().life().lifeCircleMaxHealthDelta();
-        AbilityFeedback.ring(world, caster.getEntityPos().add(0.0D, 0.2D, 0.0D), Math.min(7.0D, radius), net.minecraft.particle.ParticleTypes.HEART, 24);
-        for (ServerPlayerEntity other : world.getPlayers()) {
+        AbilityFeedback.ring(world, caster.position().add(0.0D, 0.2D, 0.0D), Math.min(7.0D, radius), net.minecraft.core.particles.ParticleTypes.HEART, 24);
+        for (ServerPlayer other : world.players()) {
             if (other != caster && VoidImmunity.shouldBlockEffect(caster, other)) {
                 removeMaxHealthModifier(other, bonusId);
                 removeMaxHealthModifier(other, penaltyId);
                 continue;
             }
-            double distSq = other.squaredDistanceTo(caster);
+            double distSq = other.distanceToSqr(caster);
             boolean inRange = distSq <= radius * (double) radius;
             if (!inRange) {
                 removeMaxHealthModifier(other, bonusId);
@@ -971,12 +969,12 @@ public final class AbilityRuntime {
             }
 
             if (GemTrust.isTrusted(caster, other)) {
-                EntityAttributeInstance maxHealth = other.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+                AttributeInstance maxHealth = other.getAttribute(Attributes.MAX_HEALTH);
                 double prevBonus = 0.0D;
                 if (maxHealth != null) {
-                    EntityAttributeModifier existing = maxHealth.getModifier(bonusId);
+                    AttributeModifier existing = maxHealth.getModifier(bonusId);
                     if (existing != null) {
-                        prevBonus = existing.value();
+                        prevBonus = existing.amount();
                     }
                 }
                 applyMaxHealthModifier(other, bonusId, deltaHealth);
@@ -998,9 +996,9 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void tickHeartLock(ServerPlayerEntity target, long now) {
-        NbtCompound nbt = persistent(target);
-        long until = nbt.getLong(KEY_HEART_LOCK_UNTIL, 0L);
+    private static void tickHeartLock(ServerPlayer target, long now) {
+        CompoundTag nbt = persistent(target);
+        long until = nbt.getLongOr(KEY_HEART_LOCK_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -1017,7 +1015,7 @@ public final class AbilityRuntime {
             return;
         }
 
-        EntityAttributeInstance maxHealth = target.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+        AttributeInstance maxHealth = target.getAttribute(Attributes.MAX_HEALTH);
         if (maxHealth == null) {
             return;
         }
@@ -1026,15 +1024,15 @@ public final class AbilityRuntime {
         maxHealth.removeModifier(modifierId);
         double baseMax = maxHealth.getValue();
 
-        float locked = nbt.getFloat(KEY_HEART_LOCK_LOCKED_MAX, (float) baseMax);
+        float locked = nbt.getFloatOr(KEY_HEART_LOCK_LOCKED_MAX, (float) baseMax);
         double lockedMax = Math.max(2.0D, locked);
         double delta = lockedMax - baseMax;
         applyMaxHealthModifier(target, modifierId, delta);
     }
 
-    private static void tickUnbounded(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_UNBOUNDED_UNTIL, 0L);
+    private static void tickUnbounded(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_UNBOUNDED_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -1042,20 +1040,20 @@ public final class AbilityRuntime {
             return;
         }
 
-        GameMode prev = parseGameMode(nbt.getString(KEY_UNBOUNDED_PREV_GAMEMODE, ""));
-        if (prev == null || prev == GameMode.SPECTATOR) {
-            prev = GameMode.SURVIVAL;
+        GameType prev = parseGameMode(nbt.getStringOr(KEY_UNBOUNDED_PREV_GAMEMODE, ""));
+        if (prev == null || prev == GameType.SPECTATOR) {
+            prev = GameType.SURVIVAL;
         }
-        player.changeGameMode(prev);
+        player.setGameMode(prev);
         ensureNotStuck(player);
 
         nbt.remove(KEY_UNBOUNDED_UNTIL);
         nbt.remove(KEY_UNBOUNDED_PREV_GAMEMODE);
     }
 
-    private static void tickAstralCamera(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_ASTRAL_CAMERA_UNTIL, 0L);
+    private static void tickAstralCamera(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_ASTRAL_CAMERA_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -1063,29 +1061,29 @@ public final class AbilityRuntime {
             return;
         }
 
-        GameMode prev = parseGameMode(nbt.getString(KEY_ASTRAL_CAMERA_PREV_GAMEMODE, ""));
-        if (prev == null || prev == GameMode.SPECTATOR) {
-            prev = GameMode.SURVIVAL;
+        GameType prev = parseGameMode(nbt.getStringOr(KEY_ASTRAL_CAMERA_PREV_GAMEMODE, ""));
+        if (prev == null || prev == GameType.SPECTATOR) {
+            prev = GameType.SURVIVAL;
         }
 
-        BlockPos returnPos = BlockPos.fromLong(nbt.getLong(KEY_ASTRAL_CAMERA_RETURN_POS, player.getBlockPos().asLong()));
-        float yaw = nbt.getFloat(KEY_ASTRAL_CAMERA_RETURN_YAW, player.getYaw());
-        float pitch = nbt.getFloat(KEY_ASTRAL_CAMERA_RETURN_PITCH, player.getPitch());
+        BlockPos returnPos = BlockPos.of(nbt.getLongOr(KEY_ASTRAL_CAMERA_RETURN_POS, player.blockPosition().asLong()));
+        float yaw = nbt.getFloatOr(KEY_ASTRAL_CAMERA_RETURN_YAW, player.getYRot());
+        float pitch = nbt.getFloatOr(KEY_ASTRAL_CAMERA_RETURN_PITCH, player.getXRot());
 
-        if (!(player.getEntityWorld() instanceof ServerWorld returnWorld)) {
+        if (!(player.level() instanceof ServerLevel returnWorld)) {
             return;
         }
-        String dimRaw = nbt.getString(KEY_ASTRAL_CAMERA_RETURN_DIM, "");
+        String dimRaw = nbt.getStringOr(KEY_ASTRAL_CAMERA_RETURN_DIM, "");
         Identifier dimId = Identifier.tryParse(dimRaw);
         if (dimId != null) {
-            var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, dimId);
-            var resolved = returnWorld.getServer().getWorld(key);
+            var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimId);
+            var resolved = returnWorld.getServer().getLevel(key);
             if (resolved != null) {
                 returnWorld = resolved;
             }
         }
 
-        player.changeGameMode(prev);
+        player.setGameMode(prev);
         GemsTeleport.teleport(player, returnWorld, returnPos.getX() + 0.5D, returnPos.getY(), returnPos.getZ() + 0.5D, yaw, pitch);
         ensureNotStuck(player);
 
@@ -1097,9 +1095,9 @@ public final class AbilityRuntime {
         nbt.remove(KEY_ASTRAL_CAMERA_RETURN_PITCH);
     }
 
-    private static void tickBounty(ServerPlayerEntity hunter, long now) {
-        NbtCompound nbt = persistent(hunter);
-        long until = nbt.getLong(KEY_BOUNTY_UNTIL, 0L);
+    private static void tickBounty(ServerPlayer hunter, long now) {
+        CompoundTag nbt = persistent(hunter);
+        long until = nbt.getLongOr(KEY_BOUNTY_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -1112,30 +1110,30 @@ public final class AbilityRuntime {
         if (targetUuid == null) {
             return;
         }
-        MinecraftServer server = hunter.getEntityWorld().getServer();
+        MinecraftServer server = hunter.level().getServer();
         if (server == null) {
             return;
         }
         if (com.feel.gems.power.gem.spy.SpySystem.hidesTracking(server, targetUuid)) {
             nbt.remove(KEY_BOUNTY_UNTIL);
             nbt.remove(KEY_BOUNTY_TARGET);
-            hunter.sendMessage(Text.translatable("gems.tracking.hidden"), true);
+            hunter.sendSystemMessage(Component.translatable("gems.tracking.hidden"), true);
             return;
         }
-        ServerPlayerEntity target = server.getPlayerManager().getPlayer(targetUuid);
+        ServerPlayer target = server.getPlayerList().getPlayer(targetUuid);
         if (target != null) {
-            double dist = Math.sqrt(hunter.squaredDistanceTo(target));
-            hunter.sendMessage(Text.translatable("gems.bounty.tracking", target.getName().getString(), (int) dist), true);
+            double dist = Math.sqrt(hunter.distanceToSqr(target));
+            hunter.sendSystemMessage(Component.translatable("gems.bounty.tracking", target.getName().getString(), (int) dist), true);
             return;
         }
 
         LegendaryPlayerTracker.Snapshot snapshot = LegendaryPlayerTracker.snapshot(server, targetUuid);
         if (snapshot == null || snapshot.pos() == null || snapshot.dimension() == null) {
-            hunter.sendMessage(Text.translatable("gems.bounty.target_offline"), true);
+            hunter.sendSystemMessage(Component.translatable("gems.bounty.target_offline"), true);
             return;
         }
         BlockPos pos = snapshot.pos();
-        hunter.sendMessage(Text.translatable(
+        hunter.sendSystemMessage(Component.translatable(
                 "gems.bounty.last_seen",
                 snapshot.name(),
                 String.valueOf(pos.getX()),
@@ -1145,98 +1143,79 @@ public final class AbilityRuntime {
         ), true);
     }
 
-    private static void tickAmplificationCleanup(ServerPlayerEntity player, long now) {
-        long until = persistent(player).getLong(KEY_AMPLIFICATION_UNTIL, 0L);
+    private static void tickAmplificationCleanup(ServerPlayer player, long now) {
+        long until = persistent(player).getLongOr(KEY_AMPLIFICATION_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
         if (now < until) {
             return;
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
             restoreAmplifiedIfExpired(world, stack, now);
         }
-        restoreAmplifiedIfExpired(world, player.getOffHandStack(), now);
-        restoreAmplifiedIfExpired(world, player.getEquippedStack(EquipmentSlot.HEAD), now);
-        restoreAmplifiedIfExpired(world, player.getEquippedStack(EquipmentSlot.CHEST), now);
-        restoreAmplifiedIfExpired(world, player.getEquippedStack(EquipmentSlot.LEGS), now);
-        restoreAmplifiedIfExpired(world, player.getEquippedStack(EquipmentSlot.FEET), now);
-        restoreAmplifiedIfExpired(world, player.getEquippedStack(EquipmentSlot.BODY), now);
+        restoreAmplifiedIfExpired(world, player.getOffhandItem(), now);
+        restoreAmplifiedIfExpired(world, player.getItemBySlot(EquipmentSlot.HEAD), now);
+        restoreAmplifiedIfExpired(world, player.getItemBySlot(EquipmentSlot.CHEST), now);
+        restoreAmplifiedIfExpired(world, player.getItemBySlot(EquipmentSlot.LEGS), now);
+        restoreAmplifiedIfExpired(world, player.getItemBySlot(EquipmentSlot.FEET), now);
+        restoreAmplifiedIfExpired(world, player.getItemBySlot(EquipmentSlot.BODY), now);
 
         persistent(player).remove(KEY_AMPLIFICATION_UNTIL);
     }
 
-    private static void restoreAmplifiedIfExpired(ServerWorld world, ItemStack stack, long now) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+    private static void restoreAmplifiedIfExpired(ServerLevel world, ItemStack stack, long now) {
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return;
         }
-        NbtCompound nbt = custom.copyNbt();
-        NbtCompound marker = nbt.getCompound(CUSTOM_DATA_KEY_AMPLIFY).orElse(null);
+        CompoundTag nbt = custom.copyTag();
+        CompoundTag marker = nbt.getCompound(CUSTOM_DATA_KEY_AMPLIFY).orElse(null);
         if (marker == null || marker.isEmpty()) {
             return;
         }
-        long until = marker.getLong("until", 0L);
+        long until = marker.getLongOr("until", 0L);
         if (until > now) {
             return;
         }
 
-        NbtList list = marker.getList("enchants").orElse(null);
+        ListTag list = marker.getList("enchants").orElse(null);
         if (list != null && !list.isEmpty()) {
             EnchantmentAmplification.restoreFromList(world, stack, list);
         }
 
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, data -> data.remove(CUSTOM_DATA_KEY_AMPLIFY));
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, data -> data.remove(CUSTOM_DATA_KEY_AMPLIFY));
     }
 
-    private static void tickReaperGraveSteed(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        NbtList list = nbt.getList(KEY_REAPER_STEED_LIST).orElse(null);
-
-        // Migrate legacy single-steed data if present
-        if ((list == null || list.isEmpty())) {
-            long legacyUntil = nbt.getLong(KEY_REAPER_STEED_UNTIL, 0L);
-            UUID legacyUuid = GemsNbt.getUuid(nbt, KEY_REAPER_STEED_UUID);
-            if (legacyUntil > 0 && legacyUuid != null) {
-                list = new NbtList();
-                NbtCompound entry = new NbtCompound();
-                GemsNbt.putUuid(entry, "uuid", legacyUuid);
-                entry.putLong("until", legacyUntil);
-                list.add(entry);
-                nbt.put(KEY_REAPER_STEED_LIST, list);
-            }
-            nbt.remove(KEY_REAPER_STEED_UNTIL);
-            nbt.remove(KEY_REAPER_STEED_UUID);
-        }
-
+    private static void tickReaperGraveSteed(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        ListTag list = nbt.getList(KEY_REAPER_STEED_LIST).orElse(null);
         if (list == null || list.isEmpty()) {
             return;
         }
 
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
-            nbt.remove(KEY_REAPER_STEED_UNTIL);
-            nbt.remove(KEY_REAPER_STEED_UUID);
             return;
         }
 
-        NbtList updated = new NbtList();
+        ListTag updated = new ListTag();
         float decay = GemsBalance.v().reaper().graveSteedDecayDamagePerSecond();
         for (int i = 0; i < list.size(); i++) {
-            NbtCompound entry = list.getCompound(i).orElse(null);
+            CompoundTag entry = list.getCompound(i).orElse(null);
             if (entry == null) {
                 continue;
             }
             UUID steedUuid = GemsNbt.getUuid(entry, "uuid");
-            long until = entry.getLong("until", 0L);
+            long until = entry.getLongOr("until", 0L);
             if (steedUuid == null || until <= 0) {
                 continue;
             }
             var e = SummonerSummons.findEntity(server, steedUuid);
-            if (!(e instanceof net.minecraft.entity.mob.SkeletonHorseEntity horse) || !horse.isAlive()) {
+            if (!(e instanceof net.minecraft.world.entity.animal.equine.SkeletonHorse horse) || !horse.isAlive()) {
                 continue;
             }
 
@@ -1247,9 +1226,9 @@ public final class AbilityRuntime {
                 continue;
             }
 
-            if (decay > 0.0F && horse.getEntityWorld() instanceof ServerWorld horseWorld) {
-                horse.damage(horseWorld, player.getDamageSources().indirectMagic(player, player), decay);
-                AbilityFeedback.burstAt(horseWorld, horse.getEntityPos().add(0.0D, 1.0D, 0.0D), net.minecraft.particle.ParticleTypes.SMOKE, 1, 0.12D);
+            if (decay > 0.0F && horse.level() instanceof ServerLevel horseWorld) {
+                horse.hurtServer(horseWorld, player.damageSources().indirectMagic(player, player), decay);
+                AbilityFeedback.burstAt(horseWorld, horse.position().add(0.0D, 1.0D, 0.0D), net.minecraft.core.particles.ParticleTypes.SMOKE, 1, 0.12D);
             }
 
             updated.add(entry);
@@ -1262,9 +1241,9 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void tickReaperDeathOath(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_REAPER_OATH_UNTIL, 0L);
+    private static void tickReaperDeathOath(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_REAPER_OATH_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -1279,7 +1258,7 @@ public final class AbilityRuntime {
             return;
         }
 
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             clearReaperDeathOath(player);
             return;
@@ -1294,36 +1273,36 @@ public final class AbilityRuntime {
         float dmg = GemsBalance.v().reaper().deathOathSelfDamagePerSecond();
         nonlethalDrain(player, dmg);
         double dist = player.distanceTo(target);
-        player.sendMessage(Text.translatable("gems.reaper.death_oath_tracking", target.getName().getString(), (int) dist), true);
+        player.sendSystemMessage(Component.translatable("gems.reaper.death_oath_tracking", target.getName().getString(), (int) dist), true);
     }
 
-    private static void tickReaperBloodChargeCharging(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(ReaperBloodCharge.KEY_CHARGING_UNTIL, 0L);
+    private static void tickReaperBloodChargeCharging(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(ReaperBloodCharge.KEY_CHARGING_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
         if (now >= until) {
             ReaperBloodCharge.clearCharging(player);
-            player.sendMessage(Text.translatable("gems.reaper.blood_charge_fizzled"), true);
+            player.sendSystemMessage(Component.translatable("gems.reaper.blood_charge_fizzled"), true);
             return;
         }
 
         float dmg = GemsBalance.v().reaper().bloodChargeSelfDamagePerSecond();
         nonlethalDrain(player, dmg);
-        int charged = nbt.getInt(ReaperBloodCharge.KEY_CHARGED_TICKS, 0);
+        int charged = nbt.getIntOr(ReaperBloodCharge.KEY_CHARGED_TICKS, 0);
         charged = Math.addExact(charged, 20);
         nbt.putInt(ReaperBloodCharge.KEY_CHARGED_TICKS, charged);
     }
 
-    private static void tickReaperShadowClone(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_REAPER_CLONE_UNTIL, 0L);
+    private static void tickReaperShadowClone(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_REAPER_CLONE_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
 
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             nbt.remove(KEY_REAPER_CLONE_UNTIL);
             nbt.remove(KEY_REAPER_CLONE_UUIDS);
@@ -1355,8 +1334,8 @@ public final class AbilityRuntime {
                 continue;
             }
             remaining.add(uuid);
-            if (player.getEntityWorld() instanceof ServerWorld world) {
-                AbilityFeedback.burstAt(world, e.getEntityPos().add(0.0D, 1.0D, 0.0D), net.minecraft.particle.ParticleTypes.SOUL, 1, 0.08D);
+            if (player.level() instanceof ServerLevel world) {
+                AbilityFeedback.burstAt(world, e.position().add(0.0D, 1.0D, 0.0D), net.minecraft.core.particles.ParticleTypes.SOUL, 1, 0.08D);
             }
         }
 
@@ -1371,9 +1350,9 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void tickReaperRetribution(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long until = nbt.getLong(KEY_REAPER_RETRIBUTION_UNTIL, 0L);
+    private static void tickReaperRetribution(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long until = nbt.getLongOr(KEY_REAPER_RETRIBUTION_UNTIL, 0L);
         if (until <= 0) {
             return;
         }
@@ -1382,7 +1361,7 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void nonlethalDrain(ServerPlayerEntity player, float amount) {
+    private static void nonlethalDrain(ServerPlayer player, float amount) {
         if (amount <= 0.0F) {
             return;
         }
@@ -1393,14 +1372,14 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void applyMaxHealthModifier(ServerPlayerEntity player, Identifier id, double deltaHealth) {
-        EntityAttributeInstance maxHealth = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+    private static void applyMaxHealthModifier(ServerPlayer player, Identifier id, double deltaHealth) {
+        AttributeInstance maxHealth = player.getAttribute(Attributes.MAX_HEALTH);
         if (maxHealth == null) {
             return;
         }
         maxHealth.removeModifier(id);
         if (deltaHealth != 0.0D) {
-            maxHealth.addTemporaryModifier(new EntityAttributeModifier(id, deltaHealth, EntityAttributeModifier.Operation.ADD_VALUE));
+            maxHealth.addTransientModifier(new AttributeModifier(id, deltaHealth, AttributeModifier.Operation.ADD_VALUE));
         }
         float newMax = (float) maxHealth.getValue();
         if (player.getHealth() > newMax) {
@@ -1408,8 +1387,8 @@ public final class AbilityRuntime {
         }
     }
 
-    private static void removeMaxHealthModifier(ServerPlayerEntity player, Identifier id) {
-        EntityAttributeInstance maxHealth = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+    private static void removeMaxHealthModifier(ServerPlayer player, Identifier id) {
+        AttributeInstance maxHealth = player.getAttribute(Attributes.MAX_HEALTH);
         if (maxHealth == null) {
             return;
         }
@@ -1421,33 +1400,33 @@ public final class AbilityRuntime {
     }
 
     private static Identifier lifeCircleBonusId(UUID caster) {
-        return Identifier.of("gems", "life_circle_bonus_" + caster);
+        return Identifier.fromNamespaceAndPath("gems", "life_circle_bonus_" + caster);
     }
 
     private static Identifier lifeCirclePenaltyId(UUID caster) {
-        return Identifier.of("gems", "life_circle_penalty_" + caster);
+        return Identifier.fromNamespaceAndPath("gems", "life_circle_penalty_" + caster);
     }
 
     private static Identifier heartLockModifierId(UUID caster) {
-        return Identifier.of("gems", "heart_lock_" + caster);
+        return Identifier.fromNamespaceAndPath("gems", "heart_lock_" + caster);
     }
 
-    private static java.util.List<LivingEntity> livingInRadius(ServerWorld world, Vec3d center, double radius) {
-        Box box = Box.of(center, radius * 2.0D, radius * 2.0D, radius * 2.0D);
-        return world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e.squaredDistanceTo(center) <= radius * radius);
+    private static java.util.List<LivingEntity> livingInRadius(ServerLevel world, Vec3 center, double radius) {
+        AABB box = AABB.ofSize(center, radius * 2.0D, radius * 2.0D, radius * 2.0D);
+        return world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e.distanceToSqr(center) <= radius * radius);
     }
 
-    public static void cleanupOnDisconnect(MinecraftServer server, ServerPlayerEntity caster) {
-        NbtCompound nbt = persistent(caster);
-        long lifeCircleUntil = nbt.getLong(KEY_LIFE_CIRCLE_UNTIL, 0L);
+    public static void cleanupOnDisconnect(MinecraftServer server, ServerPlayer caster) {
+        CompoundTag nbt = persistent(caster);
+        long lifeCircleUntil = nbt.getLongOr(KEY_LIFE_CIRCLE_UNTIL, 0L);
         if (lifeCircleUntil > 0) {
             UUID casterId = GemsNbt.getUuid(nbt, KEY_LIFE_CIRCLE_CASTER);
             if (casterId == null) {
-                casterId = caster.getUuid();
+                casterId = caster.getUUID();
             }
             Identifier bonusId = lifeCircleBonusId(casterId);
             Identifier penaltyId = lifeCirclePenaltyId(casterId);
-            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 removeMaxHealthModifier(p, bonusId);
                 removeMaxHealthModifier(p, penaltyId);
             }
@@ -1455,29 +1434,37 @@ public final class AbilityRuntime {
             nbt.remove(KEY_LIFE_CIRCLE_CASTER);
         }
 
-        long gravityUntil = nbt.getLong(KEY_SPACE_GRAVITY_UNTIL, 0L);
+        long gravityUntil = nbt.getLongOr(KEY_SPACE_GRAVITY_UNTIL, 0L);
         if (gravityUntil > 0) {
             UUID casterId = GemsNbt.getUuid(nbt, KEY_SPACE_GRAVITY_CASTER);
             if (casterId == null) {
-                casterId = caster.getUuid();
+                casterId = caster.getUUID();
             }
             Identifier modifierId = spaceGravityModifierId(casterId);
-            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 applyGravityMultiplier(p, modifierId, 1.0F);
             }
             nbt.remove(KEY_SPACE_GRAVITY_UNTIL);
             nbt.remove(KEY_SPACE_GRAVITY_CASTER);
         }
 
-        UUID uuid = GemsNbt.getUuid(nbt, KEY_REAPER_STEED_UUID);
-        if (uuid != null) {
-            var e = SummonerSummons.findEntity(server, uuid);
-            if (e != null) {
-                e.discard();
+        ListTag steeds = nbt.getList(KEY_REAPER_STEED_LIST).orElse(null);
+        if (steeds != null) {
+            for (int i = 0; i < steeds.size(); i++) {
+                CompoundTag entry = steeds.getCompound(i).orElse(null);
+                if (entry == null) {
+                    continue;
+                }
+                UUID uuid = GemsNbt.getUuid(entry, "uuid");
+                if (uuid != null) {
+                    var e = SummonerSummons.findEntity(server, uuid);
+                    if (e != null) {
+                        e.discard();
+                    }
+                }
             }
         }
-        nbt.remove(KEY_REAPER_STEED_UNTIL);
-        nbt.remove(KEY_REAPER_STEED_UUID);
+        nbt.remove(KEY_REAPER_STEED_LIST);
 
         java.util.List<UUID> cloneUuids = readUuidList(nbt, KEY_REAPER_CLONE_UUIDS);
         for (UUID cloneUuid : cloneUuids) {
@@ -1499,38 +1486,38 @@ public final class AbilityRuntime {
         SentinelInterventionRuntime.cleanup(server, caster);
     }
 
-    private static GameMode parseGameMode(String name) {
+    private static GameType parseGameMode(String name) {
         if (name == null || name.isEmpty()) {
             return null;
         }
-        for (GameMode mode : GameMode.values()) {
-            if (mode.getId().equals(name)) {
+        for (GameType mode : GameType.values()) {
+            if (mode.getName().equals(name)) {
                 return mode;
             }
         }
         return null;
     }
 
-    private static void ensureNotStuck(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    private static void ensureNotStuck(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
         if (!world.getBlockCollisions(player, player.getBoundingBox()).iterator().hasNext()) {
             return;
         }
 
-        BlockPos base = player.getBlockPos();
-        BlockPos.Mutable p = new BlockPos.Mutable();
+        BlockPos base = player.blockPosition();
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         var box = player.getBoundingBox();
 
         for (int dy = 0; dy <= 6; dy++) {
             for (int dx = -2; dx <= 2; dx++) {
                 for (int dz = -2; dz <= 2; dz++) {
                     p.set(base.getX() + dx, base.getY() + dy, base.getZ() + dz);
-                    Vec3d candidate = new Vec3d(p.getX() + 0.5D, p.getY(), p.getZ() + 0.5D);
-                    var moved = box.offset(candidate.subtract(player.getEntityPos()));
+                    Vec3 candidate = new Vec3(p.getX() + 0.5D, p.getY(), p.getZ() + 0.5D);
+                    var moved = box.move(candidate.subtract(player.position()));
                     if (!world.getBlockCollisions(player, moved).iterator().hasNext()) {
-                        GemsTeleport.teleport(player, world, candidate.x, candidate.y, candidate.z, player.getYaw(), player.getPitch());
+                        GemsTeleport.teleport(player, world, candidate.x, candidate.y, candidate.z, player.getYRot(), player.getXRot());
                         return;
                     }
                 }
@@ -1538,7 +1525,7 @@ public final class AbilityRuntime {
         }
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 }

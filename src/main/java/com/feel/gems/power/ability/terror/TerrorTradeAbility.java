@@ -10,14 +10,14 @@ import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.state.GemPlayerState;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.particle.TintedParticleEffect;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ColorParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
 
 
 public final class TerrorTradeAbility implements GemAbility {
@@ -44,10 +44,10 @@ public final class TerrorTradeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         LivingEntity target = Targeting.raycastLiving(player, GemsBalance.v().terror().terrorTradeRangeBlocks());
         if (target == null) {
-            player.sendMessage(Text.translatable("gems.message.no_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_target"), true);
             return false;
         }
         if (target == player) {
@@ -56,11 +56,11 @@ public final class TerrorTradeAbility implements GemAbility {
 
         AssassinState.initIfNeeded(player);
 
-        if (!(target instanceof ServerPlayerEntity victim)) {
+        if (!(target instanceof ServerPlayer victim)) {
             return activateMobTrade(player, target);
         }
         if (!VoidImmunity.canBeTargeted(player, victim)) {
-            player.sendMessage(Text.translatable("gems.message.target_immune"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.target_immune"), true);
             return false;
         }
         boolean casterIsAssassin = AssassinState.isAssassin(player);
@@ -70,27 +70,27 @@ public final class TerrorTradeAbility implements GemAbility {
         return activateNormalTrade(player, victim);
     }
 
-    private static boolean activateMobTrade(ServerPlayerEntity player, LivingEntity target) {
-        ServerWorld world = player.getEntityWorld();
-        AbilityFeedback.beam(world, player.getEyePos(), target.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL_FIRE_FLAME, 24);
-        AbilityFeedback.burstAt(world, target.getEntityPos().add(0.0D, 1.0D, 0.0D), TintedParticleEffect.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
-        AbilityFeedback.sound(player, SoundEvents.ITEM_TOTEM_USE, 0.7F, 0.9F);
+    private static boolean activateMobTrade(ServerPlayer player, LivingEntity target) {
+        ServerLevel world = player.level();
+        AbilityFeedback.beam(world, player.getEyePosition(), target.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL_FIRE_FLAME, 24);
+        AbilityFeedback.burstAt(world, target.position().add(0.0D, 1.0D, 0.0D), ColorParticleOption.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
+        AbilityFeedback.sound(player, SoundEvents.TOTEM_USE, 0.7F, 0.9F);
 
-        target.damage(world, target.getDamageSources().playerAttack(player), 10_000.0F);
+        target.hurtServer(world, target.damageSources().playerAttack(player), 10_000.0F);
         player.kill(world);
         return true;
     }
 
-    private static boolean activateNormalTrade(ServerPlayerEntity player, ServerPlayerEntity victim) {
-        ServerWorld world = player.getEntityWorld();
-        AbilityFeedback.beam(world, player.getEyePos(), victim.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL_FIRE_FLAME, 24);
-        AbilityFeedback.burstAt(world, victim.getEntityPos().add(0.0D, 1.0D, 0.0D), TintedParticleEffect.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
-        AbilityFeedback.sound(player, SoundEvents.ITEM_TOTEM_USE, 0.7F, 0.9F);
+    private static boolean activateNormalTrade(ServerPlayer player, ServerPlayer victim) {
+        ServerLevel world = player.level();
+        AbilityFeedback.beam(world, player.getEyePosition(), victim.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL_FIRE_FLAME, 24);
+        AbilityFeedback.burstAt(world, victim.position().add(0.0D, 1.0D, 0.0D), ColorParticleOption.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
+        AbilityFeedback.sound(player, SoundEvents.TOTEM_USE, 0.7F, 0.9F);
 
         // Attempt to kill the target (totems may save them).
         // Use a source attributed to the caster so kills count normally (energy, scoring, etc.);
         // Totems can still save the target.
-        victim.damage(world, victim.getDamageSources().playerAttack(player), 10_000.0F);
+        victim.hurtServer(world, victim.damageSources().playerAttack(player), 10_000.0F);
         if (victim.isAlive()) {
             // Totems can save players; when that happens, apply a configurable penalty (defaults mimic normal death).
             applyTargetPenaltyForNormalTrade(victim);
@@ -101,7 +101,7 @@ public final class TerrorTradeAbility implements GemAbility {
         return true;
     }
 
-    private static void applyTargetPenaltyForNormalTrade(ServerPlayerEntity victim) {
+    private static void applyTargetPenaltyForNormalTrade(ServerPlayer victim) {
         GemPlayerState.initIfNeeded(victim);
         AssassinState.initIfNeeded(victim);
 
@@ -132,11 +132,11 @@ public final class TerrorTradeAbility implements GemAbility {
         GemStateSync.send(victim);
     }
 
-    private static boolean activateAssassinTrade(ServerPlayerEntity player, ServerPlayerEntity victim) {
+    private static boolean activateAssassinTrade(ServerPlayer player, ServerPlayer victim) {
         int maxUses = GemsBalance.v().terror().terrorTradeMaxUses();
         int used = com.feel.gems.state.PlayerNbt.getInt(player, KEY_USES, 0);
         if (used >= maxUses) {
-            player.sendMessage(Text.translatable("gems.ability.terror.trade.no_uses", maxUses), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.terror.trade.no_uses", maxUses), true);
             return false;
         }
 
@@ -147,18 +147,18 @@ public final class TerrorTradeAbility implements GemAbility {
         // Attempt to kill the target (totems may save them).
         // Use a source attributed to the caster so kills count normally (energy, scoring, etc.);
         // Totems can still save the target.
-        ServerWorld world = player.getEntityWorld();
-        victim.damage(world, victim.getDamageSources().playerAttack(player), 10_000.0F);
-        AbilityFeedback.beam(world, player.getEyePos(), victim.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL_FIRE_FLAME, 24);
-        AbilityFeedback.burstAt(world, victim.getEntityPos().add(0.0D, 1.0D, 0.0D), TintedParticleEffect.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
-        AbilityFeedback.sound(player, SoundEvents.ITEM_TOTEM_USE, 0.7F, 0.9F);
+        ServerLevel world = player.level();
+        victim.hurtServer(world, victim.damageSources().playerAttack(player), 10_000.0F);
+        AbilityFeedback.beam(world, player.getEyePosition(), victim.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL_FIRE_FLAME, 24);
+        AbilityFeedback.burstAt(world, victim.position().add(0.0D, 1.0D, 0.0D), ColorParticleOption.create(ParticleTypes.FLASH, 0xFFFFFF), 1, 0.0D);
+        AbilityFeedback.sound(player, SoundEvents.TOTEM_USE, 0.7F, 0.9F);
 
         // Kill the caster even if they have a totem.
         player.kill(world);
         return true;
     }
 
-    private static void applyCosts(ServerPlayerEntity player) {
+    private static void applyCosts(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         AssassinState.initIfNeeded(player);
 

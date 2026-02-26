@@ -2,16 +2,14 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-
 import com.feel.gems.util.GemsTeleport;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Blink - Instant micro-teleport (5 blocks) with minimal cooldown.
@@ -40,25 +38,25 @@ public final class BonusBlinkAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Vec3d start = player.getEntityPos();
-        Vec3d direction = player.getRotationVector();
-        Vec3d end = start.add(direction.multiply(BLINK_DISTANCE));
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        Vec3 start = player.position();
+        Vec3 direction = player.getLookAngle();
+        Vec3 end = start.add(direction.scale(BLINK_DISTANCE));
 
         // Particles at start
-        world.spawnParticles(ParticleTypes.REVERSE_PORTAL, start.x, start.y + 1, start.z, 
+        world.sendParticles(ParticleTypes.REVERSE_PORTAL, start.x, start.y + 1, start.z,
                 15, 0.3, 0.5, 0.3, 0.05);
 
         // Teleport
-        GemsTeleport.teleport(player, world, end.x, end.y, end.z, player.getYaw(), player.getPitch());
+        GemsTeleport.teleport(player, world, end.x, end.y, end.z, player.getYRot(), player.getXRot());
 
         // Particles at end
-        world.spawnParticles(ParticleTypes.PORTAL, end.x, end.y + 1, end.z, 
+        world.sendParticles(ParticleTypes.PORTAL, end.x, end.y + 1, end.z,
                 15, 0.3, 0.5, 0.3, 0.05);
 
         world.playSound(null, end.x, end.y, end.z,
-                SoundEvents.ENTITY_ENDERMAN_TELEPORT, SoundCategory.PLAYERS, 0.5f, 1.5f);
+                SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.5f, 1.5f);
         return true;
     }
 }

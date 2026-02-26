@@ -2,20 +2,18 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Sonic Boom - Emit a shockwave that deafens and staggers enemies.
@@ -45,24 +43,24 @@ public final class BonusSonicBoomAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Box box = player.getBoundingBox().expand(RANGE);
-        List<LivingEntity> entities = world.getEntitiesByClass(LivingEntity.class, box,
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        AABB box = player.getBoundingBox().inflate(RANGE);
+        List<LivingEntity> entities = world.getEntitiesOfClass(LivingEntity.class, box,
                 e -> e != player && e.isAlive());
 
         for (LivingEntity entity : entities) {
             // Damage
-            entity.damage(world, world.getDamageSources().sonicBoom(player), DAMAGE);
+            entity.hurtServer(world, world.damageSources().sonicBoom(player), DAMAGE);
             
             // Knockback away from player
-            Vec3d knockback = entity.getEntityPos().subtract(player.getEntityPos()).normalize().multiply(1.5);
-            entity.setVelocity(entity.getVelocity().add(knockback.x, 0.3, knockback.z));
-            entity.velocityDirty = true;
+            Vec3 knockback = entity.position().subtract(player.position()).normalize().scale(1.5);
+            entity.setDeltaMovement(entity.getDeltaMovement().add(knockback.x, 0.3, knockback.z));
+            entity.needsSync = true;
 
             // Stagger effects
-            entity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 60, 2, false, false, true));
-            entity.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA, 100, 0, false, false, true));
+            entity.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 60, 2, false, false, true));
+            entity.addEffect(new MobEffectInstance(MobEffects.NAUSEA, 100, 0, false, false, true));
         }
 
         // Expanding ring particle effect
@@ -72,12 +70,12 @@ public final class BonusSonicBoomAbility implements GemAbility {
                 double angle = (2 * Math.PI / 16) * i;
                 double x = player.getX() + Math.cos(angle) * radius;
                 double z = player.getZ() + Math.sin(angle) * radius;
-                world.spawnParticles(ParticleTypes.SONIC_BOOM, x, player.getY() + 1, z, 1, 0, 0, 0, 0);
+                world.sendParticles(ParticleTypes.SONIC_BOOM, x, player.getY() + 1, z, 1, 0, 0, 0, 0);
             }
         }
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.ENTITY_WARDEN_SONIC_BOOM, SoundCategory.PLAYERS, 1.5f, 1.2f);
+                SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.5f, 1.2f);
         return true;
     }
 }

@@ -16,11 +16,10 @@ import com.feel.gems.stats.GemsStats;
 import com.feel.gems.util.GemsTime;
 import com.feel.gems.util.GemsTickScheduler;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.server.level.ServerPlayer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,37 +42,37 @@ public final class BonusAbilityRuntime {
     /**
      * Activate a bonus ability by slot index (0 or 1).
      */
-    public static void activateBySlot(ServerPlayerEntity player, int slotIndex) {
+    public static void activateBySlot(ServerPlayer player, int slotIndex) {
         GemPlayerState.initIfNeeded(player);
 
         if (AbilityRestrictions.isStunned(player)) {
-            player.sendMessage(Text.translatable("gems.ability.stunned"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.stunned"), true);
             return;
         }
         if (AbilityRestrictions.isSuppressed(player)) {
-            player.sendMessage(Text.translatable("gems.ability.suppressed"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.suppressed"), true);
             return;
         }
 
         int energy = GemPlayerState.getEnergy(player);
         if (energy < 10) {
-            player.sendMessage(Text.translatable("gems.bonus.need_energy_use"), true);
+            player.sendSystemMessage(Component.translatable("gems.bonus.need_energy_use"), true);
             return;
         }
 
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) return;
 
         BonusClaimsState claims = BonusClaimsState.get(server);
-        List<Identifier> abilityList = claims.getPlayerAbilityOrder(player.getUuid());
+        List<Identifier> abilityList = claims.getPlayerAbilityOrder(player.getUUID());
 
         if (abilityList.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.bonus.no_abilities_claimed"), true);
+            player.sendSystemMessage(Component.translatable("gems.bonus.no_abilities_claimed"), true);
             return;
         }
 
         if (slotIndex < 0 || slotIndex >= abilityList.size()) {
-            player.sendMessage(Text.translatable("gems.bonus.invalid_slot"), true);
+            player.sendSystemMessage(Component.translatable("gems.bonus.invalid_slot"), true);
             return;
         }
 
@@ -82,23 +81,23 @@ public final class BonusAbilityRuntime {
         activateByAbility(player, abilityId, slotIndex, true);
     }
 
-    private static void activateByAbility(ServerPlayerEntity player, Identifier abilityId, int slotIndex, boolean allowQueue) {
+    private static void activateByAbility(ServerPlayer player, Identifier abilityId, int slotIndex, boolean allowQueue) {
         if (abilityId == null) {
             return;
         }
 
         if (GemsDisables.isBonusAbilityDisabledFor(player, abilityId)) {
-            player.sendMessage(Text.translatable("gems.bonus.ability_disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.bonus.ability_disabled"), true);
             return;
         }
 
         GemAbility ability = ModAbilities.get(abilityId);
         if (ability == null) {
-            player.sendMessage(Text.translatable("gems.ability.not_registered", abilityId.toString()), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.not_registered", abilityId.toString()), true);
             return;
         }
         if (AbilityDisables.isDisabled(player, abilityId)) {
-            player.sendMessage(Text.translatable("gems.ability.stolen"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.stolen"), true);
             return;
         }
 
@@ -111,7 +110,7 @@ public final class BonusAbilityRuntime {
                 if (allowQueue) {
                     queueBonusCast(player, abilityId, remainingTicks);
                 } else {
-                    player.sendMessage(Text.translatable("gems.ability.on_cooldown", ability.name(), ticksToSeconds(remainingTicks)), true);
+                    player.sendSystemMessage(Component.translatable("gems.ability.on_cooldown", ability.name(), ticksToSeconds(remainingTicks)), true);
                 }
                 return;
             }
@@ -122,7 +121,7 @@ public final class BonusAbilityRuntime {
             return;
         }
 
-        clearPendingCast(player.getUuid(), abilityId);
+        clearPendingCast(player.getUUID(), abilityId);
 
         GemsStats.recordAbilityUse(player, abilityId);
 
@@ -139,23 +138,23 @@ public final class BonusAbilityRuntime {
         }
     }
 
-    private static void queueBonusCast(ServerPlayerEntity player, Identifier abilityId, long remainingTicks) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void queueBonusCast(ServerPlayer player, Identifier abilityId, long remainingTicks) {
+        MinecraftServer server = player.level().getServer();
         if (server == null || remainingTicks <= 0) {
             return;
         }
 
-        PendingBonusCast existing = PENDING_CASTS.remove(player.getUuid());
+        PendingBonusCast existing = PENDING_CASTS.remove(player.getUUID());
         if (existing != null) {
             existing.handle().cancel();
         }
 
         int delay = (int) Math.min(Integer.MAX_VALUE, Math.max(1, remainingTicks));
-        GemsTickScheduler.Handle handle = GemsTickScheduler.schedule(server, delay, s -> tryActivateQueued(s, player.getUuid(), abilityId));
-        PENDING_CASTS.put(player.getUuid(), new PendingBonusCast(abilityId, handle));
+        GemsTickScheduler.Handle handle = GemsTickScheduler.schedule(server, delay, s -> tryActivateQueued(s, player.getUUID(), abilityId));
+        PENDING_CASTS.put(player.getUUID(), new PendingBonusCast(abilityId, handle));
         GemAbility ability = ModAbilities.get(abilityId);
         String name = ability != null ? ability.name() : abilityId.toString();
-        player.sendMessage(Text.translatable("gems.bonus.queued", name), true);
+        player.sendSystemMessage(Component.translatable("gems.bonus.queued", name), true);
     }
 
     private static void tryActivateQueued(MinecraftServer server, UUID playerId, Identifier abilityId) {
@@ -164,14 +163,14 @@ public final class BonusAbilityRuntime {
             return;
         }
 
-        ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
+        ServerPlayer player = server.getPlayerList().getPlayer(playerId);
         if (player == null) {
             PENDING_CASTS.remove(playerId);
             return;
         }
 
         BonusClaimsState claims = BonusClaimsState.get(server);
-        List<Identifier> abilityList = claims.getPlayerAbilityOrder(player.getUuid());
+        List<Identifier> abilityList = claims.getPlayerAbilityOrder(player.getUUID());
         if (!abilityList.contains(abilityId)) {
             PENDING_CASTS.remove(playerId);
             return;
@@ -202,7 +201,7 @@ public final class BonusAbilityRuntime {
         return (int) Math.max(1, (ticks + 19) / 20);
     }
 
-    private static int applyCooldownModifiers(ServerPlayerEntity player, int baseTicks) {
+    private static int applyCooldownModifiers(ServerPlayer player, int baseTicks) {
         if (baseTicks <= 0) {
             return 0;
         }

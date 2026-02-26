@@ -3,9 +3,9 @@ package com.feel.gems.power.ability.spy;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 import com.feel.gems.power.gem.spy.SpySystem;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
 
 
 public final class SpyStealAbility implements GemAbility {
@@ -30,7 +30,7 @@ public final class SpyStealAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         return SpySystem.stealLastSeen(player);
     }
 }

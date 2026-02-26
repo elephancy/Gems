@@ -1,18 +1,18 @@
 package com.feel.gems.net;
 
 import com.feel.gems.GemsMod;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
 import java.util.List;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * Syncs all 4 chaos slot states to the client for HUD display.
  */
-public record ChaosSlotPayload(List<SlotData> slots) implements CustomPayload {
-    public static final Id<ChaosSlotPayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "chaos_slots"));
+public record ChaosSlotPayload(List<SlotData> slots) implements CustomPacketPayload {
+    public static final Type<ChaosSlotPayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "chaos_slots"));
     
     public record SlotData(
         String abilityName,
@@ -22,13 +22,13 @@ public record ChaosSlotPayload(List<SlotData> slots) implements CustomPayload {
         int remainingSeconds,
         int cooldownSeconds
     ) {
-        public static final PacketCodec<RegistryByteBuf, SlotData> CODEC = PacketCodec.tuple(
-            PacketCodecs.STRING, SlotData::abilityName,
-            PacketCodecs.STRING, SlotData::abilityId,
-            PacketCodecs.STRING, SlotData::passiveName,
-            PacketCodecs.STRING, SlotData::passiveId,
-            PacketCodecs.VAR_INT, SlotData::remainingSeconds,
-            PacketCodecs.VAR_INT, SlotData::cooldownSeconds,
+        public static final StreamCodec<RegistryFriendlyByteBuf, SlotData> CODEC = StreamCodec.composite(
+            ByteBufCodecs.STRING_UTF8, SlotData::abilityName,
+            ByteBufCodecs.STRING_UTF8, SlotData::abilityId,
+            ByteBufCodecs.STRING_UTF8, SlotData::passiveName,
+            ByteBufCodecs.STRING_UTF8, SlotData::passiveId,
+            ByteBufCodecs.VAR_INT, SlotData::remainingSeconds,
+            ByteBufCodecs.VAR_INT, SlotData::cooldownSeconds,
             SlotData::new
         );
         
@@ -37,13 +37,13 @@ public record ChaosSlotPayload(List<SlotData> slots) implements CustomPayload {
         }
     }
     
-    public static final PacketCodec<RegistryByteBuf, ChaosSlotPayload> CODEC = PacketCodec.tuple(
-        SlotData.CODEC.collect(PacketCodecs.toList()), ChaosSlotPayload::slots,
+    public static final StreamCodec<RegistryFriendlyByteBuf, ChaosSlotPayload> CODEC = StreamCodec.composite(
+        SlotData.CODEC.apply(ByteBufCodecs.list()), ChaosSlotPayload::slots,
         ChaosSlotPayload::new
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

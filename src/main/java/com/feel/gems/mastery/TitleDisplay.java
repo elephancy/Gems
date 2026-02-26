@@ -1,12 +1,12 @@
 package com.feel.gems.mastery;
 
 import java.util.List;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.server.level.ServerPlayer;
 import com.feel.gems.mastery.LeaderboardTracker;
 import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.core.GemId;
@@ -15,26 +15,26 @@ public final class TitleDisplay {
     private TitleDisplay() {
     }
 
-    public static Text withTitlePrefix(ServerPlayerEntity player, Text baseName) {
+    public static Component withTitlePrefix(ServerPlayer player, Component baseName) {
         TitleInfo info = titleInfo(player);
         if (info == null) {
             return baseName;
         }
-        Text coloredName = baseName.copy().setStyle(baseName.getStyle().withColor(info.color()));
-        return Text.empty().append(info.prefix()).append(coloredName);
+        Component coloredName = baseName.copy().setStyle(baseName.getStyle().withColor(info.color()));
+        return Component.empty().append(info.prefix()).append(coloredName);
     }
 
-    public static Formatting titleColor(ServerPlayerEntity player) {
+    public static ChatFormatting titleColor(ServerPlayer player) {
         TitleInfo info = titleInfo(player);
         return info == null ? null : info.color();
     }
 
-    public static Text titlePrefix(ServerPlayerEntity player) {
+    public static Component titlePrefix(ServerPlayer player) {
         TitleInfo info = titleInfo(player);
         return info == null ? null : info.prefix();
     }
 
-    public static Formatting titleColorForReward(MasteryReward reward) {
+    public static ChatFormatting titleColorForReward(MasteryReward reward) {
         if (reward == null) {
             return null;
         }
@@ -43,25 +43,25 @@ public final class TitleDisplay {
             return gemColor(gem);
         }
         if (reward.threshold() >= 500) {
-            return Formatting.GOLD;
+            return ChatFormatting.GOLD;
         }
-        return Formatting.LIGHT_PURPLE;
+        return ChatFormatting.LIGHT_PURPLE;
     }
 
-    private static MutableText bracket(Text title, Formatting color) {
-        return Text.literal("[").formatted(color)
+    private static MutableComponent bracket(Component title, ChatFormatting color) {
+        return Component.literal("[").withStyle(color)
             .append(title)
-            .append(Text.literal("] ").formatted(color));
+            .append(Component.literal("] ").withStyle(color));
     }
 
-    private static TitleInfo titleInfo(ServerPlayerEntity player) {
+    private static TitleInfo titleInfo(ServerPlayer player) {
         String selectedId = GemMastery.getSelectedTitle(player);
         if (!selectedId.isEmpty() && selectedId.startsWith("leaderboard:")) {
             LeaderboardTracker.LeaderboardCategory category = generalFromId(selectedId);
             boolean forced = GemMastery.isSelectedTitleForced(player);
             if (category != null && (forced || LeaderboardTracker.holdsTitle(player, category))) {
-                Formatting color = generalTitleColor(category);
-                MutableText title = LeaderboardTracker.getTitleText(category).copy();
+                ChatFormatting color = generalTitleColor(category);
+                MutableComponent title = LeaderboardTracker.getTitleText(category).copy();
                 title.setStyle(title.getStyle().withColor(color));
                 return new TitleInfo(bracket(title, color), color);
             }
@@ -69,15 +69,15 @@ public final class TitleDisplay {
 
         MasteryReward selected = GemMastery.getSelectedTitleReward(player);
         if (selected != null) {
-            Formatting color = titleColorForReward(selected);
-            Text title = Text.translatable(selected.displayKey()).formatted(color);
+            ChatFormatting color = titleColorForReward(selected);
+            Component title = Component.translatable(selected.displayKey()).withStyle(color);
             return new TitleInfo(bracket(title, color), color);
         }
 
         List<LeaderboardTracker.LeaderboardCategory> general = LeaderboardTracker.getTitles(player);
         if (!general.isEmpty()) {
-            Formatting color = generalTitleColor(general.get(0));
-            MutableText title = LeaderboardTracker.getTitleText(general.get(0)).copy();
+            ChatFormatting color = generalTitleColor(general.get(0));
+            MutableComponent title = LeaderboardTracker.getTitleText(general.get(0)).copy();
             title.setStyle(title.getStyle().withColor(color));
             return new TitleInfo(bracket(title, color), color);
         }
@@ -87,28 +87,28 @@ public final class TitleDisplay {
         List<MasteryReward> unlocked = MasteryRewards.getUnlockedTitles(active, usage);
         if (!unlocked.isEmpty()) {
             MasteryReward reward = unlocked.get(unlocked.size() - 1);
-            Formatting color = titleColorForReward(reward);
-            Text title = Text.translatable(reward.displayKey()).formatted(color);
+            ChatFormatting color = titleColorForReward(reward);
+            Component title = Component.translatable(reward.displayKey()).withStyle(color);
             return new TitleInfo(bracket(title, color), color);
         }
 
         return null;
     }
 
-    public static void refresh(ServerPlayerEntity player) {
+    public static void refresh(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
-        PlayerListS2CPacket packet = new PlayerListS2CPacket(
-                java.util.EnumSet.of(PlayerListS2CPacket.Action.UPDATE_DISPLAY_NAME),
+        ClientboundPlayerInfoUpdatePacket packet = new ClientboundPlayerInfoUpdatePacket(
+                java.util.EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME),
                 List.of(player)
         );
-        for (ServerPlayerEntity viewer : server.getPlayerManager().getPlayerList()) {
-            viewer.networkHandler.sendPacket(packet);
+        for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
+            viewer.connection.send(packet);
         }
     }
 
@@ -116,27 +116,27 @@ public final class TitleDisplay {
         if (server == null) {
             return;
         }
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             refresh(player);
         }
     }
 
-    private record TitleInfo(Text prefix, Formatting color) {
+    private record TitleInfo(Component prefix, ChatFormatting color) {
     }
 
-    private static Formatting generalTitleColor(LeaderboardTracker.LeaderboardCategory category) {
+    private static ChatFormatting generalTitleColor(LeaderboardTracker.LeaderboardCategory category) {
         if (category.gem() != null) {
             return gemColor(category.gem());
         }
         return switch (category) {
-            case LEAST_DEATHS -> Formatting.AQUA;
-            case MOST_KILLS -> Formatting.RED;
-            case MOST_HEARTS -> Formatting.DARK_PURPLE;
-            case MAX_ENERGY -> Formatting.GOLD;
-            case MOST_SYNERGY_TRIGGERS -> Formatting.DARK_AQUA;
-            case MOST_ABILITY_CASTS -> Formatting.LIGHT_PURPLE;
-            case MOST_DAMAGE_DEALT -> Formatting.DARK_RED;
-            default -> Formatting.WHITE;
+            case LEAST_DEATHS -> ChatFormatting.AQUA;
+            case MOST_KILLS -> ChatFormatting.RED;
+            case MOST_HEARTS -> ChatFormatting.DARK_PURPLE;
+            case MAX_ENERGY -> ChatFormatting.GOLD;
+            case MOST_SYNERGY_TRIGGERS -> ChatFormatting.DARK_AQUA;
+            case MOST_ABILITY_CASTS -> ChatFormatting.LIGHT_PURPLE;
+            case MOST_DAMAGE_DEALT -> ChatFormatting.DARK_RED;
+            default -> ChatFormatting.WHITE;
         };
     }
 
@@ -153,31 +153,31 @@ public final class TitleDisplay {
         return null;
     }
 
-    private static Formatting gemColor(GemId gem) {
+    private static ChatFormatting gemColor(GemId gem) {
         return switch (gem) {
-            case FIRE -> Formatting.RED;
-            case FLUX -> Formatting.YELLOW;
-            case LIFE -> Formatting.GREEN;
-            case PUFF -> Formatting.WHITE;
-            case SPEED -> Formatting.AQUA;
-            case STRENGTH -> Formatting.DARK_RED;
-            case WEALTH -> Formatting.GOLD;
-            case TERROR -> Formatting.DARK_PURPLE;
-            case SUMMONER -> Formatting.DARK_GREEN;
-            case SPACE -> Formatting.DARK_BLUE;
-            case REAPER -> Formatting.DARK_GRAY;
-            case PILLAGER -> Formatting.GRAY;
-            case SPY -> Formatting.LIGHT_PURPLE;
-            case BEACON -> Formatting.BLUE;
-            case AIR -> Formatting.WHITE;
-            case ASTRA -> Formatting.DARK_PURPLE;
-            case VOID -> Formatting.BLACK;
-            case CHAOS -> Formatting.RED;
-            case PRISM -> Formatting.LIGHT_PURPLE;
-            case DUELIST -> Formatting.GOLD;
-            case HUNTER -> Formatting.DARK_GREEN;
-            case SENTINEL -> Formatting.BLUE;
-            case TRICKSTER -> Formatting.DARK_PURPLE;
+            case FIRE -> ChatFormatting.RED;
+            case FLUX -> ChatFormatting.YELLOW;
+            case LIFE -> ChatFormatting.GREEN;
+            case PUFF -> ChatFormatting.WHITE;
+            case SPEED -> ChatFormatting.AQUA;
+            case STRENGTH -> ChatFormatting.DARK_RED;
+            case WEALTH -> ChatFormatting.GOLD;
+            case TERROR -> ChatFormatting.DARK_PURPLE;
+            case SUMMONER -> ChatFormatting.DARK_GREEN;
+            case SPACE -> ChatFormatting.DARK_BLUE;
+            case REAPER -> ChatFormatting.DARK_GRAY;
+            case PILLAGER -> ChatFormatting.GRAY;
+            case SPY -> ChatFormatting.LIGHT_PURPLE;
+            case BEACON -> ChatFormatting.BLUE;
+            case AIR -> ChatFormatting.WHITE;
+            case ASTRA -> ChatFormatting.DARK_PURPLE;
+            case VOID -> ChatFormatting.BLACK;
+            case CHAOS -> ChatFormatting.RED;
+            case PRISM -> ChatFormatting.LIGHT_PURPLE;
+            case DUELIST -> ChatFormatting.GOLD;
+            case HUNTER -> ChatFormatting.DARK_GREEN;
+            case SENTINEL -> ChatFormatting.BLUE;
+            case TRICKSTER -> ChatFormatting.DARK_PURPLE;
         };
     }
 }

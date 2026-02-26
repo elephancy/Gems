@@ -6,29 +6,29 @@ import com.feel.gems.legendary.LegendaryItem;
 import com.feel.gems.state.PlayerStateManager;
 import com.feel.gems.util.GemsTooltipFormat;
 import java.util.function.Consumer;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ToolMaterial;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.Level;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ToolMaterial;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.component.type.ItemEnchantmentsComponent;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.ActionResult;
-import net.minecraft.world.World;
 
 /**
  * Experience Blade - consume XP to gain Sharpness.
@@ -38,22 +38,22 @@ import net.minecraft.world.World;
 public final class ExperienceBladeItem extends Item implements LegendaryItem {
     private static final String SHARPNESS_LEVEL_KEY = "experience_blade_sharpness";
 
-    public ExperienceBladeItem(ToolMaterial material, Settings settings) {
+    public ExperienceBladeItem(ToolMaterial material, Properties settings) {
         super(settings.sword(material, 3.0F, -2.4F).enchantable(15));
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "experience_blade").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "experience_blade").toString();
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (world.isClient() || !(user instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+        if (world.isClientSide() || !(user instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
 
-        ItemStack stack = player.getStackInHand(hand);
+        ItemStack stack = player.getItemInHand(hand);
         int currentSharpness = getCurrentSharpness(player);
 
         int maxSharpness = GemsBalance.v().legendary().experienceBladeMaxSharpness();
@@ -61,8 +61,8 @@ public final class ExperienceBladeItem extends Item implements LegendaryItem {
         int xpLevelsPerTier = GemsBalance.v().legendary().experienceBladeXpLevelsPerTier();
 
         if (currentSharpness >= maxSharpness) {
-            player.sendMessage(Text.translatable("gems.item.experience_blade.max").formatted(Formatting.RED), true);
-            return ActionResult.FAIL;
+            player.sendSystemMessage(Component.translatable("gems.item.experience_blade.max").withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
         }
 
         // Calculate XP needed for next tier
@@ -70,25 +70,25 @@ public final class ExperienceBladeItem extends Item implements LegendaryItem {
         int xpLevelsNeeded = nextTier * xpLevelsPerTier;
 
         if (player.experienceLevel < xpLevelsNeeded) {
-            player.sendMessage(Text.translatable("gems.item.experience_blade.need_xp", xpLevelsNeeded, player.experienceLevel).formatted(Formatting.RED), true);
-            return ActionResult.FAIL;
+            player.sendSystemMessage(Component.translatable("gems.item.experience_blade.need_xp", xpLevelsNeeded, player.experienceLevel).withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
         }
 
         // Consume XP and upgrade
-        player.addExperienceLevels(-xpLevelsNeeded);
+        player.giveExperienceLevels(-xpLevelsNeeded);
         int newSharpness = Math.min(maxSharpness, currentSharpness + sharpnessPerTier);
         setCurrentSharpness(player, newSharpness);
 
         // Apply enchantment to the blade
         applySharpnessToStack(stack, newSharpness, player);
 
-        player.sendMessage(Text.translatable("gems.item.experience_blade.upgraded", toRoman(newSharpness)).formatted(Formatting.GREEN), true);
-        return ActionResult.SUCCESS;
+        player.sendSystemMessage(Component.translatable("gems.item.experience_blade.upgraded", toRoman(newSharpness)).withStyle(ChatFormatting.GREEN), true);
+        return InteractionResult.SUCCESS;
     }
 
     @Override
-    public void inventoryTick(ItemStack stack, ServerWorld world, Entity entity, EquipmentSlot slot) {
-        if (!(entity instanceof ServerPlayerEntity player)) {
+    public void inventoryTick(ItemStack stack, ServerLevel world, Entity entity, EquipmentSlot slot) {
+        if (!(entity instanceof ServerPlayer player)) {
             return;
         }
 
@@ -99,67 +99,67 @@ public final class ExperienceBladeItem extends Item implements LegendaryItem {
         }
     }
 
-    private void applySharpnessToStack(ItemStack stack, int level, ServerPlayerEntity player) {
-        RegistryEntry<Enchantment> sharpnessEntry = player.getEntityWorld().getRegistryManager()
-                .getOptionalEntry(Enchantments.SHARPNESS).orElse(null);
+    private void applySharpnessToStack(ItemStack stack, int level, ServerPlayer player) {
+        Holder<Enchantment> sharpnessEntry = player.level().registryAccess()
+                .get(Enchantments.SHARPNESS).orElse(null);
         if (sharpnessEntry == null) return;
 
-        int current = EnchantmentHelper.getLevel(sharpnessEntry, stack);
+        int current = EnchantmentHelper.getItemEnchantmentLevel(sharpnessEntry, stack);
         if (current < level) {
-            EnchantmentHelper.apply(stack, builder -> builder.set(sharpnessEntry, level));
+            EnchantmentHelper.updateEnchantments(stack, builder -> builder.set(sharpnessEntry, level));
         }
     }
 
-    public static int getCurrentSharpness(ServerPlayerEntity player) {
+    public static int getCurrentSharpness(ServerPlayer player) {
         String levelStr = PlayerStateManager.getPersistent(player, SHARPNESS_LEVEL_KEY);
         return levelStr != null ? Integer.parseInt(levelStr) : 0;
     }
 
-    public static void setCurrentSharpness(ServerPlayerEntity player, int level) {
+    public static void setCurrentSharpness(ServerPlayer player, int level) {
         PlayerStateManager.setPersistent(player, SHARPNESS_LEVEL_KEY, String.valueOf(level));
     }
 
-    public static void clearSharpness(ServerPlayerEntity player) {
+    public static void clearSharpness(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, SHARPNESS_LEVEL_KEY);
     }
 
-    public static void clearOnDeath(ServerPlayerEntity player) {
+    public static void clearOnDeath(ServerPlayer player) {
         clearSharpness(player);
-        RegistryEntry<Enchantment> sharpness = player.getEntityWorld().getRegistryManager()
-                .getOptionalEntry(Enchantments.SHARPNESS).orElse(null);
+        Holder<Enchantment> sharpness = player.level().registryAccess()
+                .get(Enchantments.SHARPNESS).orElse(null);
         if (sharpness == null) {
             return;
         }
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
-            if (!stack.isOf(com.feel.gems.item.ModItems.EXPERIENCE_BLADE)) {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            if (!stack.is(com.feel.gems.item.ModItems.EXPERIENCE_BLADE)) {
                 continue;
             }
             stripSharpness(stack, sharpness, player);
         }
     }
 
-    private static void stripSharpness(ItemStack stack, RegistryEntry<Enchantment> sharpness, ServerPlayerEntity player) {
+    private static void stripSharpness(ItemStack stack, Holder<Enchantment> sharpness, ServerPlayer player) {
         if (stack == null || stack.isEmpty()) {
             return;
         }
-        ItemEnchantmentsComponent enchants = EnchantmentHelper.getEnchantments(stack);
+        ItemEnchantments enchants = EnchantmentHelper.getEnchantmentsForCrafting(stack);
         if (enchants.isEmpty()) {
             return;
         }
-        List<RegistryEntry<Enchantment>> keepKeys = new ArrayList<>();
+        List<Holder<Enchantment>> keepKeys = new ArrayList<>();
         List<Integer> keepLevels = new ArrayList<>();
-        for (var entry : enchants.getEnchantmentEntries()) {
+        for (var entry : enchants.entrySet()) {
             if (entry.getKey() == sharpness) {
                 continue;
             }
             keepKeys.add(entry.getKey());
             keepLevels.add(entry.getIntValue());
         }
-        EnchantmentHelper.set(stack, ItemEnchantmentsComponent.DEFAULT);
+        EnchantmentHelper.setEnchantments(stack, ItemEnchantments.EMPTY);
         for (int i = 0; i < keepKeys.size(); i++) {
-            RegistryEntry<Enchantment> key = keepKeys.get(i);
+            Holder<Enchantment> key = keepKeys.get(i);
             int level = keepLevels.get(i);
-            EnchantmentHelper.apply(stack, builder -> builder.set(key, level));
+            EnchantmentHelper.updateEnchantments(stack, builder -> builder.set(key, level));
         }
     }
 
@@ -180,11 +180,11 @@ public final class ExperienceBladeItem extends Item implements LegendaryItem {
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
         GemsTooltipFormat.appendDescription(
                 tooltip,
-                Text.translatable("gems.item.experience_blade.tooltip.1"),
-                Text.translatable("gems.item.experience_blade.tooltip.2")
+                Component.translatable("gems.item.experience_blade.tooltip.1"),
+                Component.translatable("gems.item.experience_blade.tooltip.2")
         );
     }
 }

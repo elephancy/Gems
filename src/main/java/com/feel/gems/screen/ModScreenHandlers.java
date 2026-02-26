@@ -1,27 +1,26 @@
 package com.feel.gems.screen;
 
 import com.feel.gems.GemsMod;
-import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.resource.featuretoggle.FeatureSet;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.flag.FeatureFlagSet;
+import net.minecraft.world.inventory.MenuType;
 
 
 
 
 public final class ModScreenHandlers {
-    public static final ScreenHandlerType<TraderScreenHandler> TRADER = Registry.register(
-            Registries.SCREEN_HANDLER,
-            Identifier.of(GemsMod.MOD_ID, "gem_trader"),
-            new ScreenHandlerType<>(TraderScreenHandler::new, FeatureSet.empty())
+    public static final MenuType<TraderScreenHandler> TRADER = Registry.register(
+            BuiltInRegistries.MENU,
+            Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "gem_trader"),
+            new MenuType<>(TraderScreenHandler::new, FeatureFlagSet.of())
     );
 
-    public static final ExtendedScreenHandlerType<GemSeerScreenHandler, GemSeerScreenHandler.OpeningData> GEM_SEER = Registry.register(
-            Registries.SCREEN_HANDLER,
-            Identifier.of(GemsMod.MOD_ID, "gem_seer"),
-            new ExtendedScreenHandlerType<>(GemSeerScreenHandler::new, GemSeerScreenHandler.OpeningData.PACKET_CODEC)
+    public static final MenuType<GemSeerScreenHandler> GEM_SEER = Registry.register(
+            BuiltInRegistries.MENU,
+            Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "gem_seer"),
+            new MenuType<>(GemSeerScreenHandler::new, FeatureFlagSet.of())
     );
 
     private ModScreenHandlers() {

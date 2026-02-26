@@ -1,12 +1,12 @@
 package com.feel.gems.state;
 
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.CompoundTag;
 
 
 
 
 public interface GemsPersistentDataHolder {
-    NbtCompound gems$getPersistentData();
+    CompoundTag gems$getPersistentData();
 
-    void gems$setPersistentData(NbtCompound nbt);
+    void gems$setPersistentData(CompoundTag nbt);
 }

@@ -9,14 +9,14 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 
 
 public final class FrailerAbility implements GemAbility {
@@ -41,28 +41,28 @@ public final class FrailerAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         var target = Targeting.raycastLiving(player, GemsBalance.v().strength().frailerRangeBlocks());
         if (target == null) {
-            player.sendMessage(Text.translatable("gems.message.no_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_target"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_trusted"), true);
+        if (target instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_trusted"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_immune"), true);
+        if (target instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_immune"), true);
             return false;
         }
 
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.STRENGTH, GemsBalance.v().strength().frailerDurationTicks());
-        target.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, duration, 0));
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_WITHER_SHOOT, 0.7F, 1.3F);
-        if (player.getEntityWorld() instanceof ServerWorld world) {
-            AbilityFeedback.burstAt(world, target.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.ASH, 14, 0.25D);
+        target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0));
+        AbilityFeedback.sound(player, SoundEvents.WITHER_SHOOT, 0.7F, 1.3F);
+        if (player.level() instanceof ServerLevel world) {
+            AbilityFeedback.burstAt(world, target.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.ASH, 14, 0.25D);
         }
-        player.sendMessage(Text.translatable("gems.ability.strength.frailer.weakened", target.getName().getString()), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.strength.frailer.weakened", target.getName().getString()), true);
         return true;
     }
 }

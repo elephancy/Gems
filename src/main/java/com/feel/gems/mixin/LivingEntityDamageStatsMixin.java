@@ -1,11 +1,11 @@
 package com.feel.gems.mixin;
 
 import com.feel.gems.stats.GemsStats;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,16 +17,16 @@ public abstract class LivingEntityDamageStatsMixin {
     @Unique
     private float gems$damageBefore;
     @Unique
-    private ServerPlayerEntity gems$damageAttacker;
+    private ServerPlayer gems$damageAttacker;
 
-    @Inject(method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z", at = @At("HEAD"))
-    private void gems$captureDamageSource(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At("HEAD"))
+    private void gems$captureDamageSource(ServerLevel world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity) (Object) this;
-        Entity attacker = source.getAttacker();
+        Entity attacker = source.getEntity();
         if (attacker == null) {
-            attacker = source.getSource();
+            attacker = source.getDirectEntity();
         }
-        if (attacker instanceof ServerPlayerEntity player && player != self && amount > 0.0F) {
+        if (attacker instanceof ServerPlayer player && player != self && amount > 0.0F) {
             gems$damageAttacker = player;
             gems$damageBefore = self.getHealth();
         } else {
@@ -35,8 +35,8 @@ public abstract class LivingEntityDamageStatsMixin {
         }
     }
 
-    @Inject(method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z", at = @At("RETURN"))
-    private void gems$recordDamage(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At("RETURN"))
+    private void gems$recordDamage(ServerLevel world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (cir.getReturnValue() && gems$damageAttacker != null) {
             LivingEntity self = (LivingEntity) (Object) this;
             float delta = gems$damageBefore - self.getHealth();

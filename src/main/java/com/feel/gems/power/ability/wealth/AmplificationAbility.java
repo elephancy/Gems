@@ -7,12 +7,12 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.AbilityRuntime;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 import com.feel.gems.power.gem.wealth.EnchantmentAmplification;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 
 public final class AmplificationAbility implements GemAbility {
@@ -37,13 +37,13 @@ public final class AmplificationAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.WEALTH, GemsBalance.v().wealth().amplificationDurationTicks());
         AbilityRuntime.startAmplification(player, duration);
         EnchantmentAmplification.apply(player, duration);
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE, 0.9F, 1.2F);
+        AbilityFeedback.sound(player, SoundEvents.ENCHANTMENT_TABLE_USE, 0.9F, 1.2F);
         AbilityFeedback.burst(player, ParticleTypes.ENCHANT, 18, 0.35D);
-        player.sendMessage(Text.translatable("gems.ability.wealth.amplification.active"), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.wealth.amplification.active"), true);
         return true;
     }
 }

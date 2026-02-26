@@ -2,19 +2,17 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Purge - Remove all buffs from target enemy.
@@ -43,16 +41,16 @@ public final class BonusPurgeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Vec3d start = player.getEyePos();
-        Vec3d direction = player.getRotationVector();
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        Vec3 start = player.getEyePosition();
+        Vec3 direction = player.getLookAngle();
 
         LivingEntity target = null;
-        for (LivingEntity entity : world.getEntitiesByClass(LivingEntity.class, 
-                player.getBoundingBox().expand(RANGE), e -> e != player && e.isAlive())) {
-            Vec3d toEntity = entity.getEyePos().subtract(start);
-            double dot = toEntity.normalize().dotProduct(direction);
+        for (LivingEntity entity : world.getEntitiesOfClass(LivingEntity.class,
+                player.getBoundingBox().inflate(RANGE), e -> e != player && e.isAlive())) {
+            Vec3 toEntity = entity.getEyePosition().subtract(start);
+            double dot = toEntity.normalize().dot(direction);
             if (dot > 0.9 && toEntity.length() < RANGE) {
                 target = entity;
                 break;
@@ -64,9 +62,9 @@ public final class BonusPurgeAbility implements GemAbility {
         }
 
         // Remove all beneficial effects
-        List<StatusEffectInstance> toRemove = new ArrayList<>();
-        for (StatusEffectInstance effect : target.getStatusEffects()) {
-            if (effect.getEffectType().value().isBeneficial()) {
+        List<MobEffectInstance> toRemove = new ArrayList<>();
+        for (MobEffectInstance effect : target.getActiveEffects()) {
+            if (effect.getEffect().value().isBeneficial()) {
                 toRemove.add(effect);
             }
         }
@@ -75,16 +73,16 @@ public final class BonusPurgeAbility implements GemAbility {
             return false;
         }
 
-        for (StatusEffectInstance effect : toRemove) {
-            target.removeStatusEffect(effect.getEffectType());
+        for (MobEffectInstance effect : toRemove) {
+            target.removeEffect(effect.getEffect());
         }
 
         // Visual effect
-        world.spawnParticles(ParticleTypes.WITCH, target.getX(), target.getY() + 1, target.getZ(), 
+        world.sendParticles(ParticleTypes.WITCH, target.getX(), target.getY() + 1, target.getZ(),
                 20, 0.3, 0.5, 0.3, 0.1);
 
         world.playSound(null, target.getX(), target.getY(), target.getZ(),
-                SoundEvents.ENTITY_EVOKER_CAST_SPELL, SoundCategory.PLAYERS, 1.0f, 1.5f);
+                SoundEvents.EVOKER_CAST_SPELL, SoundSource.PLAYERS, 1.0f, 1.5f);
         return true;
     }
 }

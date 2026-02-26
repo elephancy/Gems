@@ -3,8 +3,8 @@ package com.feel.gems.legendary;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.core.GemId;
 import com.feel.gems.state.GemPlayerState;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 public final class LegendaryDiscounts {
@@ -18,7 +18,7 @@ public final class LegendaryDiscounts {
         return GemsBalance.v().legendary().recipeGemRequirements().containsKey(recipeId);
     }
 
-    public static boolean canUseDiscount(ServerPlayerEntity player, Identifier recipeId) {
+    public static boolean canUseDiscount(ServerPlayer player, Identifier recipeId) {
         GemId required = GemsBalance.v().legendary().recipeGemRequirements().get(recipeId);
         if (required == null) {
             return false;

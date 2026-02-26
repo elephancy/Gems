@@ -2,8 +2,8 @@ package com.feel.gems.power.passive.bonus;
 
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Counter Strike - After blocking an attack, your next hit deals 2x damage.
@@ -26,12 +26,12 @@ public final class BonusCounterStrikePassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
-        player.removeCommandTag("gems_counter_strike_ready");
+    public void apply(ServerPlayer player) {
+        player.removeTag("gems_counter_strike_ready");
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeCommandTag("gems_counter_strike_ready");
+    public void remove(ServerPlayer player) {
+        player.removeTag("gems_counter_strike_ready");
     }
 }

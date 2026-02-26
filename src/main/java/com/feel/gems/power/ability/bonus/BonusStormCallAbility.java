@@ -8,16 +8,17 @@ import com.feel.gems.trust.GemTrust;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LightningEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Storm Call - summon a lightning storm in an area with random strikes.
@@ -46,24 +47,24 @@ public final class BonusStormCallAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         var cfg = GemsBalance.v().bonusPool();
-        Vec3d center = player.getEntityPos();
-        long until = world.getTime() + cfg.stormCallDurationSeconds * 20L;
+        Vec3 center = player.position();
+        long until = world.getGameTime() + cfg.stormCallDurationSeconds * 20L;
         STORMS.add(new Storm(world, center, cfg.stormCallRadiusBlocks, cfg.stormCallDamagePerStrike,
                 cfg.stormCallStrikesPerSecond, until, player));
-        world.spawnParticles(ParticleTypes.CLOUD, center.x, center.y + 0.5, center.z, 20, 1.0, 0.3, 1.0, 0.02);
+        world.sendParticles(ParticleTypes.CLOUD, center.x, center.y + 0.5, center.z, 20, 1.0, 0.3, 1.0, 0.02);
         return true;
     }
 
-    public static void tick(ServerWorld world) {
+    public static void tick(ServerLevel world) {
         if (STORMS.isEmpty()) {
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
         Iterator<Storm> iter = STORMS.iterator();
         while (iter.hasNext()) {
             Storm storm = iter.next();
@@ -81,27 +82,27 @@ public final class BonusStormCallAbility implements GemAbility {
             for (int i = 0; i < strikes; i++) {
                 double rx = (world.getRandom().nextDouble() * 2.0 - 1.0) * storm.radius;
                 double rz = (world.getRandom().nextDouble() * 2.0 - 1.0) * storm.radius;
-                Vec3d strike = storm.center.add(rx, 0.0, rz);
-                LightningEntity lightning = EntityType.LIGHTNING_BOLT.create(world, SpawnReason.TRIGGERED);
+                Vec3 strike = storm.center.add(rx, 0.0, rz);
+                LightningBolt lightning = EntityTypes.LIGHTNING_BOLT.create(world, EntitySpawnReason.TRIGGERED);
                 if (lightning != null) {
-                    lightning.refreshPositionAfterTeleport(strike.x, strike.y, strike.z);
-                    world.spawnEntity(lightning);
+                    lightning.snapTo(strike.x, strike.y, strike.z);
+                    world.addFreshEntity(lightning);
                 }
-                Box box = new Box(strike, strike).expand(2.0);
-                List<LivingEntity> entities = world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive());
+                AABB box = new AABB(strike, strike).inflate(2.0);
+                List<LivingEntity> entities = world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive());
                 for (LivingEntity entity : entities) {
-                    if (entity instanceof ServerPlayerEntity other) {
+                    if (entity instanceof ServerPlayer other) {
                         if (GemTrust.isTrusted(storm.owner, other) || VoidImmunity.shouldBlockEffect(storm.owner, other)) {
                             continue;
                         }
                     }
-                    entity.damage(world, storm.owner.getDamageSources().indirectMagic(storm.owner, storm.owner), storm.damagePerStrike);
+                    entity.hurtServer(world, storm.owner.damageSources().indirectMagic(storm.owner, storm.owner), storm.damagePerStrike);
                 }
             }
         }
     }
 
-    private record Storm(ServerWorld world, Vec3d center, int radius, float damagePerStrike, int strikesPerSecond,
-                         long until, ServerPlayerEntity owner) {
+    private record Storm(ServerLevel world, Vec3 center, int radius, float damagePerStrike, int strikesPerSecond,
+                         long until, ServerPlayer owner) {
     }
 }

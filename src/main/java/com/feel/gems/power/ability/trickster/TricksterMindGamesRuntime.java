@@ -1,13 +1,12 @@
 package com.feel.gems.power.ability.trickster;
 
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
-
 import java.util.List;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.AABB;
 
 public final class TricksterMindGamesRuntime {
     private static final String MIND_GAMES_END_KEY = "trickster_mind_games_end";
@@ -20,18 +19,18 @@ public final class TricksterMindGamesRuntime {
 
     // ========== Player Mind Games ==========
 
-    public static void applyMindGames(ServerPlayerEntity player, int durationTicks) {
-        long endTime = player.getEntityWorld().getTime() + durationTicks;
+    public static void applyMindGames(ServerPlayer player, int durationTicks) {
+        long endTime = player.level().getGameTime() + durationTicks;
         PlayerStateManager.setPersistent(player, MIND_GAMES_END_KEY, String.valueOf(endTime));
         TricksterControlSync.sync(player);
     }
 
-    public static boolean hasReversedControls(ServerPlayerEntity player) {
+    public static boolean hasReversedControls(ServerPlayer player) {
         String endStr = PlayerStateManager.getPersistent(player, MIND_GAMES_END_KEY);
         if (endStr == null) return false;
 
         long endTime = Long.parseLong(endStr);
-        if (player.getEntityWorld().getTime() > endTime) {
+        if (player.level().getGameTime() > endTime) {
             clearMindGames(player);
             return false;
         }
@@ -39,7 +38,7 @@ public final class TricksterMindGamesRuntime {
         return true;
     }
 
-    public static void clearMindGames(ServerPlayerEntity player) {
+    public static void clearMindGames(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, MIND_GAMES_END_KEY);
         TricksterControlSync.sync(player);
     }
@@ -49,27 +48,27 @@ public final class TricksterMindGamesRuntime {
     /**
      * Apply mind games effect to a mob using command tags, making it confused and attack random targets.
      */
-    public static void applyMindGamesMob(MobEntity mob, int durationTicks) {
-        long endTime = mob.getEntityWorld().getTime() + durationTicks;
+    public static void applyMindGamesMob(Mob mob, int durationTicks) {
+        long endTime = mob.level().getGameTime() + durationTicks;
         
         // Clear any existing confused tags first
         clearConfusedMobTags(mob);
         
         // Add new confused tags
-        mob.addCommandTag(TAG_CONFUSED);
-        mob.addCommandTag(TAG_CONFUSED_UNTIL_PREFIX + endTime);
+        mob.addTag(TAG_CONFUSED);
+        mob.addTag(TAG_CONFUSED_UNTIL_PREFIX + endTime);
     }
 
     /**
      * Check if a mob is currently under mind games effect.
      */
-    public static boolean isMobConfused(MobEntity mob) {
-        if (!mob.getCommandTags().contains(TAG_CONFUSED)) {
+    public static boolean isMobConfused(Mob mob) {
+        if (!mob.entityTags().contains(TAG_CONFUSED)) {
             return false;
         }
         
         long until = getMobConfusedUntil(mob);
-        if (until > 0 && mob.getEntityWorld().getTime() > until) {
+        if (until > 0 && mob.level().getGameTime() > until) {
             clearMindGamesMob(mob);
             return false;
         }
@@ -80,8 +79,8 @@ public final class TricksterMindGamesRuntime {
     /**
      * Get the end tick for a confused mob.
      */
-    private static long getMobConfusedUntil(MobEntity mob) {
-        for (String tag : mob.getCommandTags()) {
+    private static long getMobConfusedUntil(Mob mob) {
+        for (String tag : mob.entityTags()) {
             if (tag.startsWith(TAG_CONFUSED_UNTIL_PREFIX)) {
                 try {
                     return Long.parseLong(tag.substring(TAG_CONFUSED_UNTIL_PREFIX.length()));
@@ -97,7 +96,7 @@ public final class TricksterMindGamesRuntime {
      * Tick confused mob to maintain random hostile behavior.
      * Called periodically to switch the mob's target to random nearby entities.
      */
-    public static void tickConfusedMob(MobEntity mob, ServerWorld world) {
+    public static void tickConfusedMob(Mob mob, ServerLevel world) {
         if (!isMobConfused(mob)) {
             return;
         }
@@ -109,8 +108,8 @@ public final class TricksterMindGamesRuntime {
             return;
         }
 
-        Box searchBox = mob.getBoundingBox().expand(16);
-        List<LivingEntity> nearbyEntities = world.getEntitiesByClass(
+        AABB searchBox = mob.getBoundingBox().inflate(16);
+        List<LivingEntity> nearbyEntities = world.getEntitiesOfClass(
                 LivingEntity.class,
                 searchBox,
                 e -> e != mob && e.isAlive()
@@ -122,15 +121,15 @@ public final class TricksterMindGamesRuntime {
         }
     }
 
-    public static void clearMindGamesMob(MobEntity mob) {
+    public static void clearMindGamesMob(Mob mob) {
         clearConfusedMobTags(mob);
     }
 
-    private static void clearConfusedMobTags(MobEntity mob) {
-        mob.removeCommandTag(TAG_CONFUSED);
-        for (String tag : java.util.List.copyOf(mob.getCommandTags())) {
+    private static void clearConfusedMobTags(Mob mob) {
+        mob.removeTag(TAG_CONFUSED);
+        for (String tag : java.util.List.copyOf(mob.entityTags())) {
             if (tag.startsWith(TAG_CONFUSED_UNTIL_PREFIX)) {
-                mob.removeCommandTag(tag);
+                mob.removeTag(tag);
             }
         }
     }

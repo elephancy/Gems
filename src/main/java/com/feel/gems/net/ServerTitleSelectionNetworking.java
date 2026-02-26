@@ -8,7 +8,7 @@ import com.feel.gems.mastery.MasteryRewards;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Server-side networking for mastery title selection.
@@ -19,17 +19,17 @@ public final class ServerTitleSelectionNetworking {
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(TitleSelectionOpenRequestPayload.ID, (payload, context) ->
-                context.player().getEntityWorld().getServer().execute(() -> open(context.player())));
+                context.player().level().getServer().execute(() -> open(context.player())));
 
         ServerPlayNetworking.registerGlobalReceiver(TitleSelectionSelectPayload.ID, (payload, context) ->
-                context.player().getEntityWorld().getServer().execute(() -> handleSelect(context.player(), payload)));
+                context.player().level().getServer().execute(() -> handleSelect(context.player(), payload)));
     }
 
-    private static void open(ServerPlayerEntity player) {
+    private static void open(ServerPlayer player) {
         ServerPlayNetworking.send(player, buildPayload(player));
     }
 
-    private static void handleSelect(ServerPlayerEntity player, TitleSelectionSelectPayload payload) {
+    private static void handleSelect(ServerPlayer player, TitleSelectionSelectPayload payload) {
         if (player == null || payload == null) {
             return;
         }
@@ -64,7 +64,7 @@ public final class ServerTitleSelectionNetworking {
         open(player);
     }
 
-    private static TitleSelectionScreenPayload buildPayload(ServerPlayerEntity player) {
+    private static TitleSelectionScreenPayload buildPayload(ServerPlayer player) {
         String selected = GemMastery.getSelectedTitle(player);
         boolean forced = GemMastery.isSelectedTitleForced(player);
 

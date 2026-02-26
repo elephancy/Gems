@@ -2,12 +2,12 @@ package com.feel.gems.mixin;
 
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.entity.AreaEffectCloudEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.AreaEffectCloud;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -16,9 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityVoidImmunityStatusEffectMixin {
 
-    @Inject(method = "addStatusEffect(Lnet/minecraft/entity/effect/StatusEffectInstance;)Z", at = @At("HEAD"), cancellable = true)
-    private void gems$blockAmbientEffectsOnVoid(StatusEffectInstance effect, CallbackInfoReturnable<Boolean> cir) {
-        if (!((Object) this instanceof ServerPlayerEntity targetPlayer)) {
+    @Inject(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;)Z", at = @At("HEAD"), cancellable = true)
+    private void gems$blockAmbientEffectsOnVoid(MobEffectInstance effect, CallbackInfoReturnable<Boolean> cir) {
+        if (!((Object) this instanceof ServerPlayer targetPlayer)) {
             return;
         }
         if (!VoidImmunity.hasImmunity(targetPlayer)) {
@@ -32,9 +32,9 @@ public abstract class LivingEntityVoidImmunityStatusEffectMixin {
         cir.setReturnValue(false);
     }
 
-    @Inject(method = "addStatusEffect(Lnet/minecraft/entity/effect/StatusEffectInstance;Lnet/minecraft/entity/Entity;)Z", at = @At("HEAD"), cancellable = true)
-    private void gems$blockPlayerAppliedEffectsOnVoid(StatusEffectInstance effect, Entity source, CallbackInfoReturnable<Boolean> cir) {
-        if (!((Object) this instanceof ServerPlayerEntity targetPlayer)) {
+    @Inject(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z", at = @At("HEAD"), cancellable = true)
+    private void gems$blockPlayerAppliedEffectsOnVoid(MobEffectInstance effect, Entity source, CallbackInfoReturnable<Boolean> cir) {
+        if (!((Object) this instanceof ServerPlayer targetPlayer)) {
             return;
         }
         if (!VoidImmunity.hasImmunity(targetPlayer)) {
@@ -44,15 +44,15 @@ public abstract class LivingEntityVoidImmunityStatusEffectMixin {
             return;
         }
 
-        ServerPlayerEntity sourcePlayer = null;
-        if (source instanceof ServerPlayerEntity sp) {
+        ServerPlayer sourcePlayer = null;
+        if (source instanceof ServerPlayer sp) {
             sourcePlayer = sp;
-        } else if (source instanceof ProjectileEntity projectile) {
-            if (projectile.getOwner() instanceof ServerPlayerEntity ownerPlayer) {
+        } else if (source instanceof Projectile projectile) {
+            if (projectile.getOwner() instanceof ServerPlayer ownerPlayer) {
                 sourcePlayer = ownerPlayer;
             }
-        } else if (source instanceof AreaEffectCloudEntity cloud) {
-            if (cloud.getOwner() instanceof ServerPlayerEntity ownerPlayer) {
+        } else if (source instanceof AreaEffectCloud cloud) {
+            if (cloud.getOwner() instanceof ServerPlayer ownerPlayer) {
                 sourcePlayer = ownerPlayer;
             }
         }

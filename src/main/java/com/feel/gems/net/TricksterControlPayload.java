@@ -1,23 +1,23 @@
 package com.feel.gems.net;
 
 import com.feel.gems.GemsMod;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record TricksterControlPayload(boolean puppeted, boolean mindGames) implements CustomPayload {
-    public static final Id<TricksterControlPayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "trickster_control"));
-    public static final PacketCodec<RegistryByteBuf, TricksterControlPayload> CODEC =
-            PacketCodec.tuple(
-                    PacketCodecs.BOOLEAN.cast(), TricksterControlPayload::puppeted,
-                    PacketCodecs.BOOLEAN.cast(), TricksterControlPayload::mindGames,
+public record TricksterControlPayload(boolean puppeted, boolean mindGames) implements CustomPacketPayload {
+    public static final Type<TricksterControlPayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "trickster_control"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, TricksterControlPayload> CODEC =
+            StreamCodec.composite(
+                    ByteBufCodecs.BOOL.cast(), TricksterControlPayload::puppeted,
+                    ByteBufCodecs.BOOL.cast(), TricksterControlPayload::mindGames,
                     TricksterControlPayload::new
             );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

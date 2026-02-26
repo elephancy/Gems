@@ -4,45 +4,43 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.trust.GemTrust;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.goal.ActiveTargetGoal;
-import net.minecraft.entity.ai.goal.LookAroundGoal;
-import net.minecraft.entity.ai.goal.LookAtEntityGoal;
-import net.minecraft.entity.ai.goal.MeleeAttackGoal;
-import net.minecraft.entity.ai.goal.RevengeGoal;
-import net.minecraft.entity.ai.goal.WanderAroundFarGoal;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 /**
  * Six-Pack Pain entity - a player clone that shares health with other pack members.
  * When hit, gives owner regeneration + random buff, attacker gets debuff.
  * Targets untrusted players and hostile mobs.
  */
-public class HunterPackEntity extends PathAwareEntity {
+public class HunterPackEntity extends PathfinderMob {
     
     private UUID ownerUuid;
     private String ownerName;
     private UUID packId; // Shared ID for all clones in a pack
     
-    public HunterPackEntity(EntityType<? extends HunterPackEntity> type, World world) {
+    public HunterPackEntity(EntityType<? extends HunterPackEntity> type, Level world) {
         super(type, world);
     }
     
@@ -52,37 +50,37 @@ public class HunterPackEntity extends PathAwareEntity {
     /**
      * 6 clones with 120 hearts shared = 240 HP total / 6 = 40 HP each
      */
-    public static DefaultAttributeContainer.Builder createAttributes() {
-        return PathAwareEntity.createMobAttributes()
-                .add(EntityAttributes.MAX_HEALTH, 40.0D) // 40 HP each, 240 total shared (120 hearts)
-                .add(EntityAttributes.MOVEMENT_SPEED, 0.35D) // Fast like wolves
-                .add(EntityAttributes.ATTACK_DAMAGE, 4.0D) // 2 hearts
-                .add(EntityAttributes.FOLLOW_RANGE, 35.0D)
-                .add(EntityAttributes.ARMOR, 7.5D); // Iron armor equivalent
+    public static AttributeSupplier.Builder createAttributes() {
+        return PathfinderMob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 40.0D) // 40 HP each, 240 total shared (120 hearts)
+                .add(Attributes.MOVEMENT_SPEED, 0.35D) // Fast like wolves
+                .add(Attributes.ATTACK_DAMAGE, 4.0D) // 2 hearts
+                .add(Attributes.FOLLOW_RANGE, 35.0D)
+                .add(Attributes.ARMOR, 7.5D); // Iron armor equivalent
     }
     
     @Override
-    protected void initGoals() {
+    protected void registerGoals() {
         var cfg = GemsBalance.v().hunter();
         int closeRange = cfg.sixPackPainCloseTargetRangeBlocks();
         int wideRange = cfg.sixPackPainWideTargetRangeBlocks();
         
         // Attack goals
-        this.goalSelector.add(1, new MeleeAttackGoal(this, 1.2D, true));
-        this.goalSelector.add(2, new FollowOwnerGoal(this, 1.0D, 10.0F, 2.0F));
-        this.goalSelector.add(3, new WanderAroundFarGoal(this, 0.8D, 0.001F));
-        this.goalSelector.add(4, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
-        this.goalSelector.add(5, new LookAroundGoal(this));
+        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.2D, true));
+        this.goalSelector.addGoal(2, new FollowOwnerGoal(this, 1.0D, 10.0F, 2.0F));
+        this.goalSelector.addGoal(3, new WaterAvoidingRandomStrollGoal(this, 0.8D, 0.001F));
+        this.goalSelector.addGoal(4, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(5, new RandomLookAroundGoal(this));
         
         // Target goals - priority order as specified
-        this.targetSelector.add(1, new RevengeGoal(this));
-        this.targetSelector.add(2, new TargetUntrustedPlayerGoal(this, closeRange)); // Close range first
-        this.targetSelector.add(3, new TargetUntrustedPlayerGoal(this, wideRange)); // Then wider range
-        this.targetSelector.add(4, new ActiveTargetGoal<>(this, HostileEntity.class, true));
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        this.targetSelector.addGoal(2, new TargetUntrustedPlayerGoal(this, closeRange)); // Close range first
+        this.targetSelector.addGoal(3, new TargetUntrustedPlayerGoal(this, wideRange)); // Then wider range
+        this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, Monster.class, true));
     }
     
-    public void setOwner(ServerPlayerEntity owner, UUID packId) {
-        this.ownerUuid = owner.getUuid();
+    public void setOwner(ServerPlayer owner, UUID packId) {
+        this.ownerUuid = owner.getUUID();
         this.ownerName = owner.getGameProfile().name();
         this.packId = packId;
         this.setCustomName(owner.getDisplayName());
@@ -90,9 +88,9 @@ public class HunterPackEntity extends PathAwareEntity {
         
         // Copy equipment from owner
         for (EquipmentSlot slot : EquipmentSlot.values()) {
-            if (slot.isArmorSlot() || slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND) {
-                ItemStack stack = owner.getEquippedStack(slot);
-                this.equipStack(slot, stack.copy());
+            if (slot.isArmor() || slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND) {
+                ItemStack stack = owner.getItemBySlot(slot);
+                this.setItemSlot(slot, stack.copy());
             }
         }
     }
@@ -107,7 +105,7 @@ public class HunterPackEntity extends PathAwareEntity {
         ticksAlive++;
         
         // Auto-despawn after max lifetime
-        if (!this.getEntityWorld().isClient() && ticksAlive >= maxLifetimeTicks) {
+        if (!this.level().isClientSide() && ticksAlive >= maxLifetimeTicks) {
             this.discard();
         }
     }
@@ -125,27 +123,27 @@ public class HunterPackEntity extends PathAwareEntity {
     }
     
     @Override
-    public boolean damage(ServerWorld world, DamageSource source, float amount) {
+    public boolean hurtServer(ServerLevel world, DamageSource source, float amount) {
         // Apply damage to shared health pool
         boolean result = distributePackDamage(world, source, amount);
         
         // Give owner buffs and attacker debuff
-        if (result && source.getAttacker() instanceof LivingEntity attacker) {
+        if (result && source.getEntity() instanceof LivingEntity attacker) {
             applyHitEffects(world, attacker);
         }
         
         return result;
     }
     
-    private boolean distributePackDamage(ServerWorld world, DamageSource source, float amount) {
+    private boolean distributePackDamage(ServerLevel world, DamageSource source, float amount) {
         if (packId == null) {
-            return super.damage(world, source, amount);
+            return super.hurtServer(world, source, amount);
         }
         
         // Find all pack members
         List<HunterPackEntity> packMembers = getPackMembers(world);
         if (packMembers.isEmpty()) {
-            return super.damage(world, source, amount);
+            return super.hurtServer(world, source, amount);
         }
         
         // Calculate total pack health (shared 120 hearts = 240 HP pool)
@@ -166,7 +164,7 @@ public class HunterPackEntity extends PathAwareEntity {
                 }
             }
             // Let this one die properly to trigger death events
-            return super.damage(world, source, this.getHealth() + 1);
+            return super.hurtServer(world, source, this.getHealth() + 1);
         }
         
         // Distribute remaining health evenly
@@ -180,104 +178,104 @@ public class HunterPackEntity extends PathAwareEntity {
         return true;
     }
     
-    private List<HunterPackEntity> getPackMembers(ServerWorld world) {
+    private List<HunterPackEntity> getPackMembers(ServerLevel world) {
         if (packId == null) return List.of(this);
         
-        return world.getEntitiesByClass(
+        return world.getEntitiesOfClass(
             HunterPackEntity.class,
-            this.getBoundingBox().expand(50),
+            this.getBoundingBox().inflate(50),
             e -> packId.equals(e.getPackId()) && e.isAlive()
         );
     }
     
-    private void applyHitEffects(ServerWorld world, LivingEntity attacker) {
+    private void applyHitEffects(ServerLevel world, LivingEntity attacker) {
         var cfg = GemsBalance.v().hunter();
         int buffDuration = cfg.sixPackPainBuffDurationTicks();
         int debuffDuration = cfg.sixPackPainDebuffDurationTicks();
         
         // Give owner regeneration + random buff
-        ServerPlayerEntity owner = getOwner(world);
+        ServerPlayer owner = getOwner(world);
         if (owner != null) {
             // Regeneration for buff duration
-            owner.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, buffDuration, 1));
+            owner.addEffect(new MobEffectInstance(MobEffects.REGENERATION, buffDuration, 1));
             
             // Random positive effect for buff duration
             var positiveEffects = List.of(
-                StatusEffects.SPEED,
-                StatusEffects.STRENGTH,
-                StatusEffects.RESISTANCE,
-                StatusEffects.FIRE_RESISTANCE,
-                StatusEffects.ABSORPTION,
-                StatusEffects.HASTE
+                MobEffects.SPEED,
+                MobEffects.STRENGTH,
+                MobEffects.RESISTANCE,
+                MobEffects.FIRE_RESISTANCE,
+                MobEffects.ABSORPTION,
+                MobEffects.HASTE
             );
             var randomEffect = positiveEffects.get(random.nextInt(positiveEffects.size()));
-            owner.addStatusEffect(new StatusEffectInstance(randomEffect, buffDuration, 0));
+            owner.addEffect(new MobEffectInstance(randomEffect, buffDuration, 0));
         }
         
         // Give attacker a debuff
         var debuffs = List.of(
-            StatusEffects.SLOWNESS,
-            StatusEffects.WEAKNESS,
-            StatusEffects.MINING_FATIGUE,
-            StatusEffects.BLINDNESS,
-            StatusEffects.NAUSEA,
-            StatusEffects.GLOWING
+            MobEffects.SLOWNESS,
+            MobEffects.WEAKNESS,
+            MobEffects.MINING_FATIGUE,
+            MobEffects.BLINDNESS,
+            MobEffects.NAUSEA,
+            MobEffects.GLOWING
         );
         var randomDebuff = debuffs.get(random.nextInt(debuffs.size()));
-        attacker.addStatusEffect(new StatusEffectInstance(randomDebuff, debuffDuration, 0));
+        attacker.addEffect(new MobEffectInstance(randomDebuff, debuffDuration, 0));
     }
     
-    private ServerPlayerEntity getOwner(ServerWorld world) {
+    private ServerPlayer getOwner(ServerLevel world) {
         if (ownerUuid == null) return null;
         MinecraftServer server = world.getServer();
         if (server == null) return null;
-        return server.getPlayerManager().getPlayer(ownerUuid);
+        return server.getPlayerList().getPlayer(ownerUuid);
     }
     
     @Override
-    protected void dropInventory(ServerWorld world) {
+    protected void dropEquipment(ServerLevel world) {
         // Don't drop anything
     }
     
     @Override
-    protected void dropEquipment(ServerWorld world, DamageSource source, boolean causedByPlayer) {
+    protected void dropCustomDeathLoot(ServerLevel world, DamageSource source, boolean causedByPlayer) {
         // Don't drop equipment
     }
     
     @Override
-    public boolean cannotDespawn() {
+    public boolean requiresCustomPersistence() {
         return true;
     }
     
     @Override
-    public boolean isPersistent() {
+    public boolean isPersistenceRequired() {
         return true;
     }
     
     @Override
     protected SoundEvent getHurtSound(DamageSource source) {
-        return SoundEvents.ENTITY_PLAYER_HURT;
+        return SoundEvents.PLAYER_HURT;
     }
     
     @Override
     protected SoundEvent getDeathSound() {
-        return SoundEvents.ENTITY_PLAYER_DEATH;
+        return SoundEvents.PLAYER_DEATH;
     }
     
     @Override
     protected SoundEvent getAmbientSound() {
-        return SoundEvents.ENTITY_FOX_AMBIENT;
+        return SoundEvents.FOX_AMBIENT;
     }
     
     /**
      * Goal to follow the owner when no target
      */
-    private static class FollowOwnerGoal extends net.minecraft.entity.ai.goal.Goal {
+    private static class FollowOwnerGoal extends net.minecraft.world.entity.ai.goal.Goal {
         private final HunterPackEntity pack;
         private final double speed;
         private final float maxDistance;
         private final float minDistance;
-        private ServerPlayerEntity owner;
+        private ServerPlayer owner;
         private int updateCountdownTicks;
         
         public FollowOwnerGoal(HunterPackEntity pack, double speed, float maxDistance, float minDistance) {
@@ -285,26 +283,26 @@ public class HunterPackEntity extends PathAwareEntity {
             this.speed = speed;
             this.maxDistance = maxDistance;
             this.minDistance = minDistance;
-            this.setControls(java.util.EnumSet.of(Control.MOVE, Control.LOOK));
+            this.setFlags(java.util.EnumSet.of(Flag.MOVE, Flag.LOOK));
         }
         
         @Override
-        public boolean canStart() {
+        public boolean canUse() {
             if (pack.getTarget() != null) return false;
-            if (!(pack.getEntityWorld() instanceof ServerWorld world)) return false;
+            if (!(pack.level() instanceof ServerLevel world)) return false;
             
             this.owner = pack.getOwner(world);
             if (owner == null) return false;
-            if (pack.squaredDistanceTo(owner) < minDistance * minDistance) return false;
+            if (pack.distanceToSqr(owner) < minDistance * minDistance) return false;
             
             return true;
         }
         
         @Override
-        public boolean shouldContinue() {
+        public boolean canContinueToUse() {
             if (pack.getTarget() != null) return false;
             if (owner == null || !owner.isAlive()) return false;
-            return pack.squaredDistanceTo(owner) > minDistance * minDistance;
+            return pack.distanceToSqr(owner) > minDistance * minDistance;
         }
         
         @Override
@@ -320,21 +318,21 @@ public class HunterPackEntity extends PathAwareEntity {
         
         @Override
         public void tick() {
-            pack.getLookControl().lookAt(owner, 10.0F, pack.getMaxLookPitchChange());
+            pack.getLookControl().setLookAt(owner, 10.0F, pack.getMaxHeadXRot());
             if (--updateCountdownTicks <= 0) {
                 updateCountdownTicks = 10;
-                if (!pack.isLeashed() && !pack.hasVehicle()) {
-                    if (pack.squaredDistanceTo(owner) >= maxDistance * maxDistance) {
+                if (!pack.isLeashed() && !pack.isPassenger()) {
+                    if (pack.distanceToSqr(owner) >= maxDistance * maxDistance) {
                         // Teleport if too far
-                        pack.refreshPositionAndAngles(
-                            owner.getX() + (pack.random.nextDouble() - 0.5) * 2,
+                        pack.snapTo(
+                            owner.getX() + (pack.getRandom().nextDouble() - 0.5) * 2,
                             owner.getY(),
-                            owner.getZ() + (pack.random.nextDouble() - 0.5) * 2,
-                            pack.getYaw(),
-                            pack.getPitch()
+                            owner.getZ() + (pack.getRandom().nextDouble() - 0.5) * 2,
+                            pack.getYRot(),
+                            pack.getXRot()
                         );
                     } else {
-                        pack.getNavigation().startMovingTo(owner, speed);
+                        pack.getNavigation().moveTo(owner, speed);
                     }
                 }
             }
@@ -344,34 +342,34 @@ public class HunterPackEntity extends PathAwareEntity {
     /**
      * Goal to target untrusted players within a specific range
      */
-    private static class TargetUntrustedPlayerGoal extends ActiveTargetGoal<PlayerEntity> {
+    private static class TargetUntrustedPlayerGoal extends NearestAttackableTargetGoal<Player> {
         private final HunterPackEntity pack;
         private final int maxRange;
         
         public TargetUntrustedPlayerGoal(HunterPackEntity pack, int maxRange) {
-            super(pack, PlayerEntity.class, true);
+            super(pack, Player.class, true);
             this.pack = pack;
             this.maxRange = maxRange;
         }
         
         @Override
-        public boolean canStart() {
+        public boolean canUse() {
             if (pack.ownerUuid == null) return false;
-            if (!(pack.getEntityWorld() instanceof ServerWorld world)) return false;
+            if (!(pack.level() instanceof ServerLevel world)) return false;
             
-            ServerPlayerEntity owner = pack.getOwner(world);
+            ServerPlayer owner = pack.getOwner(world);
             if (owner == null) return false;
             
             // Find closest untrusted player within range
-            PlayerEntity closest = null;
+            Player closest = null;
             double closestDistSq = maxRange * maxRange;
             
-            for (PlayerEntity player : world.getPlayers()) {
-                if (player.getUuid().equals(pack.ownerUuid)) continue;
-                if (player instanceof ServerPlayerEntity sp && GemTrust.isTrusted(owner, sp)) continue;
+            for (Player player : world.players()) {
+                if (player.getUUID().equals(pack.ownerUuid)) continue;
+                if (player instanceof ServerPlayer sp && GemTrust.isTrusted(owner, sp)) continue;
                 if (player.isSpectator() || player.isCreative()) continue;
                 
-                double distSq = pack.squaredDistanceTo(player);
+                double distSq = pack.distanceToSqr(player);
                 if (distSq < closestDistSq) {
                     closest = player;
                     closestDistSq = distSq;
@@ -379,7 +377,7 @@ public class HunterPackEntity extends PathAwareEntity {
             }
             
             if (closest != null) {
-                this.targetEntity = closest;
+                this.target = closest;
                 return true;
             }
             return false;

@@ -5,10 +5,10 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.loadout.GemLoadout;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * C2S payload to save a new loadout preset.
@@ -22,15 +22,15 @@ public record LoadoutSavePayload(
         boolean showCooldowns,
         boolean showEnergy,
         boolean compactMode
-) implements CustomPayload {
-    public static final Id<LoadoutSavePayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "loadout_save"));
-    public static final PacketCodec<RegistryByteBuf, LoadoutSavePayload> CODEC = PacketCodec.ofStatic(
+) implements CustomPacketPayload {
+    public static final Type<LoadoutSavePayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "loadout_save"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, LoadoutSavePayload> CODEC = StreamCodec.of(
             LoadoutSavePayload::write,
             LoadoutSavePayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
@@ -47,12 +47,12 @@ public record LoadoutSavePayload(
         );
     }
 
-    private static void write(RegistryByteBuf buf, LoadoutSavePayload payload) {
-        buf.writeString(payload.gem().name(), 32);
-        buf.writeString(payload.name(), GemLoadout.MAX_NAME_LENGTH);
+    private static void write(RegistryFriendlyByteBuf buf, LoadoutSavePayload payload) {
+        buf.writeUtf(payload.gem().name(), 32);
+        buf.writeUtf(payload.name(), GemLoadout.MAX_NAME_LENGTH);
         buf.writeVarInt(payload.abilityOrder().size());
         for (Identifier id : payload.abilityOrder()) {
-            buf.writeString(id.toString(), 128);
+            buf.writeUtf(id.toString(), 128);
         }
         buf.writeBoolean(payload.passivesEnabled());
         buf.writeVarInt(payload.hudPosition().ordinal());
@@ -61,13 +61,13 @@ public record LoadoutSavePayload(
         buf.writeBoolean(payload.compactMode());
     }
 
-    private static LoadoutSavePayload read(RegistryByteBuf buf) {
-        GemId gem = GemId.valueOf(buf.readString(32));
-        String name = buf.readString(GemLoadout.MAX_NAME_LENGTH);
+    private static LoadoutSavePayload read(RegistryFriendlyByteBuf buf) {
+        GemId gem = GemId.valueOf(buf.readUtf(32));
+        String name = buf.readUtf(GemLoadout.MAX_NAME_LENGTH);
         int abilityCount = buf.readVarInt();
         List<Identifier> abilities = new ArrayList<>(abilityCount);
         for (int i = 0; i < abilityCount; i++) {
-            abilities.add(Identifier.of(buf.readString(128)));
+            abilities.add(Identifier.parse(buf.readUtf(128)));
         }
         boolean passivesEnabled = buf.readBoolean();
         int posOrdinal = buf.readVarInt();

@@ -1,8 +1,8 @@
 package com.feel.gems.bonus;
 
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.util.Identifier;
 import java.util.List;
+import net.minecraft.resources.Identifier;
 
 /**
  * Defines the pool of claimable bonus abilities and passives.

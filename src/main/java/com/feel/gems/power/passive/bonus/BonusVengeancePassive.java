@@ -2,8 +2,8 @@ package com.feel.gems.power.passive.bonus;
 
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Vengeance - After being hit, next attack deals +50% damage.
@@ -26,12 +26,12 @@ public final class BonusVengeancePassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
-        player.removeCommandTag("gems_vengeance_ready");
+    public void apply(ServerPlayer player) {
+        player.removeTag("gems_vengeance_ready");
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeCommandTag("gems_vengeance_ready");
+    public void remove(ServerPlayer player) {
+        player.removeTag("gems_vengeance_ready");
     }
 }

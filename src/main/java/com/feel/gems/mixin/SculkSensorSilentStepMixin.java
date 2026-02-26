@@ -2,14 +2,14 @@ package com.feel.gems.mixin;
 
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
-import net.minecraft.block.entity.SculkSensorBlockEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.event.GameEvent;
-import net.minecraft.world.event.Vibrations;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.entity.SculkSensorBlockEntity;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.gameevent.vibrations.VibrationSystem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -20,63 +20,63 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SculkSensorBlockEntity.class)
 public abstract class SculkSensorSilentStepMixin {
-    @Inject(method = "createCallback", at = @At("RETURN"), cancellable = true)
-    private void gems$wrapCallback(CallbackInfoReturnable<Vibrations.Callback> cir) {
-        Vibrations.Callback original = cir.getReturnValue();
+    @Inject(method = "createVibrationUser", at = @At("RETURN"), cancellable = true)
+    private void gems$wrapCallback(CallbackInfoReturnable<VibrationSystem.User> cir) {
+        VibrationSystem.User original = cir.getReturnValue();
         if (original == null) {
             return;
         }
         cir.setReturnValue(new SilentStepCallback(original));
     }
 
-    private record SilentStepCallback(Vibrations.Callback delegate) implements Vibrations.Callback {
+    private record SilentStepCallback(VibrationSystem.User delegate) implements VibrationSystem.User {
         @Override
-        public int getRange() {
-            return delegate.getRange();
+        public int getListenerRadius() {
+            return delegate.getListenerRadius();
         }
 
         @Override
-        public net.minecraft.world.event.PositionSource getPositionSource() {
+        public net.minecraft.world.level.gameevent.PositionSource getPositionSource() {
             return delegate.getPositionSource();
         }
 
         @Override
-        public boolean triggersAvoidCriterion() {
-            return delegate.triggersAvoidCriterion();
+        public boolean canTriggerAvoidVibration() {
+            return delegate.canTriggerAvoidVibration();
         }
 
         @Override
-        public boolean accepts(ServerWorld world, BlockPos pos, RegistryEntry<GameEvent> event, GameEvent.Emitter emitter) {
-            if (emitter != null && emitter.sourceEntity() instanceof ServerPlayerEntity player) {
+        public boolean canReceiveVibration(ServerLevel world, BlockPos pos, Holder<GameEvent> event, GameEvent.Context emitter) {
+            if (emitter != null && emitter.sourceEntity() instanceof ServerPlayer player) {
                 if (GemPowers.isPassiveActive(player, PowerIds.SCULK_SILENCE) || GemPowers.isPassiveActive(player, PowerIds.SPY_SILENT_STEP)) {
                     return false;
                 }
             }
-            return delegate.accepts(world, pos, event, emitter);
+            return delegate.canReceiveVibration(world, pos, event, emitter);
         }
 
         @Override
-        public void accept(ServerWorld world, BlockPos pos, RegistryEntry<GameEvent> event, Entity entity, Entity sourceEntity, float distance) {
-            if (sourceEntity instanceof ServerPlayerEntity player) {
+        public void onReceiveVibration(ServerLevel world, BlockPos pos, Holder<GameEvent> event, Entity entity, Entity sourceEntity, float distance) {
+            if (sourceEntity instanceof ServerPlayer player) {
                 if (GemPowers.isPassiveActive(player, PowerIds.SCULK_SILENCE) || GemPowers.isPassiveActive(player, PowerIds.SPY_SILENT_STEP)) {
                     return;
                 }
-            } else if (entity instanceof ServerPlayerEntity player) {
+            } else if (entity instanceof ServerPlayer player) {
                 if (GemPowers.isPassiveActive(player, PowerIds.SCULK_SILENCE) || GemPowers.isPassiveActive(player, PowerIds.SPY_SILENT_STEP)) {
                     return;
                 }
             }
-            delegate.accept(world, pos, event, entity, sourceEntity, distance);
+            delegate.onReceiveVibration(world, pos, event, entity, sourceEntity, distance);
         }
 
         @Override
-        public void onListen() {
-            delegate.onListen();
+        public void onDataChanged() {
+            delegate.onDataChanged();
         }
 
         @Override
-        public boolean requiresTickingChunksAround() {
-            return delegate.requiresTickingChunksAround();
+        public boolean requiresAdjacentChunksToBeTicking() {
+            return delegate.requiresAdjacentChunksToBeTicking();
         }
     }
 }

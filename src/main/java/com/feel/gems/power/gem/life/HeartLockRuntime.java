@@ -3,13 +3,13 @@ package com.feel.gems.power.gem.life;
 import com.feel.gems.GemsMod;
 import com.feel.gems.util.GemsTime;
 import java.util.List;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 
 
@@ -18,28 +18,28 @@ public final class HeartLockRuntime {
     private static final String TAG_HEART_LOCK = "gems_heart_lock";
     private static final String TAG_UNTIL_PREFIX = "gems_heart_lock_until:";
     private static final String TAG_MAX_PREFIX = "gems_heart_lock_max:";
-    private static final Identifier MODIFIER_ID = Identifier.of(GemsMod.MOD_ID, "heart_lock");
+    private static final Identifier MODIFIER_ID = Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "heart_lock");
 
     private HeartLockRuntime() {
     }
 
-    public static void apply(ServerPlayerEntity caster, MobEntity mob, int durationTicks) {
+    public static void apply(ServerPlayer caster, Mob mob, int durationTicks) {
         long until = durationTicks > 0 ? GemsTime.now(caster) + durationTicks : 0L;
         float lockedMax = Math.max(2.0F, mob.getHealth());
         clearTags(mob);
-        mob.addCommandTag(TAG_HEART_LOCK);
+        mob.addTag(TAG_HEART_LOCK);
         if (until > 0) {
-            mob.addCommandTag(TAG_UNTIL_PREFIX + until);
+            mob.addTag(TAG_UNTIL_PREFIX + until);
         }
-        mob.addCommandTag(TAG_MAX_PREFIX + lockedMax);
+        mob.addTag(TAG_MAX_PREFIX + lockedMax);
         applyModifier(mob, lockedMax);
     }
 
-    public static void tick(MobEntity mob) {
-        if (!mob.getCommandTags().contains(TAG_HEART_LOCK)) {
+    public static void tick(Mob mob) {
+        if (!mob.entityTags().contains(TAG_HEART_LOCK)) {
             return;
         }
-        if (!(mob.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(mob.level() instanceof ServerLevel world)) {
             return;
         }
         long until = readUntil(mob);
@@ -55,8 +55,8 @@ public final class HeartLockRuntime {
         applyModifier(mob, lockedMax);
     }
 
-    private static void applyModifier(MobEntity mob, float lockedMax) {
-        EntityAttributeInstance maxHealth = mob.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+    private static void applyModifier(Mob mob, float lockedMax) {
+        AttributeInstance maxHealth = mob.getAttribute(Attributes.MAX_HEALTH);
         if (maxHealth == null) {
             return;
         }
@@ -64,23 +64,23 @@ public final class HeartLockRuntime {
         double baseMax = maxHealth.getValue();
         double delta = lockedMax - baseMax;
         if (delta != 0.0D) {
-            maxHealth.addTemporaryModifier(new EntityAttributeModifier(MODIFIER_ID, delta, EntityAttributeModifier.Operation.ADD_VALUE));
+            maxHealth.addTransientModifier(new AttributeModifier(MODIFIER_ID, delta, AttributeModifier.Operation.ADD_VALUE));
         }
         if (mob.getHealth() > lockedMax) {
             mob.setHealth(lockedMax);
         }
     }
 
-    private static void clear(MobEntity mob) {
+    private static void clear(Mob mob) {
         clearTags(mob);
-        EntityAttributeInstance maxHealth = mob.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+        AttributeInstance maxHealth = mob.getAttribute(Attributes.MAX_HEALTH);
         if (maxHealth != null) {
             maxHealth.removeModifier(MODIFIER_ID);
         }
     }
 
-    private static long readUntil(MobEntity mob) {
-        for (String tag : mob.getCommandTags()) {
+    private static long readUntil(Mob mob) {
+        for (String tag : mob.entityTags()) {
             if (!tag.startsWith(TAG_UNTIL_PREFIX)) {
                 continue;
             }
@@ -94,8 +94,8 @@ public final class HeartLockRuntime {
         return 0L;
     }
 
-    private static float readLockedMax(MobEntity mob) {
-        for (String tag : mob.getCommandTags()) {
+    private static float readLockedMax(Mob mob) {
+        for (String tag : mob.entityTags()) {
             if (!tag.startsWith(TAG_MAX_PREFIX)) {
                 continue;
             }
@@ -109,11 +109,11 @@ public final class HeartLockRuntime {
         return 0.0F;
     }
 
-    private static void clearTags(MobEntity mob) {
-        List<String> tags = List.copyOf(mob.getCommandTags());
+    private static void clearTags(Mob mob) {
+        List<String> tags = List.copyOf(mob.entityTags());
         for (String tag : tags) {
             if (tag.equals(TAG_HEART_LOCK) || tag.startsWith(TAG_UNTIL_PREFIX) || tag.startsWith(TAG_MAX_PREFIX)) {
-                mob.removeCommandTag(tag);
+                mob.removeTag(tag);
             }
         }
     }

@@ -7,10 +7,10 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.AbilityRuntime;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 public final class ReaperRetributionAbility implements GemAbility {
     @Override
@@ -34,15 +34,15 @@ public final class ReaperRetributionAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.REAPER, GemsBalance.v().reaper().retributionDurationTicks());
         if (duration <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.reaper.retribution.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.retribution.disabled"), true);
             return false;
         }
         AbilityRuntime.startReaperRetribution(player, duration);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_WITHER_SPAWN, 0.6F, 1.2F);
-        player.sendMessage(Text.translatable("gems.ability.reaper.retribution.active"), true);
+        AbilityFeedback.sound(player, SoundEvents.WITHER_SPAWN, 0.6F, 1.2F);
+        player.sendSystemMessage(Component.translatable("gems.ability.reaper.retribution.active"), true);
         return true;
     }
 }

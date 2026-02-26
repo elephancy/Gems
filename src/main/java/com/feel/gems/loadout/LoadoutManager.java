@@ -10,14 +10,13 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Manages loadout presets for players.
@@ -36,7 +35,7 @@ public final class LoadoutManager {
     /**
      * Check if the player meets the energy requirement for loadout presets.
      */
-    public static boolean canUseLoadouts(ServerPlayerEntity player) {
+    public static boolean canUseLoadouts(ServerPlayer player) {
         if (!GemsBalance.v().loadouts().enabled()) {
             return false;
         }
@@ -49,21 +48,21 @@ public final class LoadoutManager {
     /**
      * Get all saved presets for a gem.
      */
-    public static List<GemLoadout> getPresets(ServerPlayerEntity player, GemId gem) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound loadouts = root.getCompound(KEY_LOADOUTS).orElse(null);
+    public static List<GemLoadout> getPresets(ServerPlayer player, GemId gem) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag loadouts = root.getCompound(KEY_LOADOUTS).orElse(null);
         if (loadouts == null) {
             return List.of();
         }
 
-        NbtList gemPresets = loadouts.getList(gem.name()).orElse(null);
+        ListTag gemPresets = loadouts.getList(gem.name()).orElse(null);
         if (gemPresets == null || gemPresets.isEmpty()) {
             return List.of();
         }
 
         List<GemLoadout> result = new ArrayList<>();
         for (int i = 0; i < gemPresets.size(); i++) {
-            NbtCompound preset = gemPresets.getCompound(i).orElse(null);
+            CompoundTag preset = gemPresets.getCompound(i).orElse(null);
             if (preset != null) {
                 GemLoadout loadout = fromNbt(preset, gem);
                 if (loadout != null) {
@@ -77,11 +76,11 @@ public final class LoadoutManager {
     /**
      * Save a preset for a gem. Returns the index of the saved preset.
      */
-    public static int savePreset(ServerPlayerEntity player, GemLoadout loadout) {
+    public static int savePreset(ServerPlayer player, GemLoadout loadout) {
         if (!canUseLoadouts(player)) {
-            player.sendMessage(
-                    Text.translatable("gems.loadout.locked", GemsBalance.v().loadouts().unlockEnergy())
-                            .formatted(Formatting.RED),
+            player.sendSystemMessage(
+                    Component.translatable("gems.loadout.locked", GemsBalance.v().loadouts().unlockEnergy())
+                            .withStyle(ChatFormatting.RED),
                     false
             );
             return -1;
@@ -92,9 +91,9 @@ public final class LoadoutManager {
 
         // Check max presets
         if (existing.size() >= GemLoadout.MAX_PRESETS_PER_GEM) {
-            player.sendMessage(
-                    Text.translatable("gems.loadout.max_presets", GemLoadout.MAX_PRESETS_PER_GEM)
-                            .formatted(Formatting.RED),
+            player.sendSystemMessage(
+                    Component.translatable("gems.loadout.max_presets", GemLoadout.MAX_PRESETS_PER_GEM)
+                            .withStyle(ChatFormatting.RED),
                     false
             );
             return -1;
@@ -103,8 +102,8 @@ public final class LoadoutManager {
         existing.add(loadout);
         saveAllPresets(player, gem, existing);
 
-        player.sendMessage(
-                Text.translatable("gems.loadout.saved", loadout.name()).formatted(Formatting.GREEN),
+        player.sendSystemMessage(
+                Component.translatable("gems.loadout.saved", loadout.name()).withStyle(ChatFormatting.GREEN),
                 false
         );
         return existing.size() - 1;
@@ -113,7 +112,7 @@ public final class LoadoutManager {
     /**
      * Delete a preset by index.
      */
-    public static boolean deletePreset(ServerPlayerEntity player, GemId gem, int index) {
+    public static boolean deletePreset(ServerPlayer player, GemId gem, int index) {
         List<GemLoadout> existing = new ArrayList<>(getPresets(player, gem));
         if (index < 0 || index >= existing.size()) {
             return false;
@@ -123,8 +122,8 @@ public final class LoadoutManager {
         existing.remove(index);
         saveAllPresets(player, gem, existing);
 
-        player.sendMessage(
-                Text.translatable("gems.loadout.deleted", name).formatted(Formatting.YELLOW),
+        player.sendSystemMessage(
+                Component.translatable("gems.loadout.deleted", name).withStyle(ChatFormatting.YELLOW),
                 false
         );
         return true;
@@ -133,11 +132,11 @@ public final class LoadoutManager {
     /**
      * Load (activate) a preset by index.
      */
-    public static boolean loadPreset(ServerPlayerEntity player, GemId gem, int index) {
+    public static boolean loadPreset(ServerPlayer player, GemId gem, int index) {
         if (!canUseLoadouts(player)) {
-            player.sendMessage(
-                    Text.translatable("gems.loadout.locked", GemsBalance.v().loadouts().unlockEnergy())
-                            .formatted(Formatting.RED),
+            player.sendSystemMessage(
+                    Component.translatable("gems.loadout.locked", GemsBalance.v().loadouts().unlockEnergy())
+                            .withStyle(ChatFormatting.RED),
                     false
             );
             return false;
@@ -145,8 +144,8 @@ public final class LoadoutManager {
 
         List<GemLoadout> presets = getPresets(player, gem);
         if (index < 0 || index >= presets.size()) {
-            player.sendMessage(
-                    Text.translatable("gems.loadout.not_found").formatted(Formatting.RED),
+            player.sendSystemMessage(
+                    Component.translatable("gems.loadout.not_found").withStyle(ChatFormatting.RED),
                     false
             );
             return false;
@@ -160,8 +159,8 @@ public final class LoadoutManager {
         // Save active preset index
         setActivePresetIndex(player, gem, index);
 
-        player.sendMessage(
-                Text.translatable("gems.loadout.loaded", loadout.name()).formatted(Formatting.GREEN),
+        player.sendSystemMessage(
+                Component.translatable("gems.loadout.loaded", loadout.name()).withStyle(ChatFormatting.GREEN),
                 false
         );
         return true;
@@ -171,7 +170,7 @@ public final class LoadoutManager {
      * Apply a loadout to the player.
      * Respects current energy gating for abilities.
      */
-    public static void applyLoadout(ServerPlayerEntity player, GemLoadout loadout) {
+    public static void applyLoadout(ServerPlayer player, GemLoadout loadout) {
         // Apply passives enabled state
         GemPlayerState.setPassivesEnabled(player, loadout.passivesEnabled());
 
@@ -185,7 +184,7 @@ public final class LoadoutManager {
     /**
      * Create a loadout from the player's current settings.
      */
-    public static GemLoadout createFromCurrent(ServerPlayerEntity player, String name) {
+    public static GemLoadout createFromCurrent(ServerPlayer player, String name) {
         GemId gem = GemPlayerState.getActiveGem(player);
         GemDefinition def = GemRegistry.definition(gem);
 
@@ -213,24 +212,24 @@ public final class LoadoutManager {
     /**
      * Get the player's custom ability order for a gem.
      */
-    public static List<Identifier> getAbilityOrder(ServerPlayerEntity player, GemId gem) {
+    public static List<Identifier> getAbilityOrder(ServerPlayer player, GemId gem) {
         if (!canUseLoadouts(player)) {
             return GemRegistry.definition(gem).abilities();
         }
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound orders = root.getCompound(KEY_ABILITY_ORDER).orElse(null);
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag orders = root.getCompound(KEY_ABILITY_ORDER).orElse(null);
         if (orders == null) {
             return GemRegistry.definition(gem).abilities();
         }
 
-        NbtList list = orders.getList(gem.name()).orElse(null);
+        ListTag list = orders.getList(gem.name()).orElse(null);
         if (list == null || list.isEmpty()) {
             return GemRegistry.definition(gem).abilities();
         }
 
         List<Identifier> result = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
-            String idStr = list.getString(i, "");
+            String idStr = list.getStringOr(i, "");
             if (!idStr.isEmpty()) {
                 Identifier id = Identifier.tryParse(idStr);
                 if (id != null) {
@@ -244,14 +243,14 @@ public final class LoadoutManager {
     /**
      * Save the player's custom ability order for a gem.
      */
-    public static void saveAbilityOrder(ServerPlayerEntity player, GemId gem, List<Identifier> order) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound orders = root.getCompound(KEY_ABILITY_ORDER).orElse(new NbtCompound());
+    public static void saveAbilityOrder(ServerPlayer player, GemId gem, List<Identifier> order) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag orders = root.getCompound(KEY_ABILITY_ORDER).orElse(new CompoundTag());
 
         List<Identifier> sanitized = GemLoadout.sanitizeAbilityOrder(order, GemRegistry.definition(gem).abilities());
-        NbtList list = new NbtList();
+        ListTag list = new ListTag();
         for (Identifier id : sanitized) {
-            list.add(NbtString.of(id.toString()));
+            list.add(StringTag.valueOf(id.toString()));
         }
         orders.put(gem.name(), list);
         root.put(KEY_ABILITY_ORDER, orders);
@@ -264,17 +263,17 @@ public final class LoadoutManager {
     /**
      * Get the player's HUD layout preferences.
      */
-    public static GemLoadout.HudLayout getHudLayout(ServerPlayerEntity player) {
+    public static GemLoadout.HudLayout getHudLayout(ServerPlayer player) {
         if (!canUseLoadouts(player)) {
             return GemLoadout.HudLayout.defaults();
         }
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound layout = root.getCompound(KEY_HUD_LAYOUT).orElse(null);
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag layout = root.getCompound(KEY_HUD_LAYOUT).orElse(null);
         if (layout == null) {
             return GemLoadout.HudLayout.defaults();
         }
 
-        String posName = layout.getString("position", "TOP_LEFT");
+        String posName = layout.getStringOr("position", "TOP_LEFT");
         GemLoadout.HudPosition position;
         try {
             position = GemLoadout.HudPosition.valueOf(posName);
@@ -292,9 +291,9 @@ public final class LoadoutManager {
     /**
      * Save the player's HUD layout preferences.
      */
-    public static void saveHudLayout(ServerPlayerEntity player, GemLoadout.HudLayout layout) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound nbt = new NbtCompound();
+    public static void saveHudLayout(ServerPlayer player, GemLoadout.HudLayout layout) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag nbt = new CompoundTag();
         nbt.putString("position", layout.position().name());
         nbt.putBoolean("showCooldowns", layout.showCooldowns());
         nbt.putBoolean("showEnergy", layout.showEnergy());
@@ -307,21 +306,21 @@ public final class LoadoutManager {
     /**
      * Get the active preset index for a gem, or -1 if none.
      */
-    public static int getActivePresetIndex(ServerPlayerEntity player, GemId gem) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound active = root.getCompound(KEY_ACTIVE_PRESET).orElse(null);
+    public static int getActivePresetIndex(ServerPlayer player, GemId gem) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag active = root.getCompound(KEY_ACTIVE_PRESET).orElse(null);
         if (active == null) {
             return -1;
         }
-        return active.getInt(gem.name(), -1);
+        return active.getIntOr(gem.name(), -1);
     }
 
     /**
      * Set the active preset index for a gem.
      */
-    public static void setActivePresetIndex(ServerPlayerEntity player, GemId gem, int index) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound active = root.getCompound(KEY_ACTIVE_PRESET).orElse(new NbtCompound());
+    public static void setActivePresetIndex(ServerPlayer player, GemId gem, int index) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag active = root.getCompound(KEY_ACTIVE_PRESET).orElse(new CompoundTag());
         if (index < 0) {
             active.remove(gem.name());
             if (active.isEmpty()) {
@@ -338,7 +337,7 @@ public final class LoadoutManager {
     /**
      * Reset the current gem's loadout to defaults when loadouts are locked.
      */
-    public static void resetToDefaults(ServerPlayerEntity player) {
+    public static void resetToDefaults(ServerPlayer player) {
         GemId gem = GemPlayerState.getActiveGem(player);
         GemDefinition def = GemRegistry.definition(gem);
         saveAbilityOrder(player, gem, def.abilities());
@@ -349,11 +348,11 @@ public final class LoadoutManager {
 
     // ========== Internal Helpers ==========
 
-    private static void saveAllPresets(ServerPlayerEntity player, GemId gem, List<GemLoadout> presets) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound loadouts = root.getCompound(KEY_LOADOUTS).orElse(new NbtCompound());
+    private static void saveAllPresets(ServerPlayer player, GemId gem, List<GemLoadout> presets) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag loadouts = root.getCompound(KEY_LOADOUTS).orElse(new CompoundTag());
 
-        NbtList list = new NbtList();
+        ListTag list = new ListTag();
         for (GemLoadout loadout : presets) {
             list.add(toNbt(loadout));
         }
@@ -361,19 +360,19 @@ public final class LoadoutManager {
         root.put(KEY_LOADOUTS, loadouts);
     }
 
-    private static NbtCompound toNbt(GemLoadout loadout) {
-        NbtCompound nbt = new NbtCompound();
+    private static CompoundTag toNbt(GemLoadout loadout) {
+        CompoundTag nbt = new CompoundTag();
         nbt.putString("name", loadout.name());
         nbt.putString("gem", loadout.gem().name());
         nbt.putBoolean("passivesEnabled", loadout.passivesEnabled());
 
-        NbtList abilities = new NbtList();
+        ListTag abilities = new ListTag();
         for (Identifier id : loadout.abilityOrder()) {
-            abilities.add(NbtString.of(id.toString()));
+            abilities.add(StringTag.valueOf(id.toString()));
         }
         nbt.put("abilityOrder", abilities);
 
-        NbtCompound hudNbt = new NbtCompound();
+        CompoundTag hudNbt = new CompoundTag();
         hudNbt.putString("position", loadout.hudLayout().position().name());
         hudNbt.putBoolean("showCooldowns", loadout.hudLayout().showCooldowns());
         hudNbt.putBoolean("showEnergy", loadout.hudLayout().showEnergy());
@@ -383,15 +382,15 @@ public final class LoadoutManager {
         return nbt;
     }
 
-    private static GemLoadout fromNbt(NbtCompound nbt, GemId gem) {
-        String name = nbt.getString("name", "Preset");
+    private static GemLoadout fromNbt(CompoundTag nbt, GemId gem) {
+        String name = nbt.getStringOr("name", "Preset");
         boolean passivesEnabled = nbt.getBoolean("passivesEnabled").orElse(true);
 
         List<Identifier> abilityOrder = new ArrayList<>();
-        NbtList abilities = nbt.getList("abilityOrder").orElse(null);
+        ListTag abilities = nbt.getList("abilityOrder").orElse(null);
         if (abilities != null) {
             for (int i = 0; i < abilities.size(); i++) {
-                String idStr = abilities.getString(i, "");
+                String idStr = abilities.getStringOr(i, "");
                 if (!idStr.isEmpty()) {
                     Identifier id = Identifier.tryParse(idStr);
                     if (id != null) {
@@ -402,9 +401,9 @@ public final class LoadoutManager {
         }
 
         GemLoadout.HudLayout hudLayout = GemLoadout.HudLayout.defaults();
-        NbtCompound hudNbt = nbt.getCompound("hudLayout").orElse(null);
+        CompoundTag hudNbt = nbt.getCompound("hudLayout").orElse(null);
         if (hudNbt != null) {
-            String posName = hudNbt.getString("position", "TOP_LEFT");
+            String posName = hudNbt.getStringOr("position", "TOP_LEFT");
             GemLoadout.HudPosition position;
             try {
                 position = GemLoadout.HudPosition.valueOf(posName);

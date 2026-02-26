@@ -1,34 +1,34 @@
 package com.feel.gems.net;
 
 import com.feel.gems.GemsMod;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * C2S: player selects a title to display (or clears it with an empty id).
  */
-public record TitleSelectionSelectPayload(String titleId) implements CustomPayload {
-    public static final Id<TitleSelectionSelectPayload> ID =
-            new Id<>(Identifier.of(GemsMod.MOD_ID, "title_selection_select"));
+public record TitleSelectionSelectPayload(String titleId) implements CustomPacketPayload {
+    public static final Type<TitleSelectionSelectPayload> ID =
+            new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "title_selection_select"));
 
-    public static final PacketCodec<RegistryByteBuf, TitleSelectionSelectPayload> CODEC = PacketCodec.ofStatic(
+    public static final StreamCodec<RegistryFriendlyByteBuf, TitleSelectionSelectPayload> CODEC = StreamCodec.of(
             TitleSelectionSelectPayload::write,
             TitleSelectionSelectPayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-    private static void write(RegistryByteBuf buf, TitleSelectionSelectPayload payload) {
+    private static void write(RegistryFriendlyByteBuf buf, TitleSelectionSelectPayload payload) {
         String raw = payload.titleId == null ? "" : payload.titleId;
-        buf.writeString(raw, 128);
+        buf.writeUtf(raw, 128);
     }
 
-    private static TitleSelectionSelectPayload read(RegistryByteBuf buf) {
-        return new TitleSelectionSelectPayload(buf.readString(128));
+    private static TitleSelectionSelectPayload read(RegistryFriendlyByteBuf buf) {
+        return new TitleSelectionSelectPayload(buf.readUtf(128));
     }
 }

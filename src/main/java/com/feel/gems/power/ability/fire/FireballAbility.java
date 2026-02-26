@@ -7,18 +7,18 @@ import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.util.RangeLimitedProjectile;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.projectile.FireballEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.projectile.hurtingprojectile.LargeFireball;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -49,50 +49,50 @@ public final class FireballAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
+    public boolean activate(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
         long now = GemsTime.now(player);
-        long lastFire = nbt.getLong(KEY_LAST_FIRE, 0L);
+        long lastFire = nbt.getLongOr(KEY_LAST_FIRE, 0L);
         if (now - lastFire < GemsBalance.v().fire().fireballInternalCooldownTicks()) {
-            player.sendMessage(Text.translatable("gems.ability.fire.fireball.on_cooldown"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.fire.fireball.on_cooldown"), true);
             return true;
         }
 
-        long start = nbt.getLong(KEY_CHARGE_START, 0L);
+        long start = nbt.getLongOr(KEY_CHARGE_START, 0L);
         if (start <= 0) {
             nbt.putLong(KEY_CHARGE_START, now);
             nbt.putInt(KEY_LAST_SHOWN_CHARGE, -1);
-            AbilityFeedback.sound(player, SoundEvents.BLOCK_FIRE_AMBIENT, 0.7F, 1.2F);
+            AbilityFeedback.sound(player, SoundEvents.FIRE_AMBIENT, 0.7F, 1.2F);
             AbilityFeedback.burst(player, ParticleTypes.SMALL_FLAME, 10, 0.2D);
-            player.sendMessage(chargeBarText(0), true);
+            player.sendSystemMessage(chargeBarText(0), true);
             return true;
         }
 
-        int charge = computeCharge(player.getEntityWorld(), player, start, now);
+        int charge = computeCharge(player.level(), player, start, now);
         nbt.remove(KEY_CHARGE_START);
         nbt.remove(KEY_LAST_SHOWN_CHARGE);
         nbt.putLong(KEY_LAST_FIRE, now);
         launch(player, charge);
         AbilityFeedback.burst(player, ParticleTypes.FLAME, 14, 0.25D);
         AbilityFeedback.burst(player, ParticleTypes.SMOKE, 10, 0.25D);
-        player.sendMessage(Text.translatable("gems.ability.fire.fireball.launched").formatted(Formatting.GOLD), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.fire.fireball.launched").withStyle(ChatFormatting.GOLD), true);
         return true;
     }
 
-    public static void tickCharging(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = persistent(player);
-        long start = nbt.getLong(KEY_CHARGE_START, 0L);
+    public static void tickCharging(ServerPlayer player, long now) {
+        CompoundTag nbt = persistent(player);
+        long start = nbt.getLongOr(KEY_CHARGE_START, 0L);
         if (start <= 0) {
             return;
         }
-        int charge = computeCharge(player.getEntityWorld(), player, start, now);
+        int charge = computeCharge(player.level(), player, start, now);
         int bucket = chargeBucket(charge);
-        int last = nbt.getInt(KEY_LAST_SHOWN_CHARGE, -1);
+        int last = nbt.getIntOr(KEY_LAST_SHOWN_CHARGE, -1);
         if (bucket == last) {
             return;
         }
         nbt.putInt(KEY_LAST_SHOWN_CHARGE, bucket);
-        player.sendMessage(chargeBarText(charge), true);
+        player.sendSystemMessage(chargeBarText(charge), true);
     }
 
     private static int chargeBucket(int chargePercent) {
@@ -100,39 +100,39 @@ public final class FireballAbility implements GemAbility {
         return (clamped * CHARGE_BAR_SEGMENTS) / 100;
     }
 
-    private static Text chargeBarText(int chargePercent) {
+    private static Component chargeBarText(int chargePercent) {
         int clamped = Math.max(0, Math.min(100, chargePercent));
         int filled = chargeBucket(clamped);
 
-        Formatting fillColor;
+        ChatFormatting fillColor;
         if (clamped >= 100) {
-            fillColor = Formatting.GOLD;
+            fillColor = ChatFormatting.GOLD;
         } else if (clamped >= 67) {
-            fillColor = Formatting.GREEN;
+            fillColor = ChatFormatting.GREEN;
         } else if (clamped >= 34) {
-            fillColor = Formatting.YELLOW;
+            fillColor = ChatFormatting.YELLOW;
         } else {
-            fillColor = Formatting.RED;
+            fillColor = ChatFormatting.RED;
         }
 
-        var bar = Text.literal("[");
+        var bar = Component.literal("[");
         for (int i = 0; i < CHARGE_BAR_SEGMENTS; i++) {
             boolean on = i < filled;
-            bar.append(Text.literal(on ? "|" : ".").formatted(on ? fillColor : Formatting.DARK_GRAY));
+            bar.append(Component.literal(on ? "|" : ".").withStyle(on ? fillColor : ChatFormatting.DARK_GRAY));
         }
-        bar.append(Text.literal("]"));
+        bar.append(Component.literal("]"));
 
-        var percent = Text.literal(" " + clamped + "%").formatted(Formatting.GRAY);
-        var message = Text.translatable("gems.ability.fire.fireball.charge").formatted(Formatting.GOLD)
+        var percent = Component.literal(" " + clamped + "%").withStyle(ChatFormatting.GRAY);
+        var message = Component.translatable("gems.ability.fire.fireball.charge").withStyle(ChatFormatting.GOLD)
                 .append(bar)
                 .append(percent);
         if (clamped >= 100) {
-            message.append(Text.translatable("gems.ability.fire.fireball.ready").formatted(Formatting.GOLD));
+            message.append(Component.translatable("gems.ability.fire.fireball.ready").withStyle(ChatFormatting.GOLD));
         }
         return message;
     }
 
-    private static int computeCharge(ServerWorld world, ServerPlayerEntity player, long start, long now) {
+    private static int computeCharge(ServerLevel world, ServerPlayer player, long start, long now) {
         int chargeUpTicks = GemsBalance.v().fire().fireballChargeUpTicks();
         int chargeDownTicks = GemsBalance.v().fire().fireballChargeDownTicks();
 
@@ -141,8 +141,8 @@ public final class FireballAbility implements GemAbility {
             return (int) Math.round((elapsed * 100.0D) / Math.max(1, chargeUpTicks));
         }
 
-        BlockPos below = player.getBlockPos().down();
-        boolean onObsidian = world.getBlockState(below).isOf(Blocks.OBSIDIAN);
+        BlockPos below = player.blockPosition().below();
+        boolean onObsidian = world.getBlockState(below).is(Blocks.OBSIDIAN);
         if (onObsidian) {
             return 100;
         }
@@ -155,23 +155,23 @@ public final class FireballAbility implements GemAbility {
         return (int) Math.round(100.0D * remaining);
     }
 
-    private static void launch(ServerPlayerEntity player, int chargePercent) {
-        ServerWorld world = player.getEntityWorld();
-        Vec3d direction = player.getRotationVec(1.0F);
-        Vec3d spawnPos = player.getEyePos().add(direction.multiply(1.5D));
+    private static void launch(ServerPlayer player, int chargePercent) {
+        ServerLevel world = player.level();
+        Vec3 direction = player.getViewVector(1.0F);
+        Vec3 spawnPos = player.getEyePosition().add(direction.scale(1.5D));
 
         int power = 1 + (chargePercent / 50);
-        FireballEntity fireball = new FireballEntity(world, player, direction, power);
-        fireball.refreshPositionAndAngles(spawnPos.x, spawnPos.y, spawnPos.z, player.getYaw(), player.getPitch());
+        LargeFireball fireball = new LargeFireball(world, player, direction, power);
+        fireball.snapTo(spawnPos.x, spawnPos.y, spawnPos.z, player.getYRot(), player.getXRot());
         if (fireball instanceof RangeLimitedProjectile limited) {
             limited.gems$setRangeLimit(spawnPos, GemsBalance.v().fire().fireballMaxDistanceBlocks());
         }
-        world.spawnEntity(fireball);
+        world.addFreshEntity(fireball);
 
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_GHAST_SHOOT, 1.0F, 1.0F);
+        AbilityFeedback.sound(player, SoundEvents.GHAST_SHOOT, 1.0F, 1.0F);
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 }

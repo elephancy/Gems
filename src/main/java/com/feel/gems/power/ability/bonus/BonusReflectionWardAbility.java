@@ -2,13 +2,12 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 
 /**
  * Reflection Ward - Next 3 projectiles are reflected back at attackers.
@@ -38,23 +37,23 @@ public final class BonusReflectionWardAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+
         // Set reflect counter via scoreboard or tag
-        player.addCommandTag("gems_reflection_ward:" + REFLECT_COUNT);
+        player.addTag("gems_reflection_ward:" + REFLECT_COUNT);
 
         // Shield particles
         for (int i = 0; i < 20; i++) {
             double angle = (2 * Math.PI / 20) * i;
             double x = player.getX() + Math.cos(angle) * 1.5;
             double z = player.getZ() + Math.sin(angle) * 1.5;
-            world.spawnParticles(ParticleTypes.END_ROD, x, player.getY() + 1, z, 
+            world.sendParticles(ParticleTypes.END_ROD, x, player.getY() + 1, z,
                     2, 0.05, 0.3, 0.05, 0.01);
         }
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.BLOCK_BEACON_POWER_SELECT, SoundCategory.PLAYERS, 1.0f, 1.5f);
+                SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.5f);
         return true;
     }
 }

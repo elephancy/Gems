@@ -3,8 +3,8 @@ package com.feel.gems.assassin;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.bounty.BountyBoard;
 import com.feel.gems.state.GemsPersistentDataHolder;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -33,8 +33,8 @@ public final class AssassinState {
     private AssassinState() {
     }
 
-    public static void initIfNeeded(ServerPlayerEntity player) {
-        NbtCompound nbt = root(player);
+    public static void initIfNeeded(ServerPlayer player) {
+        CompoundTag nbt = root(player);
         if (nbt.getBoolean(KEY_IS_ASSASSIN).isEmpty()) {
             nbt.putBoolean(KEY_IS_ASSASSIN, false);
         }
@@ -67,31 +67,31 @@ public final class AssassinState {
         }
     }
 
-    public static boolean isAssassin(ServerPlayerEntity player) {
-        return root(player).getBoolean(KEY_IS_ASSASSIN, false);
+    public static boolean isAssassin(ServerPlayer player) {
+        return root(player).getBooleanOr(KEY_IS_ASSASSIN, false);
     }
 
-    public static boolean isEliminated(ServerPlayerEntity player) {
-        return root(player).getBoolean(KEY_ELIMINATED, false);
+    public static boolean isEliminated(ServerPlayer player) {
+        return root(player).getBooleanOr(KEY_ELIMINATED, false);
     }
 
-    public static int getAssassinHearts(ServerPlayerEntity player) {
+    public static int getAssassinHearts(ServerPlayer player) {
         if (!isAssassin(player)) {
             return maxHearts();
         }
-        int raw = root(player).getInt(KEY_ASSASSIN_HEARTS, maxHearts());
+        int raw = root(player).getIntOr(KEY_ASSASSIN_HEARTS, maxHearts());
         return clamp(raw, 0, maxHearts());
     }
 
-    public static int getAssassinHeartsForAttribute(ServerPlayerEntity player) {
+    public static int getAssassinHeartsForAttribute(ServerPlayer player) {
         // Avoid 0 max-health edge-cases; eliminated players are handled by game mode, but we keep attribute valid.
         return Math.max(1, getAssassinHearts(player));
     }
 
-    public static void becomeAssassin(ServerPlayerEntity player) {
+    public static void becomeAssassin(ServerPlayer player) {
         initIfNeeded(player);
-        NbtCompound nbt = root(player);
-        if (nbt.getBoolean(KEY_IS_ASSASSIN, false)) {
+        CompoundTag nbt = root(player);
+        if (nbt.getBooleanOr(KEY_IS_ASSASSIN, false)) {
             return;
         }
         nbt.putBoolean(KEY_IS_ASSASSIN, true);
@@ -107,9 +107,9 @@ public final class AssassinState {
         BountyBoard.voidBountiesForAssassin(player);
     }
 
-    public static void reset(ServerPlayerEntity player) {
+    public static void reset(ServerPlayer player) {
         initIfNeeded(player);
-        NbtCompound nbt = root(player);
+        CompoundTag nbt = root(player);
         nbt.putBoolean(KEY_IS_ASSASSIN, false);
         nbt.putBoolean(KEY_ELIMINATED, false);
         nbt.putInt(KEY_ASSASSIN_HEARTS, maxHearts());
@@ -122,20 +122,20 @@ public final class AssassinState {
         nbt.putInt(KEY_A_FINAL_KILLS_VS_NON, 0);
     }
 
-    public static void setEliminated(ServerPlayerEntity player, boolean eliminated) {
+    public static void setEliminated(ServerPlayer player, boolean eliminated) {
         initIfNeeded(player);
         root(player).putBoolean(KEY_ELIMINATED, eliminated);
     }
 
-    public static void setAssassin(ServerPlayerEntity player, boolean assassin) {
+    public static void setAssassin(ServerPlayer player, boolean assassin) {
         initIfNeeded(player);
-        NbtCompound nbt = root(player);
-        boolean wasAssassin = nbt.getBoolean(KEY_IS_ASSASSIN, false);
+        CompoundTag nbt = root(player);
+        boolean wasAssassin = nbt.getBooleanOr(KEY_IS_ASSASSIN, false);
         nbt.putBoolean(KEY_IS_ASSASSIN, assassin);
         if (!assassin) {
             nbt.putBoolean(KEY_ELIMINATED, false);
             nbt.putInt(KEY_ASSASSIN_HEARTS, maxHearts());
-        } else if (nbt.getInt(KEY_ASSASSIN_HEARTS, 0) <= 0) {
+        } else if (nbt.getIntOr(KEY_ASSASSIN_HEARTS, 0) <= 0) {
             nbt.putInt(KEY_ASSASSIN_HEARTS, maxHearts());
         }
         if (assassin && !wasAssassin) {
@@ -143,16 +143,16 @@ public final class AssassinState {
         }
     }
 
-    public static void resetAssassinPoints(ServerPlayerEntity player) {
+    public static void resetAssassinPoints(ServerPlayer player) {
         initIfNeeded(player);
-        NbtCompound nbt = root(player);
+        CompoundTag nbt = root(player);
         nbt.putInt(KEY_A_NORMAL_KILLS, 0);
         nbt.putInt(KEY_A_FINAL_KILLS, 0);
         nbt.putInt(KEY_A_NORMAL_KILLS_VS_NON, 0);
         nbt.putInt(KEY_A_FINAL_KILLS_VS_NON, 0);
     }
 
-    public static int setAssassinHearts(ServerPlayerEntity player, int hearts) {
+    public static int setAssassinHearts(ServerPlayer player, int hearts) {
         initIfNeeded(player);
         int clamped = clamp(hearts, 0, maxHearts());
         root(player).putInt(KEY_ASSASSIN_HEARTS, clamped);
@@ -160,7 +160,7 @@ public final class AssassinState {
         return clamped;
     }
 
-    public static boolean setCounter(ServerPlayerEntity player, String counterId, int value) {
+    public static boolean setCounter(ServerPlayer player, String counterId, int value) {
         if (player == null || counterId == null) {
             return false;
         }
@@ -183,7 +183,7 @@ public final class AssassinState {
         return true;
     }
 
-    public static int addAssassinHearts(ServerPlayerEntity player, int delta) {
+    public static int addAssassinHearts(ServerPlayer player, int delta) {
         initIfNeeded(player);
         int next = clamp(getAssassinHearts(player) + delta, 0, maxHearts());
         root(player).putInt(KEY_ASSASSIN_HEARTS, next);
@@ -196,26 +196,26 @@ public final class AssassinState {
         return next;
     }
 
-    public static void recordKill(ServerPlayerEntity killer, boolean finalKill, boolean victimWasAssassin) {
+    public static void recordKill(ServerPlayer killer, boolean finalKill, boolean victimWasAssassin) {
         initIfNeeded(killer);
-        NbtCompound nbt = root(killer);
+        CompoundTag nbt = root(killer);
 
         if (finalKill) {
-            nbt.putInt(KEY_TOTAL_FINAL_KILLS, nbt.getInt(KEY_TOTAL_FINAL_KILLS, 0) + 1);
+            nbt.putInt(KEY_TOTAL_FINAL_KILLS, nbt.getIntOr(KEY_TOTAL_FINAL_KILLS, 0) + 1);
         } else {
-            nbt.putInt(KEY_TOTAL_NORMAL_KILLS, nbt.getInt(KEY_TOTAL_NORMAL_KILLS, 0) + 1);
+            nbt.putInt(KEY_TOTAL_NORMAL_KILLS, nbt.getIntOr(KEY_TOTAL_NORMAL_KILLS, 0) + 1);
         }
 
         if (isAssassin(killer)) {
             if (finalKill) {
-                nbt.putInt(KEY_A_FINAL_KILLS, nbt.getInt(KEY_A_FINAL_KILLS, 0) + 1);
+                nbt.putInt(KEY_A_FINAL_KILLS, nbt.getIntOr(KEY_A_FINAL_KILLS, 0) + 1);
                 if (!victimWasAssassin) {
-                    nbt.putInt(KEY_A_FINAL_KILLS_VS_NON, nbt.getInt(KEY_A_FINAL_KILLS_VS_NON, 0) + 1);
+                    nbt.putInt(KEY_A_FINAL_KILLS_VS_NON, nbt.getIntOr(KEY_A_FINAL_KILLS_VS_NON, 0) + 1);
                 }
             } else {
-                nbt.putInt(KEY_A_NORMAL_KILLS, nbt.getInt(KEY_A_NORMAL_KILLS, 0) + 1);
+                nbt.putInt(KEY_A_NORMAL_KILLS, nbt.getIntOr(KEY_A_NORMAL_KILLS, 0) + 1);
                 if (!victimWasAssassin) {
-                    nbt.putInt(KEY_A_NORMAL_KILLS_VS_NON, nbt.getInt(KEY_A_NORMAL_KILLS_VS_NON, 0) + 1);
+                    nbt.putInt(KEY_A_NORMAL_KILLS_VS_NON, nbt.getIntOr(KEY_A_NORMAL_KILLS_VS_NON, 0) + 1);
                 }
             }
             if (maybeUnlockChoice(killer)) {
@@ -228,17 +228,17 @@ public final class AssassinState {
         return CHOICE_POINTS;
     }
 
-    public static boolean isChoiceUnlocked(ServerPlayerEntity player) {
-        return root(player).getBoolean(KEY_CHOICE_UNLOCKED, false);
+    public static boolean isChoiceUnlocked(ServerPlayer player) {
+        return root(player).getBooleanOr(KEY_CHOICE_UNLOCKED, false);
     }
 
-    public static boolean maybeUnlockChoice(ServerPlayerEntity player) {
+    public static boolean maybeUnlockChoice(ServerPlayer player) {
         if (player == null) {
             return false;
         }
         initIfNeeded(player);
-        NbtCompound nbt = root(player);
-        if (nbt.getBoolean(KEY_CHOICE_UNLOCKED, false)) {
+        CompoundTag nbt = root(player);
+        if (nbt.getBooleanOr(KEY_CHOICE_UNLOCKED, false)) {
             return false;
         }
         if (assassinPoints(player) < CHOICE_POINTS) {
@@ -248,12 +248,12 @@ public final class AssassinState {
         return true;
     }
 
-    public static void sendChoicePrompt(ServerPlayerEntity player) {
+    public static void sendChoicePrompt(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        player.sendMessage(net.minecraft.text.Text.translatable("gems.assassin.choice_unlocked").formatted(net.minecraft.util.Formatting.GOLD), false);
-        player.sendMessage(net.minecraft.text.Text.translatable("gems.assassin.choice_leave").formatted(net.minecraft.util.Formatting.GRAY), false);
+        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("gems.assassin.choice_unlocked").withStyle(net.minecraft.ChatFormatting.GOLD), false);
+        player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("gems.assassin.choice_leave").withStyle(net.minecraft.ChatFormatting.GRAY), false);
     }
 
     /**
@@ -263,20 +263,20 @@ public final class AssassinState {
      *
      * @return the number of assassin points transferred (as computed from the moved counters)
      */
-    public static int transferAssassinPoints(ServerPlayerEntity from, ServerPlayerEntity to) {
+    public static int transferAssassinPoints(ServerPlayer from, ServerPlayer to) {
         initIfNeeded(from);
         initIfNeeded(to);
         if (!isAssassin(from) || !isAssassin(to)) {
             return 0;
         }
 
-        NbtCompound fromNbt = root(from);
-        NbtCompound toNbt = root(to);
+        CompoundTag fromNbt = root(from);
+        CompoundTag toNbt = root(to);
 
-        int fromNormal = Math.max(0, fromNbt.getInt(KEY_A_NORMAL_KILLS, 0));
-        int fromFinal = Math.max(0, fromNbt.getInt(KEY_A_FINAL_KILLS, 0));
-        int fromNormalVsNon = Math.max(0, fromNbt.getInt(KEY_A_NORMAL_KILLS_VS_NON, 0));
-        int fromFinalVsNon = Math.max(0, fromNbt.getInt(KEY_A_FINAL_KILLS_VS_NON, 0));
+        int fromNormal = Math.max(0, fromNbt.getIntOr(KEY_A_NORMAL_KILLS, 0));
+        int fromFinal = Math.max(0, fromNbt.getIntOr(KEY_A_FINAL_KILLS, 0));
+        int fromNormalVsNon = Math.max(0, fromNbt.getIntOr(KEY_A_NORMAL_KILLS_VS_NON, 0));
+        int fromFinalVsNon = Math.max(0, fromNbt.getIntOr(KEY_A_FINAL_KILLS_VS_NON, 0));
 
         if (fromNormal == 0 && fromFinal == 0 && fromNormalVsNon == 0 && fromFinalVsNon == 0) {
             return 0;
@@ -295,39 +295,39 @@ public final class AssassinState {
         return points(fromNormal, fromFinal);
     }
 
-    public static int totalNormalKills(ServerPlayerEntity player) {
-        return root(player).getInt(KEY_TOTAL_NORMAL_KILLS, 0);
+    public static int totalNormalKills(ServerPlayer player) {
+        return root(player).getIntOr(KEY_TOTAL_NORMAL_KILLS, 0);
     }
 
-    public static int totalFinalKills(ServerPlayerEntity player) {
-        return root(player).getInt(KEY_TOTAL_FINAL_KILLS, 0);
+    public static int totalFinalKills(ServerPlayer player) {
+        return root(player).getIntOr(KEY_TOTAL_FINAL_KILLS, 0);
     }
 
-    public static int totalPoints(ServerPlayerEntity player) {
+    public static int totalPoints(ServerPlayer player) {
         return points(totalNormalKills(player), totalFinalKills(player));
     }
 
-    public static int assassinNormalKills(ServerPlayerEntity player) {
-        return root(player).getInt(KEY_A_NORMAL_KILLS, 0);
+    public static int assassinNormalKills(ServerPlayer player) {
+        return root(player).getIntOr(KEY_A_NORMAL_KILLS, 0);
     }
 
-    public static int assassinFinalKills(ServerPlayerEntity player) {
-        return root(player).getInt(KEY_A_FINAL_KILLS, 0);
+    public static int assassinFinalKills(ServerPlayer player) {
+        return root(player).getIntOr(KEY_A_FINAL_KILLS, 0);
     }
 
-    public static int assassinPoints(ServerPlayerEntity player) {
+    public static int assassinPoints(ServerPlayer player) {
         return points(assassinNormalKills(player), assassinFinalKills(player));
     }
 
-    public static int assassinNormalKillsVsNonAssassins(ServerPlayerEntity player) {
-        return root(player).getInt(KEY_A_NORMAL_KILLS_VS_NON, 0);
+    public static int assassinNormalKillsVsNonAssassins(ServerPlayer player) {
+        return root(player).getIntOr(KEY_A_NORMAL_KILLS_VS_NON, 0);
     }
 
-    public static int assassinFinalKillsVsNonAssassins(ServerPlayerEntity player) {
-        return root(player).getInt(KEY_A_FINAL_KILLS_VS_NON, 0);
+    public static int assassinFinalKillsVsNonAssassins(ServerPlayer player) {
+        return root(player).getIntOr(KEY_A_FINAL_KILLS_VS_NON, 0);
     }
 
-    public static int assassinPointsVsNonAssassins(ServerPlayerEntity player) {
+    public static int assassinPointsVsNonAssassins(ServerPlayer player) {
         return points(assassinNormalKillsVsNonAssassins(player), assassinFinalKillsVsNonAssassins(player));
     }
 
@@ -347,12 +347,12 @@ public final class AssassinState {
         return hearts <= eliminationThreshold();
     }
 
-    private static NbtCompound root(ServerPlayerEntity player) {
+    private static CompoundTag root(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 
-    private static void addNonNegative(NbtCompound nbt, String key, int delta) {
-        nbt.putInt(key, Math.max(0, nbt.getInt(key, 0) + Math.max(0, delta)));
+    private static void addNonNegative(CompoundTag nbt, String key, int delta) {
+        nbt.putInt(key, Math.max(0, nbt.getIntOr(key, 0) + Math.max(0, delta)));
     }
 
     private static int clamp(int value, int min, int max) {

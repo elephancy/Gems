@@ -15,20 +15,20 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ActionResult;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
 
 /**
  * Hunter's Trophy Necklace - steal passives from other players and keep them permanently.
@@ -48,20 +48,20 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         return GemsBalance.v().legendary().trophyNecklaceMaxPassives();
     }
 
-    public HuntersTrophyNecklaceItem(Settings settings) {
+    public HuntersTrophyNecklaceItem(Properties settings) {
         super(settings);
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "hunters_trophy_necklace").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "hunters_trophy_necklace").toString();
     }
 
     /**
      * Called when the holder kills another player.
      * Opens a selection UI to choose passives to steal from the victim.
      */
-    public static void onKillPlayer(ServerPlayerEntity killer, ServerPlayerEntity victim) {
+    public static void onKillPlayer(ServerPlayer killer, ServerPlayer victim) {
         if (!hasNecklace(killer) || victim == null) {
             return;
         }
@@ -69,46 +69,46 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         openScreen(killer, victim, victim.getName().getString());
     }
 
-    public static void openScreenForTarget(ServerPlayerEntity opener, ServerPlayerEntity target) {
-        if (opener == null || target == null || opener.getEntityWorld().getServer() == null) {
+    public static void openScreenForTarget(ServerPlayer opener, ServerPlayer target) {
+        if (opener == null || target == null || opener.level().getServer() == null) {
             return;
         }
         openScreen(opener, target, target.getName().getString());
     }
 
     @Override
-    public ActionResult use(World world, net.minecraft.entity.player.PlayerEntity user, Hand hand) {
-        if (world.isClient() || !(user instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+    public InteractionResult use(Level world, net.minecraft.world.entity.player.Player user, InteractionHand hand) {
+        if (world.isClientSide() || !(user instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
         // Right click a player to steal their passives.
-        ServerPlayerEntity target = com.feel.gems.power.util.Targeting.raycastPlayer(player, 15);
+        ServerPlayer target = com.feel.gems.power.util.Targeting.raycastPlayer(player, 15);
         if (target == null || target == player) {
-            player.sendMessage(Text.translatable("gems.message.no_player_target"), true);
-            return ActionResult.FAIL;
+            player.sendSystemMessage(Component.translatable("gems.message.no_player_target"), true);
+            return InteractionResult.FAIL;
         }
         openScreen(player, target, target.getName().getString());
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
-    public static boolean hasNecklace(ServerPlayerEntity player) {
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
+    public static boolean hasNecklace(ServerPlayer player) {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
             if (stack.getItem() instanceof HuntersTrophyNecklaceItem) {
                 return true;
             }
         }
-        return player.getOffHandStack().getItem() instanceof HuntersTrophyNecklaceItem;
+        return player.getOffhandItem().getItem() instanceof HuntersTrophyNecklaceItem;
     }
 
-    public static Set<Identifier> getStolenPassives(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtList list = data.getList(KEY_STOLEN_PASSIVES).orElse(null);
+    public static Set<Identifier> getStolenPassives(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        ListTag list = data.getList(KEY_STOLEN_PASSIVES).orElse(null);
         if (list == null || list.isEmpty()) {
             return Set.of();
         }
         java.util.HashSet<Identifier> out = new java.util.HashSet<>();
         for (int i = 0; i < list.size(); i++) {
-            Identifier id = Identifier.tryParse(list.getString(i, ""));
+            Identifier id = Identifier.tryParse(list.getStringOr(i, ""));
             if (id != null) {
                 out.add(id);
             }
@@ -116,15 +116,15 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         return Set.copyOf(out);
     }
 
-    public static Set<Identifier> getDisabledPassives(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtList list = data.getList(KEY_DISABLED_PASSIVES).orElse(null);
+    public static Set<Identifier> getDisabledPassives(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        ListTag list = data.getList(KEY_DISABLED_PASSIVES).orElse(null);
         if (list == null || list.isEmpty()) {
             return Set.of();
         }
         java.util.HashSet<Identifier> out = new java.util.HashSet<>();
         for (int i = 0; i < list.size(); i++) {
-            Identifier id = Identifier.tryParse(list.getString(i, ""));
+            Identifier id = Identifier.tryParse(list.getStringOr(i, ""));
             if (id != null) {
                 out.add(id);
             }
@@ -132,22 +132,22 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         return Set.copyOf(out);
     }
 
-    public static boolean isPassiveDisabled(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isPassiveDisabled(ServerPlayer player, Identifier passiveId) {
         if (player == null || passiveId == null) {
             return false;
         }
         return getDisabledPassives(player).contains(passiveId);
     }
 
-    public static boolean stealPassive(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean stealPassive(ServerPlayer player, Identifier passiveId) {
         return stealPassiveFrom(player, passiveId, null, true);
     }
 
-    public static boolean stealPassiveFrom(ServerPlayerEntity player, Identifier passiveId, UUID sourceUuid) {
+    public static boolean stealPassiveFrom(ServerPlayer player, Identifier passiveId, UUID sourceUuid) {
         return stealPassiveFrom(player, passiveId, sourceUuid, true);
     }
 
-    private static boolean stealPassiveFrom(ServerPlayerEntity player, Identifier passiveId, UUID sourceUuid, boolean enforceLimit) {
+    private static boolean stealPassiveFrom(ServerPlayer player, Identifier passiveId, UUID sourceUuid, boolean enforceLimit) {
         if (player == null || passiveId == null || ModPassives.get(passiveId) == null) {
             return false;
         }
@@ -155,34 +155,34 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
             return false;
         }
         if (!canClaimFromKill(player, sourceUuid)) {
-            player.sendMessage(Text.translatable("gems.item.trophy_necklace.need_kill").formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.need_kill").withStyle(ChatFormatting.RED), true);
             return false;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         Set<Identifier> current = getStolenPassives(player);
         if (current.contains(passiveId)) {
             return false;
         }
         int max = maxStolenPassives();
         if (enforceLimit && max > 0 && current.size() >= max) {
-            player.sendMessage(Text.translatable("gems.item.trophy_necklace.max", max).formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.max", max).withStyle(ChatFormatting.RED), true);
             return false;
         }
-        NbtList list = new NbtList();
+        ListTag list = new ListTag();
         for (Identifier id : current) {
-            list.add(NbtString.of(id.toString()));
+            list.add(StringTag.valueOf(id.toString()));
         }
-        list.add(NbtString.of(passiveId.toString()));
+        list.add(StringTag.valueOf(passiveId.toString()));
         data.put(KEY_STOLEN_PASSIVES, list);
         if (sourceUuid != null) {
-            NbtCompound stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(new NbtCompound());
+            CompoundTag stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(new CompoundTag());
             stolenFrom.put(passiveId.toString(), GemsNbt.fromUuid(sourceUuid));
             data.put(KEY_STOLEN_FROM, stolenFrom);
-            ServerPlayerEntity victim = player.getEntityWorld().getServer() != null
-                    ? player.getEntityWorld().getServer().getPlayerManager().getPlayer(sourceUuid)
+            ServerPlayer victim = player.level().getServer() != null
+                    ? player.level().getServer().getPlayerList().getPlayer(sourceUuid)
                     : null;
             if (victim != null) {
-                markLostPassive(victim, passiveId, player.getUuid());
+                markLostPassive(victim, passiveId, player.getUUID());
                 GemPassive passive = ModPassives.get(passiveId);
                 if (passive != null) {
                     passive.remove(victim);
@@ -193,11 +193,11 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         }
         removeDisabledPassive(data, passiveId);
         com.feel.gems.net.StolenStateSync.send(player);
-        player.sendMessage(Text.translatable("gems.item.trophy_necklace.stolen", ModPassives.get(passiveId).name()).formatted(Formatting.GOLD), true);
+        player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.stolen", ModPassives.get(passiveId).name()).withStyle(ChatFormatting.GOLD), true);
         return true;
     }
 
-    public static boolean unstealPassive(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean unstealPassive(ServerPlayer player, Identifier passiveId) {
         if (player == null || passiveId == null) {
             return false;
         }
@@ -207,11 +207,11 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         }
         java.util.HashSet<Identifier> next = new java.util.HashSet<>(current);
         next.remove(passiveId);
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         UUID source = findSourceForPassive(data, passiveId);
-        NbtList list = new NbtList();
+        ListTag list = new ListTag();
         for (Identifier id : next) {
-            list.add(NbtString.of(id.toString()));
+            list.add(StringTag.valueOf(id.toString()));
         }
         data.put(KEY_STOLEN_PASSIVES, list);
         removeDisabledPassive(data, passiveId);
@@ -220,19 +220,19 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         if (passive != null) {
             passive.remove(player);
         }
-        if (source != null && player.getEntityWorld().getServer() != null) {
-            ServerPlayerEntity victim = player.getEntityWorld().getServer().getPlayerManager().getPlayer(source);
+        if (source != null && player.level().getServer() != null) {
+            ServerPlayer victim = player.level().getServer().getPlayerList().getPlayer(source);
             if (victim != null) {
                 clearLostPassive(victim, passiveId);
                 GemPowers.sync(victim);
             }
         }
         com.feel.gems.net.StolenStateSync.send(player);
-        player.sendMessage(Text.translatable("gems.item.trophy_necklace.unstolen", passive != null ? passive.name() : passiveId.getPath()).formatted(Formatting.GRAY), true);
+        player.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.unstolen", passive != null ? passive.name() : passiveId.getPath()).withStyle(ChatFormatting.GRAY), true);
         return true;
     }
 
-    public static boolean setPassiveEnabled(ServerPlayerEntity player, Identifier passiveId, boolean enabled) {
+    public static boolean setPassiveEnabled(ServerPlayer player, Identifier passiveId, boolean enabled) {
         if (player == null || passiveId == null) {
             return false;
         }
@@ -241,7 +241,7 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
             return false;
         }
 
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         if (enabled) {
             removeDisabledPassive(data, passiveId);
         } else {
@@ -249,11 +249,11 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         }
 
         UUID source = findSourceForPassive(data, passiveId);
-        if (source != null && player.getEntityWorld().getServer() != null) {
-            ServerPlayerEntity victim = player.getEntityWorld().getServer().getPlayerManager().getPlayer(source);
+        if (source != null && player.level().getServer() != null) {
+            ServerPlayer victim = player.level().getServer().getPlayerList().getPlayer(source);
             if (victim != null) {
                 if (enabled) {
-                    markLostPassive(victim, passiveId, player.getUuid());
+                    markLostPassive(victim, passiveId, player.getUUID());
                 } else {
                     clearLostPassive(victim, passiveId);
                 }
@@ -269,17 +269,17 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
     /**
      * Re-open the last Trophy Necklace UI session, if available (used after claim toggles).
      */
-    public static boolean openLastTargetScreen(ServerPlayerEntity player) {
-        if (player == null || player.getEntityWorld().getServer() == null) {
+    public static boolean openLastTargetScreen(ServerPlayer player) {
+        if (player == null || player.level().getServer() == null) {
             return false;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        String targetName = data.getString(KEY_LAST_TARGET_NAME, "");
-        NbtList offeredList = data.getList(KEY_LAST_OFFERED).orElse(null);
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        String targetName = data.getStringOr(KEY_LAST_TARGET_NAME, "");
+        ListTag offeredList = data.getList(KEY_LAST_OFFERED).orElse(null);
         java.util.HashSet<Identifier> offered = new java.util.HashSet<>();
         if (offeredList != null) {
             for (int i = 0; i < offeredList.size(); i++) {
-                Identifier id = Identifier.tryParse(offeredList.getString(i, ""));
+                Identifier id = Identifier.tryParse(offeredList.getStringOr(i, ""));
                 if (id != null) {
                     offered.add(id);
                 }
@@ -292,34 +292,34 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         return true;
     }
 
-    public static UUID getLastTargetUuid(ServerPlayerEntity player) {
+    public static UUID getLastTargetUuid(ServerPlayer player) {
         if (player == null) {
             return null;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         return GemsNbt.getUuid(data, KEY_LAST_TARGET_UUID);
     }
 
-    public static UUID getLastKillTargetUuid(ServerPlayerEntity player) {
+    public static UUID getLastKillTargetUuid(ServerPlayer player) {
         if (player == null) {
             return null;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         return GemsNbt.getUuid(data, KEY_LAST_KILL_TARGET_UUID);
     }
 
-    public static boolean wasLastOffered(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean wasLastOffered(ServerPlayer player, Identifier passiveId) {
         if (player == null || passiveId == null) {
             return false;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtList offeredList = data.getList(KEY_LAST_OFFERED).orElse(null);
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        ListTag offeredList = data.getList(KEY_LAST_OFFERED).orElse(null);
         if (offeredList == null || offeredList.isEmpty()) {
             return false;
         }
         String raw = passiveId.toString();
         for (int i = 0; i < offeredList.size(); i++) {
-            if (raw.equals(offeredList.getString(i, ""))) {
+            if (raw.equals(offeredList.getStringOr(i, ""))) {
                 return true;
             }
         }
@@ -327,26 +327,26 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
         GemsTooltipFormat.appendDescription(
                 tooltip,
-                Text.translatable("gems.item.trophy_necklace.tooltip.1"),
-                Text.translatable("gems.item.trophy_necklace.tooltip.2"),
-                Text.translatable("gems.item.trophy_necklace.tooltip.3")
+                Component.translatable("gems.item.trophy_necklace.tooltip.1"),
+                Component.translatable("gems.item.trophy_necklace.tooltip.2"),
+                Component.translatable("gems.item.trophy_necklace.tooltip.3")
         );
     }
 
-    private static void openScreen(ServerPlayerEntity opener, ServerPlayerEntity target, String targetName) {
-        if (opener == null || target == null || opener.getEntityWorld().getServer() == null) {
+    private static void openScreen(ServerPlayer opener, ServerPlayer target, String targetName) {
+        if (opener == null || target == null || opener.level().getServer() == null) {
             return;
         }
-        var server = opener.getEntityWorld().getServer();
+        var server = opener.level().getServer();
         java.util.HashSet<Identifier> offered = new java.util.HashSet<>();
 
         com.feel.gems.state.GemPlayerState.initIfNeeded(target);
         com.feel.gems.core.GemId gem = com.feel.gems.state.GemPlayerState.getActiveGem(target);
         if (gem == com.feel.gems.core.GemId.PRISM && server != null) {
-            var prism = com.feel.gems.bonus.PrismSelectionsState.get(server).getSelection(target.getUuid());
+            var prism = com.feel.gems.bonus.PrismSelectionsState.get(server).getSelection(target.getUUID());
             offered.addAll(prism.gemPassives());
         } else {
             offered.addAll(com.feel.gems.core.GemRegistry.definition(gem).passives());
@@ -354,29 +354,29 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
 
         // Include bonus passives the target currently has (energy 10).
         if (server != null && com.feel.gems.state.GemPlayerState.getEnergy(target) >= 10) {
-            offered.addAll(com.feel.gems.bonus.BonusClaimsState.get(server).getPlayerPassives(target.getUuid()));
+            offered.addAll(com.feel.gems.bonus.BonusClaimsState.get(server).getPlayerPassives(target.getUUID()));
         }
         // Don't offer passives already stolen from this target.
-        offered.removeAll(stolenFromTarget(((GemsPersistentDataHolder) opener).gems$getPersistentData(), target.getUuid()));
+        offered.removeAll(stolenFromTarget(((GemsPersistentDataHolder) opener).gems$getPersistentData(), target.getUUID()));
         offered.removeIf(id -> ModPassives.get(id) == null);
         if (offered.isEmpty() && getStolenPassives(opener).isEmpty()) {
-            opener.sendMessage(Text.translatable("gems.item.trophy_necklace.no_passives").formatted(Formatting.RED), true);
+            opener.sendSystemMessage(Component.translatable("gems.item.trophy_necklace.no_passives").withStyle(ChatFormatting.RED), true);
             return;
         }
         // Snapshot for the session so the target can switch gems without affecting this selection.
-        NbtCompound data = ((GemsPersistentDataHolder) opener).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) opener).gems$getPersistentData();
         data.putString(KEY_LAST_TARGET_NAME, targetName);
-        GemsNbt.putUuid(data, KEY_LAST_TARGET_UUID, target.getUuid());
-        NbtList list = new NbtList();
+        GemsNbt.putUuid(data, KEY_LAST_TARGET_UUID, target.getUUID());
+        ListTag list = new ListTag();
         for (Identifier id : offered) {
-            list.add(NbtString.of(id.toString()));
+            list.add(StringTag.valueOf(id.toString()));
         }
         data.put(KEY_LAST_OFFERED, list);
 
         sendScreenPayload(opener, targetName, offered);
     }
 
-    private static void sendScreenPayload(ServerPlayerEntity opener, String targetName, Set<Identifier> offered) {
+    private static void sendScreenPayload(ServerPlayer opener, String targetName, Set<Identifier> offered) {
         Set<Identifier> stolen = getStolenPassives(opener);
         Set<Identifier> disabled = getDisabledPassives(opener);
         List<TrophyNecklaceScreenPayload.OfferedEntry> entries = new java.util.ArrayList<>(offered.size());
@@ -406,20 +406,20 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
                 new TrophyNecklaceScreenPayload(targetName, entries, stolenEntries, maxStolenPassives()));
     }
 
-    public static void restoreStolenOnKill(ServerPlayerEntity killer, ServerPlayerEntity thief) {
+    public static void restoreStolenOnKill(ServerPlayer killer, ServerPlayer thief) {
         if (killer == null || thief == null) {
             return;
         }
-        NbtCompound thiefData = ((GemsPersistentDataHolder) thief).gems$getPersistentData();
-        NbtCompound stolenFrom = thiefData.getCompound(KEY_STOLEN_FROM).orElse(null);
-        if (stolenFrom == null || stolenFrom.getKeys().isEmpty()) {
+        CompoundTag thiefData = ((GemsPersistentDataHolder) thief).gems$getPersistentData();
+        CompoundTag stolenFrom = thiefData.getCompound(KEY_STOLEN_FROM).orElse(null);
+        if (stolenFrom == null || stolenFrom.keySet().isEmpty()) {
             return;
         }
 
         java.util.List<Identifier> recovered = new java.util.ArrayList<>();
-        for (String key : java.util.List.copyOf(stolenFrom.getKeys())) {
+        for (String key : java.util.List.copyOf(stolenFrom.keySet())) {
             java.util.UUID source = GemsNbt.toUuid(stolenFrom.get(key));
-            if (source == null || !source.equals(killer.getUuid())) {
+            if (source == null || !source.equals(killer.getUUID())) {
                 continue;
             }
             Identifier id = Identifier.tryParse(key);
@@ -449,18 +449,18 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         com.feel.gems.net.StolenStateSync.send(thief);
     }
 
-    public static void restoreStolenFromThief(ServerPlayerEntity thief) {
+    public static void restoreStolenFromThief(ServerPlayer thief) {
         if (thief == null) {
             return;
         }
-        var server = thief.getEntityWorld().getServer();
+        var server = thief.level().getServer();
         if (server == null) {
             return;
         }
 
-        NbtCompound thiefData = ((GemsPersistentDataHolder) thief).gems$getPersistentData();
-        NbtCompound stolenFrom = thiefData.getCompound(KEY_STOLEN_FROM).orElse(null);
-        if (stolenFrom == null || stolenFrom.getKeys().isEmpty()) {
+        CompoundTag thiefData = ((GemsPersistentDataHolder) thief).gems$getPersistentData();
+        CompoundTag stolenFrom = thiefData.getCompound(KEY_STOLEN_FROM).orElse(null);
+        if (stolenFrom == null || stolenFrom.keySet().isEmpty()) {
             // Still clear any stolen passives that were not tied to a source.
             for (Identifier id : getStolenPassives(thief)) {
                 removeStolenPassiveSilent(thiefData, id);
@@ -470,14 +470,14 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
             return;
         }
 
-        for (String key : java.util.List.copyOf(stolenFrom.getKeys())) {
+        for (String key : java.util.List.copyOf(stolenFrom.keySet())) {
             Identifier id = Identifier.tryParse(key);
             UUID source = GemsNbt.toUuid(stolenFrom.get(key));
             if (id != null) {
                 removeStolenPassiveSilent(thiefData, id);
             }
             if (source != null) {
-                ServerPlayerEntity victim = server.getPlayerManager().getPlayer(source);
+                ServerPlayer victim = server.getPlayerList().getPlayer(source);
                 if (victim != null && id != null) {
                     clearLostPassive(victim, id);
                     GemPowers.sync(victim);
@@ -489,8 +489,8 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         GemPowers.sync(thief);
     }
 
-    private static void removeStolenSource(NbtCompound data, Identifier passiveId) {
-        NbtCompound stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
+    private static void removeStolenSource(CompoundTag data, Identifier passiveId) {
+        CompoundTag stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
         if (stolenFrom == null) {
             return;
         }
@@ -502,17 +502,17 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         }
     }
 
-    private static void removeStolenPassiveSilent(NbtCompound data, Identifier passiveId) {
-        NbtList list = data.getList(KEY_STOLEN_PASSIVES).orElse(null);
+    private static void removeStolenPassiveSilent(CompoundTag data, Identifier passiveId) {
+        ListTag list = data.getList(KEY_STOLEN_PASSIVES).orElse(null);
         if (list == null || list.isEmpty()) {
             return;
         }
         String raw = passiveId.toString();
-        NbtList next = new NbtList();
+        ListTag next = new ListTag();
         for (int i = 0; i < list.size(); i++) {
-            String entry = list.getString(i, "");
+            String entry = list.getStringOr(i, "");
             if (!raw.equals(entry)) {
-                next.add(NbtString.of(entry));
+                next.add(StringTag.valueOf(entry));
             }
         }
         if (next.isEmpty()) {
@@ -524,60 +524,60 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         removeDisabledPassive(data, passiveId);
     }
 
-    private static void addStolenPassiveForced(ServerPlayerEntity player, Identifier passiveId) {
+    private static void addStolenPassiveForced(ServerPlayer player, Identifier passiveId) {
         if (player == null || passiveId == null || ModPassives.get(passiveId) == null) {
             return;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         Set<Identifier> current = getStolenPassives(player);
         if (current.contains(passiveId)) {
             return;
         }
-        NbtList list = new NbtList();
+        ListTag list = new ListTag();
         for (Identifier id : current) {
-            list.add(NbtString.of(id.toString()));
+            list.add(StringTag.valueOf(id.toString()));
         }
-        list.add(NbtString.of(passiveId.toString()));
+        list.add(StringTag.valueOf(passiveId.toString()));
         data.put(KEY_STOLEN_PASSIVES, list);
-        NbtCompound stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(new NbtCompound());
-        stolenFrom.put(passiveId.toString(), GemsNbt.fromUuid(player.getUuid()));
+        CompoundTag stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(new CompoundTag());
+        stolenFrom.put(passiveId.toString(), GemsNbt.fromUuid(player.getUUID()));
         data.put(KEY_STOLEN_FROM, stolenFrom);
         removeDisabledPassive(data, passiveId);
     }
 
-    public static boolean isPassiveStolenFrom(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isPassiveStolenFrom(ServerPlayer player, Identifier passiveId) {
         if (player == null || passiveId == null) {
             return false;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound lost = data.getCompound(KEY_LOST_PASSIVES).orElse(null);
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag lost = data.getCompound(KEY_LOST_PASSIVES).orElse(null);
         return lost != null && lost.contains(passiveId.toString());
     }
 
-    public static void refreshLostPassives(ServerPlayerEntity player) {
+    public static void refreshLostPassives(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        var server = player.getEntityWorld().getServer();
+        var server = player.level().getServer();
         if (server == null) {
             return;
         }
-        UUID playerId = player.getUuid();
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound lost = data.getCompound(KEY_LOST_PASSIVES).orElse(new NbtCompound());
+        UUID playerId = player.getUUID();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag lost = data.getCompound(KEY_LOST_PASSIVES).orElse(new CompoundTag());
         boolean changed = false;
 
-        for (ServerPlayerEntity thief : server.getPlayerManager().getPlayerList()) {
+        for (ServerPlayer thief : server.getPlayerList().getPlayers()) {
             if (thief == null || thief == player) {
                 continue;
             }
-            NbtCompound thiefData = ((GemsPersistentDataHolder) thief).gems$getPersistentData();
-            NbtCompound stolenFrom = thiefData.getCompound(KEY_STOLEN_FROM).orElse(null);
-            if (stolenFrom == null || stolenFrom.getKeys().isEmpty()) {
+            CompoundTag thiefData = ((GemsPersistentDataHolder) thief).gems$getPersistentData();
+            CompoundTag stolenFrom = thiefData.getCompound(KEY_STOLEN_FROM).orElse(null);
+            if (stolenFrom == null || stolenFrom.keySet().isEmpty()) {
                 continue;
             }
             Set<Identifier> disabled = getDisabledPassives(thief);
-            for (String key : stolenFrom.getKeys()) {
+            for (String key : stolenFrom.keySet()) {
                 UUID source = GemsNbt.toUuid(stolenFrom.get(key));
                 if (source == null || !source.equals(playerId) || lost.contains(key)) {
                     continue;
@@ -587,7 +587,7 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
                     continue;
                 }
                 if (!lost.contains(key)) {
-                    lost.put(key, GemsNbt.fromUuid(thief.getUuid()));
+                    lost.put(key, GemsNbt.fromUuid(thief.getUUID()));
                     changed = true;
                 }
             }
@@ -598,25 +598,25 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         }
     }
 
-    private static void markKillSession(ServerPlayerEntity killer, ServerPlayerEntity victim) {
+    private static void markKillSession(ServerPlayer killer, ServerPlayer victim) {
         if (killer == null || victim == null) {
             return;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) killer).gems$getPersistentData();
-        GemsNbt.putUuid(data, KEY_LAST_KILL_TARGET_UUID, victim.getUuid());
+        CompoundTag data = ((GemsPersistentDataHolder) killer).gems$getPersistentData();
+        GemsNbt.putUuid(data, KEY_LAST_KILL_TARGET_UUID, victim.getUUID());
         data.putBoolean(KEY_LAST_KILL_USED, false);
     }
 
-    private static void markKillUsed(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    private static void markKillUsed(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         data.putBoolean(KEY_LAST_KILL_USED, true);
     }
 
-    private static boolean canClaimFromKill(ServerPlayerEntity player, UUID targetUuid) {
+    private static boolean canClaimFromKill(ServerPlayer player, UUID targetUuid) {
         if (player == null || targetUuid == null) {
             return false;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         UUID lastKill = GemsNbt.getUuid(data, KEY_LAST_KILL_TARGET_UUID);
         if (lastKill == null || !lastKill.equals(targetUuid)) {
             return false;
@@ -624,22 +624,22 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         return !data.getBoolean(KEY_LAST_KILL_USED).orElse(false);
     }
 
-    private static void markLostPassive(ServerPlayerEntity victim, Identifier passiveId, UUID thiefUuid) {
+    private static void markLostPassive(ServerPlayer victim, Identifier passiveId, UUID thiefUuid) {
         if (victim == null || passiveId == null || thiefUuid == null) {
             return;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) victim).gems$getPersistentData();
-        NbtCompound lost = data.getCompound(KEY_LOST_PASSIVES).orElse(new NbtCompound());
+        CompoundTag data = ((GemsPersistentDataHolder) victim).gems$getPersistentData();
+        CompoundTag lost = data.getCompound(KEY_LOST_PASSIVES).orElse(new CompoundTag());
         lost.put(passiveId.toString(), GemsNbt.fromUuid(thiefUuid));
         data.put(KEY_LOST_PASSIVES, lost);
     }
 
-    private static void clearLostPassive(ServerPlayerEntity victim, Identifier passiveId) {
+    private static void clearLostPassive(ServerPlayer victim, Identifier passiveId) {
         if (victim == null || passiveId == null) {
             return;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) victim).gems$getPersistentData();
-        NbtCompound lost = data.getCompound(KEY_LOST_PASSIVES).orElse(null);
+        CompoundTag data = ((GemsPersistentDataHolder) victim).gems$getPersistentData();
+        CompoundTag lost = data.getCompound(KEY_LOST_PASSIVES).orElse(null);
         if (lost == null) {
             return;
         }
@@ -651,15 +651,15 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         }
     }
 
-    private static Identifier findStolenFromSource(NbtCompound data, UUID sourceUuid) {
+    private static Identifier findStolenFromSource(CompoundTag data, UUID sourceUuid) {
         if (data == null || sourceUuid == null) {
             return null;
         }
-        NbtCompound stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
-        if (stolenFrom == null || stolenFrom.getKeys().isEmpty()) {
+        CompoundTag stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
+        if (stolenFrom == null || stolenFrom.keySet().isEmpty()) {
             return null;
         }
-        for (String key : stolenFrom.getKeys()) {
+        for (String key : stolenFrom.keySet()) {
             UUID source = GemsNbt.toUuid(stolenFrom.get(key));
             if (source != null && source.equals(sourceUuid)) {
                 return Identifier.tryParse(key);
@@ -668,16 +668,16 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         return null;
     }
 
-    private static Set<Identifier> stolenFromTarget(NbtCompound data, UUID targetUuid) {
+    private static Set<Identifier> stolenFromTarget(CompoundTag data, UUID targetUuid) {
         if (data == null || targetUuid == null) {
             return Set.of();
         }
-        NbtCompound stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
-        if (stolenFrom == null || stolenFrom.getKeys().isEmpty()) {
+        CompoundTag stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
+        if (stolenFrom == null || stolenFrom.keySet().isEmpty()) {
             return Set.of();
         }
         java.util.HashSet<Identifier> out = new java.util.HashSet<>();
-        for (String key : stolenFrom.getKeys()) {
+        for (String key : stolenFrom.keySet()) {
             UUID source = GemsNbt.toUuid(stolenFrom.get(key));
             if (source != null && source.equals(targetUuid)) {
                 Identifier id = Identifier.tryParse(key);
@@ -689,47 +689,47 @@ public final class HuntersTrophyNecklaceItem extends Item implements LegendaryIt
         return out;
     }
 
-    private static UUID findSourceForPassive(NbtCompound data, Identifier passiveId) {
+    private static UUID findSourceForPassive(CompoundTag data, Identifier passiveId) {
         if (data == null || passiveId == null) {
             return null;
         }
-        NbtCompound stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
+        CompoundTag stolenFrom = data.getCompound(KEY_STOLEN_FROM).orElse(null);
         if (stolenFrom == null) {
             return null;
         }
         return GemsNbt.toUuid(stolenFrom.get(passiveId.toString()));
     }
 
-    private static void addDisabledPassive(NbtCompound data, Identifier passiveId) {
+    private static void addDisabledPassive(CompoundTag data, Identifier passiveId) {
         if (data == null || passiveId == null) {
             return;
         }
-        NbtList list = data.getList(KEY_DISABLED_PASSIVES).orElse(new NbtList());
+        ListTag list = data.getList(KEY_DISABLED_PASSIVES).orElse(new ListTag());
         String raw = passiveId.toString();
         for (int i = 0; i < list.size(); i++) {
-            if (raw.equals(list.getString(i, ""))) {
+            if (raw.equals(list.getStringOr(i, ""))) {
                 data.put(KEY_DISABLED_PASSIVES, list);
                 return;
             }
         }
-        list.add(NbtString.of(raw));
+        list.add(StringTag.valueOf(raw));
         data.put(KEY_DISABLED_PASSIVES, list);
     }
 
-    private static void removeDisabledPassive(NbtCompound data, Identifier passiveId) {
+    private static void removeDisabledPassive(CompoundTag data, Identifier passiveId) {
         if (data == null || passiveId == null) {
             return;
         }
-        NbtList list = data.getList(KEY_DISABLED_PASSIVES).orElse(null);
+        ListTag list = data.getList(KEY_DISABLED_PASSIVES).orElse(null);
         if (list == null || list.isEmpty()) {
             return;
         }
         String raw = passiveId.toString();
-        NbtList next = new NbtList();
+        ListTag next = new ListTag();
         for (int i = 0; i < list.size(); i++) {
-            String entry = list.getString(i, "");
+            String entry = list.getStringOr(i, "");
             if (!raw.equals(entry)) {
-                next.add(NbtString.of(entry));
+                next.add(StringTag.valueOf(entry));
             }
         }
         if (next.isEmpty()) {

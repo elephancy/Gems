@@ -3,25 +3,35 @@ package com.feel.gems.item;
 import com.feel.gems.GemsMod;
 import com.feel.gems.core.GemId;
 import com.feel.gems.item.legendary.SupremeArmorItem;
-import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
+import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 
 
 
 public final class ModItemGroups {
     private static boolean initialized = false;
+    private static final List<Supplier<ItemStack>> ADDON_ITEMS = new ArrayList<>();
 
-    public static ItemGroup GEMS;
+    public static CreativeModeTab GEMS;
 
     private ModItemGroups() {
+    }
+
+    /** Addon items appear after Gems basics when that addon is installed. */
+    public static void registerAddonItem(Supplier<ItemStack> stackFactory) {
+        ADDON_ITEMS.add(Objects.requireNonNull(stackFactory));
     }
 
     public static void init() {
@@ -31,68 +41,72 @@ public final class ModItemGroups {
         initialized = true;
 
         GEMS = Registry.register(
-                Registries.ITEM_GROUP,
-                Identifier.of(GemsMod.MOD_ID, "gems"),
-                FabricItemGroup.builder()
-                        .displayName(Text.translatable("itemGroup.gems"))
+                BuiltInRegistries.CREATIVE_MODE_TAB,
+                Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "gems"),
+                FabricCreativeModeTab.builder()
+                        .title(Component.translatable("itemGroup.gems"))
                         .icon(() -> new ItemStack(ModItems.CREATIVE_TAB_ICON))
-                        .entries((displayContext, entries) -> {
-                            RegistryWrapper.WrapperLookup lookup = displayContext.lookup();
+                        .displayItems((displayContext, entries) -> {
+                            HolderLookup.Provider lookup = displayContext.holders();
                             
                             // === GEMS (first) ===
                             for (GemId gemId : GemId.values()) {
-                                entries.add(ModItems.gemItem(gemId));
+                                entries.accept(ModItems.gemItem(gemId));
                             }
                             
                             // === NORMAL ITEMS ===
-                            entries.add(ModItems.HEART);
-                            entries.add(ModItems.ENERGY_UPGRADE);
-                            entries.add(ModItems.GEM_TRADER);
-                            entries.add(ModItems.GEM_PURCHASE);
-                            entries.add(ModItems.GEM_AUGMENT_FOCUS);
-                            entries.add(ModItems.GEM_AUGMENT_RESONANCE);
-                            entries.add(ModItems.GEM_AUGMENT_PERSISTENCE);
-                            entries.add(ModItems.LEGENDARY_INSCRIPTION_EDGE);
-                            entries.add(ModItems.LEGENDARY_INSCRIPTION_SWIFT);
-                            entries.add(ModItems.LEGENDARY_INSCRIPTION_WARD);
-                            entries.add(ModItems.TEST_DUMMY_SPAWN_EGG);
+                            entries.accept(ModItems.HEART);
+                            entries.accept(ModItems.ENERGY_UPGRADE);
+                            entries.accept(ModItems.GEM_TRADER);
+                            entries.accept(ModItems.GEM_PURCHASE);
+                            entries.accept(ModItems.GEM_AUGMENT_FOCUS);
+                            entries.accept(ModItems.GEM_AUGMENT_RESONANCE);
+                            entries.accept(ModItems.GEM_AUGMENT_PERSISTENCE);
+                            entries.accept(ModItems.LEGENDARY_INSCRIPTION_EDGE);
+                            entries.accept(ModItems.LEGENDARY_INSCRIPTION_SWIFT);
+                            entries.accept(ModItems.LEGENDARY_INSCRIPTION_WARD);
+                            entries.accept(ModItems.TEST_DUMMY_SPAWN_EGG);
+                            for (Supplier<ItemStack> factory : ADDON_ITEMS) {
+                                ItemStack addon = factory.get();
+                                if (!addon.isEmpty()) entries.accept(addon);
+                            }
                             
                             // === LEGENDARY ITEMS ===
                             // Utility
-                            entries.add(ModItems.TRACKER_COMPASS);
-                            entries.add(ModItems.RECALL_RELIC);
-                            entries.add(ModItems.GEM_SEER);
-                            entries.add(ModItems.HYPNO_STAFF);
-                            entries.add(ModItems.EARTHSPLITTER_PICK);
+                            entries.accept(ModItems.TRACKER_COMPASS);
+                            entries.accept(ModItems.RECALL_RELIC);
+                            entries.accept(ModItems.GEM_SEER);
+                            entries.accept(ModItems.HYPNO_STAFF);
+                            entries.accept(ModItems.EARTHSPLITTER_PICK);
                             
                             // Armor (with trims)
-                            entries.add(trimmedSupreme(ModItems.SUPREME_HELMET, lookup));
-                            entries.add(trimmedSupreme(ModItems.SUPREME_CHESTPLATE, lookup));
-                            entries.add(trimmedSupreme(ModItems.SUPREME_LEGGINGS, lookup));
-                            entries.add(trimmedSupreme(ModItems.SUPREME_BOOTS, lookup));
+                            entries.accept(trimmedSupreme(ModItems.SUPREME_HELMET, lookup));
+                            entries.accept(trimmedSupreme(ModItems.SUPREME_CHESTPLATE, lookup));
+                            entries.accept(trimmedSupreme(ModItems.SUPREME_LEGGINGS, lookup));
+                            entries.accept(trimmedSupreme(ModItems.SUPREME_BOOTS, lookup));
                             
                             // Weapons
-                            entries.add(ModItems.BLOOD_OATH_BLADE);
-                            entries.add(ModItems.DEMOLITION_BLADE);
-                            entries.add(ModItems.THIRD_STRIKE_BLADE);
-                            entries.add(ModItems.VAMPIRIC_EDGE);
-                            entries.add(ModItems.EXPERIENCE_BLADE);
-                            entries.add(ModItems.DUELISTS_RAPIER);
-                            entries.add(ModItems.HUNTERS_SIGHT_BOW);
+                            entries.accept(ModItems.BLOOD_OATH_BLADE);
+                            entries.accept(ModItems.DEMOLITION_BLADE);
+                            entries.accept(ModItems.THIRD_STRIKE_BLADE);
+                            entries.accept(ModItems.VAMPIRIC_EDGE);
+                            entries.accept(ModItems.EXPERIENCE_BLADE);
+                            entries.accept(ModItems.DUELISTS_RAPIER);
+                            entries.accept(ModItems.HUNTERS_SIGHT_BOW);
                             
                             // PvP Items
-                            entries.add(ModItems.REVERSAL_MIRROR);
-                            entries.add(ModItems.HUNTERS_TROPHY_NECKLACE);
-                            entries.add(ModItems.GLADIATORS_MARK);
-                            entries.add(ModItems.SOUL_SHACKLE);
-                            entries.add(ModItems.CHALLENGERS_GAUNTLET);
-                            entries.add(ModItems.CHRONO_CHARM);
+                            entries.accept(ModItems.REVERSAL_MIRROR);
+                            entries.accept(ModItems.HUNTERS_TROPHY_NECKLACE);
+                            entries.accept(ModItems.GLADIATORS_MARK);
+                            entries.accept(ModItems.SOUL_SHACKLE);
+                            entries.accept(ModItems.CHALLENGERS_GAUNTLET);
+                            entries.accept(ModItems.CHRONO_CHARM);
                         })
                         .build()
         );
     }
 
-    private static ItemStack trimmedSupreme(Item item, RegistryWrapper.WrapperLookup lookup) {
+    private static ItemStack trimmedSupreme(Item item, HolderLookup.Provider lookup) {
         ItemStack stack = new ItemStack(item);
         SupremeArmorItem.applySupremeTrim(stack, lookup);
         return stack;

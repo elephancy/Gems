@@ -1,26 +1,26 @@
 package com.feel.gems.power.gem.speed;
 
 import com.feel.gems.config.GemsBalance;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 
 
 public final class SpeedMomentum {
     private SpeedMomentum() {
     }
 
-    public static float normalized(ServerPlayerEntity player) {
+    public static float normalized(ServerPlayer player) {
         var cfg = GemsBalance.v().speed();
         double minSpeed = cfg.momentumMinSpeed();
         double maxSpeed = cfg.momentumMaxSpeed();
         if (maxSpeed <= minSpeed) {
             return 0.0F;
         }
-        double vx = player.getVelocity().x;
-        double vz = player.getVelocity().z;
+        double vx = player.getDeltaMovement().x;
+        double vz = player.getDeltaMovement().z;
         double speed = Math.sqrt(vx * vx + vz * vz);
         if (speed <= 1.0E-4D) {
-            double dx = player.getX() - player.lastX;
-            double dz = player.getZ() - player.lastZ;
+            double dx = player.getX() - player.xo;
+            double dz = player.getZ() - player.zo;
             speed = Math.sqrt(dx * dx + dz * dz);
         }
         double t = (speed - minSpeed) / (maxSpeed - minSpeed);
@@ -33,7 +33,7 @@ public final class SpeedMomentum {
         return (float) t;
     }
 
-    public static float multiplier(ServerPlayerEntity player) {
+    public static float multiplier(ServerPlayer player) {
         var cfg = GemsBalance.v().speed();
         float minMul = cfg.momentumMinMultiplier();
         float maxMul = cfg.momentumMaxMultiplier();

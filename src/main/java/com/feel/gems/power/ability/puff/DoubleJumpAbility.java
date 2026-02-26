@@ -4,14 +4,14 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -37,28 +37,28 @@ public final class DoubleJumpAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         if (isGrounded(player)) {
-            player.sendMessage(Text.translatable("gems.ability.puff.double_jump.jump_first"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.puff.double_jump.jump_first"), true);
             return false;
         }
-        Vec3d v = player.getVelocity();
-        player.setVelocity(v.x, GemsBalance.v().puff().doubleJumpVelocityY(), v.z);
-        player.velocityDirty = true;
+        Vec3 v = player.getDeltaMovement();
+        player.setDeltaMovement(v.x, GemsBalance.v().puff().doubleJumpVelocityY(), v.z);
+        player.needsSync = true;
         AbilityFeedback.syncVelocity(player);
         AbilityFeedback.burst(player, ParticleTypes.CLOUD, 12, 0.2D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_PLAYER_ATTACK_KNOCKBACK, 0.7F, 1.5F);
+        AbilityFeedback.sound(player, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.7F, 1.5F);
         return true;
     }
 
-    private static boolean isGrounded(ServerPlayerEntity player) {
+    private static boolean isGrounded(ServerPlayer player) {
         // GameTests (and some teleports) can leave `isOnGround()` stale; rely on an under-foot raycast so:
         // - standing on a block => grounded, even if `isOnGround()` is false
         // - teleported into midair => not grounded, even if `isOnGround()` is true
-        var world = player.getEntityWorld();
-        Vec3d start = player.getEntityPos().add(0.0D, 0.05D, 0.0D);
-        Vec3d end = start.add(0.0D, -0.6D, 0.0D);
-        HitResult hit = world.raycast(new RaycastContext(start, end, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, player));
+        var world = player.level();
+        Vec3 start = player.position().add(0.0D, 0.05D, 0.0D);
+        Vec3 end = start.add(0.0D, -0.6D, 0.0D);
+        HitResult hit = world.clip(new ClipContext(start, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         return hit.getType() == HitResult.Type.BLOCK;
     }
 }

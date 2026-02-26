@@ -14,7 +14,7 @@ public final class ServerLegendaryNetworking {
                 context.server().execute(() -> handleCompassSelection(context.player(), payload.target())));
     }
 
-    private static void handleCompassSelection(net.minecraft.server.network.ServerPlayerEntity player, Optional<UUID> target) {
+    private static void handleCompassSelection(net.minecraft.server.level.ServerPlayer player, Optional<UUID> target) {
         if (target.isEmpty()) {
             TrackerCompassItem.clearTarget(player);
             return;

@@ -3,8 +3,8 @@ package com.feel.gems.power.gem.reaper;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
 
 
 /**
@@ -19,14 +19,14 @@ public final class ReaperBloodCharge {
     private ReaperBloodCharge() {
     }
 
-    public static boolean isCharging(ServerPlayerEntity player) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        return nbt.getLong(KEY_CHARGING_UNTIL, 0L) > 0L;
+    public static boolean isCharging(ServerPlayer player) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        return nbt.getLongOr(KEY_CHARGING_UNTIL, 0L) > 0L;
     }
 
-    public static float consumeMultiplierIfActive(ServerPlayerEntity player) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        long until = nbt.getLong(KEY_BUFF_UNTIL, 0L);
+    public static float consumeMultiplierIfActive(ServerPlayer player) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        long until = nbt.getLongOr(KEY_BUFF_UNTIL, 0L);
         if (until <= 0) {
             return 1.0F;
         }
@@ -35,19 +35,19 @@ public final class ReaperBloodCharge {
             clearBuff(nbt);
             return 1.0F;
         }
-        float mult = nbt.getFloat(KEY_BUFF_MULT, 1.0F);
+        float mult = nbt.getFloatOr(KEY_BUFF_MULT, 1.0F);
         clearBuff(nbt);
         return mult <= 0.0F ? 1.0F : mult;
     }
 
-    public static void clearCharging(ServerPlayerEntity player) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static void clearCharging(ServerPlayer player) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         nbt.remove(KEY_CHARGING_UNTIL);
         nbt.remove(KEY_CHARGED_TICKS);
     }
 
-    public static void setBuff(ServerPlayerEntity player, float multiplier, int durationTicks) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static void setBuff(ServerPlayer player, float multiplier, int durationTicks) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         if (durationTicks <= 0) {
             clearBuff(nbt);
             return;
@@ -65,7 +65,7 @@ public final class ReaperBloodCharge {
         return 1.0F + t * (maxMult - 1.0F);
     }
 
-    private static void clearBuff(NbtCompound nbt) {
+    private static void clearBuff(CompoundTag nbt) {
         nbt.remove(KEY_BUFF_UNTIL);
         nbt.remove(KEY_BUFF_MULT);
     }

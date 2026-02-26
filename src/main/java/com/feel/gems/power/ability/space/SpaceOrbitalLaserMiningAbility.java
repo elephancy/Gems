@@ -4,12 +4,12 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.space.SpaceAnomalies;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 public final class SpaceOrbitalLaserMiningAbility implements GemAbility {
     @Override
@@ -24,7 +24,7 @@ public final class SpaceOrbitalLaserMiningAbility implements GemAbility {
 
     @Override
     public String description() {
-        return Text.translatable("gems.ability.space.orbital_laser.mining.desc").getString();
+        return Component.translatable("gems.ability.space.orbital_laser.mining.desc").getString();
     }
 
     @Override
@@ -33,16 +33,16 @@ public final class SpaceOrbitalLaserMiningAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int range = GemsBalance.v().space().orbitalLaserRangeBlocks();
-        HitResult hit = player.raycast(range, 1.0F, false);
+        HitResult hit = player.pick(range, 1.0F, false);
         if (hit.getType() != HitResult.Type.BLOCK || !(hit instanceof BlockHitResult bhr)) {
-            player.sendMessage(Text.translatable("gems.message.no_block_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_block_target"), true);
             return false;
         }
         BlockPos target = bhr.getBlockPos();
         SpaceAnomalies.scheduleOrbitalLaser(player, target, true);
-        player.sendMessage(Text.translatable("gems.ability.space.orbital_laser.mining"), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.space.orbital_laser.mining"), true);
         return true;
     }
 }

@@ -33,18 +33,18 @@ import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.rivalry.RivalryManager;
 import com.feel.gems.trust.GemTrust;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.tag.DamageTypeTags;
-import net.minecraft.registry.tag.EntityTypeTags;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.tags.EntityTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -55,8 +55,8 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 public abstract class LivingEntityDamageScalingMixin {
     private static final ThreadLocal<Boolean> SHACKLE_TRANSFER = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private static final ThreadLocal<Boolean> IRON_MAIDEN_REFLECT = ThreadLocal.withInitial(() -> Boolean.FALSE);
-    @ModifyVariable(method = "damage(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;F)Z", at = @At("HEAD"), ordinal = 0)
-    private float gems$scaleDamage(float amount, ServerWorld world, DamageSource source) {
+    @ModifyVariable(method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At("HEAD"), ordinal = 0)
+    private float gems$scaleDamage(float amount, ServerLevel world, DamageSource source) {
         if (amount <= 0.0F) {
             return amount;
         }
@@ -64,30 +64,30 @@ public abstract class LivingEntityDamageScalingMixin {
         LivingEntity self = (LivingEntity) (Object) this;
 
         // Ethereal Step: complete damage immunity
-        if (self instanceof ServerPlayerEntity victim && EtherealState.isEthereal(victim)) {
+        if (self instanceof ServerPlayer victim && EtherealState.isEthereal(victim)) {
             return 0.0F;
         }
 
         // Duelist: Parry ability - blocks melee damage and stuns attacker
-        if (self instanceof ServerPlayerEntity victim && DuelistParryAbility.isParrying(victim)) {
-            Entity attackerEntity = source.getAttacker();
+        if (self instanceof ServerPlayer victim && DuelistParryAbility.isParrying(victim)) {
+            Entity attackerEntity = source.getEntity();
             // Only block melee attacks (not projectiles, magic, etc.)
-            if (attackerEntity instanceof LivingEntity attackerLiving && !source.isIn(DamageTypeTags.IS_PROJECTILE)) {
+            if (attackerEntity instanceof LivingEntity attackerLiving && !source.is(DamageTypeTags.IS_PROJECTILE)) {
                 DuelistParryAbility.consumeParry(victim);
                 int stunTicks = GemsBalance.v().duelist().parryStunTicks();
-                if (attackerLiving instanceof ServerPlayerEntity attackerPlayer) {
+                if (attackerLiving instanceof ServerPlayer attackerPlayer) {
                     // Stun the attacker (players only)
                     AbilityRestrictions.stun(attackerPlayer, stunTicks);
                 } else {
                     // Briefly punish mobs so the parry window meaningfully matters in PvE too.
-                    attackerLiving.takeKnockback(0.6F, victim.getX() - attackerLiving.getX(), victim.getZ() - attackerLiving.getZ());
-                    attackerLiving.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, stunTicks, 1, false, true));
-                    attackerLiving.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, stunTicks, 0, false, true));
+                    attackerLiving.knockback(0.6F, victim.getX() - attackerLiving.getX(), victim.getZ() - attackerLiving.getZ(), source, 0.0F);
+                    attackerLiving.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, stunTicks, 1, false, true));
+                    attackerLiving.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, stunTicks, 0, false, true));
                 }
                 // Visual/audio feedback
-                AbilityFeedback.sound(victim, SoundEvents.ITEM_SHIELD_BLOCK, 1.0F, 1.0F);
-                if (attackerLiving instanceof ServerPlayerEntity attackerPlayer) {
-                    AbilityFeedback.sound(attackerPlayer, SoundEvents.ENTITY_PLAYER_ATTACK_NODAMAGE, 1.0F, 0.8F);
+                AbilityFeedback.sound(victim, SoundEvents.SHIELD_BLOCK, 1.0F, 1.0F);
+                if (attackerLiving instanceof ServerPlayer attackerPlayer) {
+                    AbilityFeedback.sound(attackerPlayer, SoundEvents.PLAYER_ATTACK_NODAMAGE, 1.0F, 0.8F);
                 }
                 // Trigger Riposte window for the victim
                 DuelistPassiveRuntime.triggerRiposte(victim);
@@ -96,29 +96,29 @@ public abstract class LivingEntityDamageScalingMixin {
         }
 
         // Duelist's Rapier: item-based parry - blocks melee damage and grants guaranteed crit
-        if (self instanceof ServerPlayerEntity victim && DuelistsRapierItem.isInParryWindow(victim)) {
-            Entity attackerEntity = source.getAttacker();
+        if (self instanceof ServerPlayer victim && DuelistsRapierItem.isInParryWindow(victim)) {
+            Entity attackerEntity = source.getEntity();
             // Only block melee attacks (not projectiles, magic, etc.)
-            if (attackerEntity instanceof LivingEntity && !source.isIn(DamageTypeTags.IS_PROJECTILE)) {
+            if (attackerEntity instanceof LivingEntity && !source.is(DamageTypeTags.IS_PROJECTILE)) {
                 DuelistsRapierItem.onSuccessfulParry(victim);
                 // Visual/audio feedback
-                AbilityFeedback.sound(victim, SoundEvents.ITEM_SHIELD_BLOCK, 1.0F, 1.2F);
+                AbilityFeedback.sound(victim, SoundEvents.SHIELD_BLOCK, 1.0F, 1.2F);
                 return 0.0F;
             }
         }
 
         // Sentinel: Intervention - redirect the next hit from the ally to the sentinel.
-        if (self instanceof ServerPlayerEntity ally) {
-            ServerPlayerEntity protector = SentinelInterventionRuntime.getProtector(ally);
+        if (self instanceof ServerPlayer ally) {
+            ServerPlayer protector = SentinelInterventionRuntime.getProtector(ally);
             if (protector != null && protector.isAlive()) {
                 SentinelInterventionRuntime.consumeProtection(protector);
-                if (protector.getEntityWorld() instanceof ServerWorld protectorWorld) {
-                    protector.damage(protectorWorld, source, amount);
+                if (protector.level() instanceof ServerLevel protectorWorld) {
+                    protector.hurtServer(protectorWorld, source, amount);
                 } else {
-                    protector.damage(world, source, amount);
+                    protector.hurtServer(world, source, amount);
                 }
-                AbilityFeedback.sound(ally, SoundEvents.ITEM_SHIELD_BLOCK, 0.9F, 1.0F);
-                AbilityFeedback.sound(protector, SoundEvents.ITEM_SHIELD_BLOCK, 0.9F, 0.9F);
+                AbilityFeedback.sound(ally, SoundEvents.SHIELD_BLOCK, 0.9F, 1.0F);
+                AbilityFeedback.sound(protector, SoundEvents.SHIELD_BLOCK, 0.9F, 0.9F);
                 return 0.0F;
             }
         }
@@ -129,41 +129,41 @@ public abstract class LivingEntityDamageScalingMixin {
             scaled *= BonusMarkOfDeathAbility.getDamageMultiplier();
         }
 
-        Entity attacker = source.getAttacker();
+        Entity attacker = source.getEntity();
         if (attacker == null) {
-            attacker = source.getSource();
+            attacker = source.getDirectEntity();
         }
-        if (attacker instanceof ServerPlayerEntity playerAttacker) {
+        if (attacker instanceof ServerPlayer playerAttacker) {
             HunterSightBowItem.recordHit(playerAttacker, self);
         }
-        if (attacker instanceof ServerPlayerEntity playerAttacker) {
-            if (!source.isIn(DamageTypeTags.IS_PROJECTILE)) {
+        if (attacker instanceof ServerPlayer playerAttacker) {
+            if (!source.is(DamageTypeTags.IS_PROJECTILE)) {
                 float thirdStrikeBonus = ThirdStrikeBladeItem.consumeQueuedBonus(playerAttacker);
                 if (thirdStrikeBonus > 0.0F) {
                     scaled += thirdStrikeBonus;
                 }
             }
             // Duelist's Rapier: consume guaranteed crit on the next melee hit (avoid extra hit + invulnerability issues).
-            if (playerAttacker.getMainHandStack().isOf(com.feel.gems.item.ModItems.DUELISTS_RAPIER)
-                    && !source.isIn(DamageTypeTags.IS_PROJECTILE)
+            if (playerAttacker.getMainHandItem().is(com.feel.gems.item.ModItems.DUELISTS_RAPIER)
+                    && !source.is(DamageTypeTags.IS_PROJECTILE)
                     && DuelistsRapierItem.hasAndConsumeGuaranteedCrit(playerAttacker)) {
                 scaled *= GemsBalance.v().legendary().duelistsRapierCritDamageMultiplier();
-                AbilityFeedback.sound(playerAttacker, SoundEvents.ENTITY_PLAYER_ATTACK_CRIT, 1.0F, 1.0F);
-                if (world instanceof ServerWorld serverWorld) {
-                    AbilityFeedback.burstAt(serverWorld, self.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.CRIT, 12, 0.25D);
+                AbilityFeedback.sound(playerAttacker, SoundEvents.PLAYER_ATTACK_CRIT, 1.0F, 1.0F);
+                if (world instanceof ServerLevel serverWorld) {
+                    AbilityFeedback.burstAt(serverWorld, self.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.CRIT, 12, 0.25D);
                 }
             }
                             // Rivalry: bonus damage to assigned target
-                if (self instanceof ServerPlayerEntity victim) {
+                if (self instanceof ServerPlayer victim) {
                     if (GemsBalance.v().rivalry().enabled() && RivalryManager.isRivalryTarget(playerAttacker, victim)) {
                         scaled *= RivalryManager.getDamageMultiplier();
                     }
                 }
 
             // Void Immunity: target is immune to gem ability/passive damage bonuses
-            boolean targetHasVoidImmunity = self instanceof ServerPlayerEntity victim 
+            boolean targetHasVoidImmunity = self instanceof ServerPlayer victim
                     && VoidImmunity.shouldBlockEffect(playerAttacker, victim);
-            
+
             if (!targetHasVoidImmunity) {
                 if (BonusBerserkerRageAbility.isActive(playerAttacker)) {
                     scaled *= BonusBerserkerRageAbility.getDamageBoostMultiplier();
@@ -175,16 +175,16 @@ public abstract class LivingEntityDamageScalingMixin {
                 }
 
                 if (GemPowers.isPassiveActive(playerAttacker, PowerIds.SPACE_LUNAR_SCALING)) {
-                    scaled *= SpaceLunarScaling.multiplier(playerAttacker.getEntityWorld());
+                    scaled *= SpaceLunarScaling.multiplier(playerAttacker.level());
                 }
 
-                if (!(self instanceof ServerPlayerEntity victim && GemTrust.isTrusted(playerAttacker, victim))) {
+                if (!(self instanceof ServerPlayer victim && GemTrust.isTrusted(playerAttacker, victim))) {
                     scaled *= ReaperBloodCharge.consumeMultiplierIfActive(playerAttacker);
                 }
 
                 if (AbilityRuntime.isReaperDeathOathActive(playerAttacker)) {
                     UUID oathTarget = AbilityRuntime.reaperDeathOathTarget(playerAttacker);
-                    if (oathTarget != null && oathTarget.equals(self.getUuid())) {
+                    if (oathTarget != null && oathTarget.equals(self.getUUID())) {
                         scaled += GemsBalance.v().reaper().deathOathBonusDamage();
                     }
                 }
@@ -195,13 +195,13 @@ public abstract class LivingEntityDamageScalingMixin {
                 }
 
                 // Duelist: Blade Dance - consecutive melee hits ramp damage.
-                if (source.getSource() == playerAttacker && DuelistBladeDanceAbility.isActive(playerAttacker)) {
+                if (source.getDirectEntity() == playerAttacker && DuelistBladeDanceAbility.isActive(playerAttacker)) {
                     scaled *= DuelistBladeDanceAbility.getDamageMultiplier(playerAttacker);
                     DuelistBladeDanceAbility.onHit(playerAttacker);
                 }
 
                 // Duelist: Focus - bonus damage in 1v1 combat
-                if (self instanceof ServerPlayerEntity victim) {
+                if (self instanceof ServerPlayer victim) {
                     if (DuelistPassiveRuntime.isIn1v1Combat(playerAttacker, victim)) {
                         scaled *= DuelistPassiveRuntime.getFocusDamageMultiplier();
                     }
@@ -216,7 +216,7 @@ public abstract class LivingEntityDamageScalingMixin {
 
                 // Hunter: Pack Tactics - allies deal bonus damage to marked target
                 if (self instanceof LivingEntity victim) {
-                    if (HunterPackTacticsRuntime.hasBuffAgainst(playerAttacker, victim.getUuid())) {
+                    if (HunterPackTacticsRuntime.hasBuffAgainst(playerAttacker, victim.getUUID())) {
                         scaled *= HunterPackTacticsRuntime.getDamageMultiplier();
                     }
                 }
@@ -229,7 +229,7 @@ public abstract class LivingEntityDamageScalingMixin {
         }
     }
 
-        if (self instanceof ServerPlayerEntity victim) {
+        if (self instanceof ServerPlayer victim) {
             if (BonusBerserkerRageAbility.isActive(victim)) {
                 scaled *= BonusBerserkerRageAbility.getDamageTakenMultiplier();
             }
@@ -237,15 +237,15 @@ public abstract class LivingEntityDamageScalingMixin {
             if (AbilityRuntime.isReaperRetributionActive(victim)) {
                 if (attacker instanceof LivingEntity livingAttacker && livingAttacker != victim) {
                     float reflected = scaled * GemsBalance.v().reaper().retributionDamageMultiplier();
-                    livingAttacker.damage(world, victim.getDamageSources().magic(), reflected);
+                    livingAttacker.hurtServer(world, victim.damageSources().magic(), reflected);
                     return 0.0F;
                 }
             }
 
-            if (GemPowers.isPassiveActive(victim, PowerIds.SPACE_STARSHIELD) && source.isIn(DamageTypeTags.IS_PROJECTILE)) {
+            if (GemPowers.isPassiveActive(victim, PowerIds.SPACE_STARSHIELD) && source.is(DamageTypeTags.IS_PROJECTILE)) {
                 // GameTest worlds and some dimensions can have odd sky visibility, so treat this as a "night-time outdoors"
                 // check that keys primarily off being in a skylit dimension at night.
-                long dayTime = world.getTimeOfDay() % 24000L;
+                long dayTime = world.getOverworldClockTime() % 24000L;
                 boolean night = dayTime >= 13000L && dayTime <= 23000L;
                 if (night) {
                     scaled *= GemsBalance.v().space().starshieldProjectileDamageMultiplier();
@@ -254,7 +254,7 @@ public abstract class LivingEntityDamageScalingMixin {
 
             if (GemPowers.isPassiveActive(victim, PowerIds.REAPER_UNDEAD_WARD)
                     && attacker instanceof LivingEntity livingAttacker
-                    && livingAttacker.getType().isIn(EntityTypeTags.UNDEAD)) {
+                    && livingAttacker.typeHolder().is(EntityTypeTags.UNDEAD)) {
                 scaled *= GemsBalance.v().reaper().undeadWardDamageMultiplier();
             }
 
@@ -270,8 +270,8 @@ public abstract class LivingEntityDamageScalingMixin {
             }
 
             if (GemPowers.isPassiveActive(victim, PowerIds.BONUS_ELEMENTAL_HARMONY)) {
-                if (source.isIn(DamageTypeTags.IS_FIRE) || source.isIn(DamageTypeTags.IS_FREEZING)
-                        || source.isIn(DamageTypeTags.IS_LIGHTNING)) {
+                if (source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypeTags.IS_FREEZING)
+                        || source.is(DamageTypeTags.IS_LIGHTNING)) {
                     float reduction = GemsBalance.v().bonusPool().elementalHarmonyReductionPercent / 100.0f;
                     scaled *= (1.0f - reduction);
                 }
@@ -279,18 +279,18 @@ public abstract class LivingEntityDamageScalingMixin {
 
             // Bonus Passives: Thick Skin - reduced projectile damage
             if (GemPowers.isPassiveActive(victim, PowerIds.BONUS_THICK_SKIN)
-                    && (source.isIn(DamageTypeTags.IS_PROJECTILE) || source.getSource() instanceof ProjectileEntity)) {
+                    && (source.is(DamageTypeTags.IS_PROJECTILE) || source.getDirectEntity() instanceof Projectile)) {
                 float reduction = GemsBalance.v().bonusPool().thickSkinProjectileReductionPercent() / 100.0f;
                 scaled *= (1.0f - reduction);
             }
 
-            if (victim.isBlocking() && !source.isIn(DamageTypeTags.BYPASSES_SHIELD)) {
+            if (victim.isBlocking() && !source.is(DamageTypeTags.BYPASSES_SHIELD)) {
                 scaled *= BonusPassiveRuntime.getBlockingDamageMultiplier(victim);
                 BonusPassiveRuntime.triggerCounterStrike(victim);
             }
 
             // Gladiator's Mark: marked players deal extra damage to each other.
-            if (attacker instanceof ServerPlayerEntity attackerPlayer) {
+            if (attacker instanceof ServerPlayer attackerPlayer) {
                 if (GladiatorsMarkItem.isMarkedAgainst(attackerPlayer, victim)) {
                     scaled *= GladiatorsMarkItem.getDamageMultiplier();
                 }
@@ -305,12 +305,12 @@ public abstract class LivingEntityDamageScalingMixin {
             if (SentinelPassiveRuntime.hasRetributionThorns(victim)) {
                 if (attacker instanceof LivingEntity livingAttacker && livingAttacker != victim) {
                     float reflected = scaled * SentinelPassiveRuntime.getRetributionThornsDamagePercent();
-                    livingAttacker.damage(world, victim.getDamageSources().thorns(victim), reflected);
+                    livingAttacker.hurtServer(world, victim.damageSources().thorns(victim), reflected);
                 }
             }
 
             // Bonus Passives: defense damage modifiers
-            scaled = BonusPassiveRuntime.getDefenseDamageMultiplier(victim, scaled, world, 
+            scaled = BonusPassiveRuntime.getDefenseDamageMultiplier(victim, scaled, world,
                     attacker instanceof LivingEntity ? (LivingEntity) attacker : null);
 
             // Bonus Ability: Iron Maiden - reflect incoming damage back to attacker.
@@ -321,7 +321,7 @@ public abstract class LivingEntityDamageScalingMixin {
                     if (reflected > 0.0f) {
                         IRON_MAIDEN_REFLECT.set(Boolean.TRUE);
                         try {
-                            livingAttacker.damage(world, victim.getDamageSources().magic(), reflected);
+                            livingAttacker.hurtServer(world, victim.damageSources().magic(), reflected);
                         } finally {
                             IRON_MAIDEN_REFLECT.set(Boolean.FALSE);
                         }
@@ -336,13 +336,13 @@ public abstract class LivingEntityDamageScalingMixin {
 
             // Legendary: Soul Shackle - split damage with the linked target.
             if (!SHACKLE_TRANSFER.get()) {
-                ServerPlayerEntity linked = SoulShackleItem.getShackledTarget(victim);
+                ServerPlayer linked = SoulShackleItem.getShackledTarget(victim);
                 if (linked != null) {
                     float transfer = SoulShackleItem.getDamageToTransfer(victim, scaled);
                     if (transfer > 0.0F) {
                         SHACKLE_TRANSFER.set(Boolean.TRUE);
                         try {
-                            linked.damage(world, world.getDamageSources().magic(), transfer);
+                            linked.hurtServer(world, world.damageSources().magic(), transfer);
                         } finally {
                             SHACKLE_TRANSFER.set(Boolean.FALSE);
                         }

@@ -7,15 +7,15 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
 import java.util.List;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -41,8 +41,8 @@ public final class ReaperScytheSweepAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         int range = GemsBalance.v().reaper().scytheSweepRangeBlocks();
@@ -50,48 +50,48 @@ public final class ReaperScytheSweepAbility implements GemAbility {
         float damage = GemsBalance.v().reaper().scytheSweepDamage();
         double knockback = GemsBalance.v().reaper().scytheSweepKnockback();
         if (range <= 0 || arc <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.reaper.scythe_sweep.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.scythe_sweep.disabled"), true);
             return false;
         }
 
-        Vec3d origin = player.getEntityPos().add(0.0D, 1.0D, 0.0D);
-        Vec3d look = player.getRotationVec(1.0F).normalize();
+        Vec3 origin = player.position().add(0.0D, 1.0D, 0.0D);
+        Vec3 look = player.getViewVector(1.0F).normalize();
         double cos = Math.cos(Math.toRadians(arc / 2.0D));
 
-        Box box = player.getBoundingBox().expand(range, 2.0D, range);
-        List<LivingEntity> candidates = world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player);
+        AABB box = player.getBoundingBox().inflate(range, 2.0D, range);
+        List<LivingEntity> candidates = world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player);
         int hit = 0;
         for (LivingEntity living : candidates) {
-            Vec3d to = living.getEntityPos().add(0.0D, living.getHeight() * 0.5D, 0.0D).subtract(origin);
+            Vec3 to = living.position().add(0.0D, living.getBbHeight() * 0.5D, 0.0D).subtract(origin);
             double dist = to.length();
             if (dist <= 0.001D || dist > range) {
                 continue;
             }
-            Vec3d dir = to.normalize();
-            if (dir.dotProduct(look) < cos) {
+            Vec3 dir = to.normalize();
+            if (dir.dot(look) < cos) {
                 continue;
             }
-            if (living instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
+            if (living instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
                 continue;
             }
-            if (living instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
+            if (living instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
                 continue;
             }
             if (damage > 0.0F) {
-                living.damage(world, player.getDamageSources().playerAttack(player), damage);
+                living.hurtServer(world, player.damageSources().playerAttack(player), damage);
             }
             if (knockback > 0.0D) {
-                Vec3d kb = dir.multiply(knockback);
-                living.setVelocity(living.getVelocity().add(kb.x, 0.15D, kb.z));
-                living.velocityDirty = true;
+                Vec3 kb = dir.scale(knockback);
+                living.setDeltaMovement(living.getDeltaMovement().add(kb.x, 0.15D, kb.z));
+                living.needsSync = true;
             }
-            AbilityFeedback.burstAt(world, living.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL, 3, 0.12D);
+            AbilityFeedback.burstAt(world, living.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.SOUL, 3, 0.12D);
             hit++;
         }
 
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, 0.8F, 0.7F);
+        AbilityFeedback.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8F, 0.7F);
         AbilityFeedback.burstAt(world, origin, ParticleTypes.SWEEP_ATTACK, 1, 0.0D);
-        player.sendMessage(Text.translatable("gems.ability.reaper.scythe_sweep.hit", hit), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.reaper.scythe_sweep.hit", hit), true);
         return hit > 0;
     }
 }

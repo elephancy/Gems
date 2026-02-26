@@ -2,15 +2,15 @@ package com.feel.gems.mixin;
 
 import com.feel.gems.power.gem.wealth.WealthFumble;
 import com.feel.gems.power.runtime.AbilityRestrictions;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.network.ServerPlayerInteractionManager;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerPlayerGameMode;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -21,39 +21,39 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 
 
-@Mixin(ServerPlayerInteractionManager.class)
+@Mixin(ServerPlayerGameMode.class)
 public abstract class ServerPlayerInteractionManagerRestrictionsMixin {
     @Shadow
     @Final
-    protected ServerPlayerEntity player;
+    protected ServerPlayer player;
     private int gems$preUseCount = 0;
     private boolean gems$preUseThrowable = false;
 
-    @Inject(method = "tryBreakBlock", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "destroyBlock", at = @At("HEAD"), cancellable = true)
     private void gems$stunBreak(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
         if (AbilityRestrictions.isStunned(player)) {
             cir.setReturnValue(false);
         }
     }
 
-    @Inject(method = "interactItem", at = @At("HEAD"), cancellable = true)
-    private void gems$stunOrLockItem(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+    @Inject(method = "useItem", at = @At("HEAD"), cancellable = true)
+    private void gems$stunOrLockItem(ServerPlayer player, Level world, ItemStack stack, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
         gems$preUseCount = stack.getCount();
         gems$preUseThrowable = com.feel.gems.power.gem.trickster.TricksterPassiveRuntime.isThrowable(stack);
         if (AbilityRestrictions.isStunned(player)) {
-            cir.setReturnValue(ActionResult.FAIL);
+            cir.setReturnValue(InteractionResult.FAIL);
             return;
         }
         if (WealthFumble.isActive(player)) {
-            if (hand == Hand.OFF_HAND || stack.contains(DataComponentTypes.FOOD)) {
-                cir.setReturnValue(ActionResult.FAIL);
+            if (hand == InteractionHand.OFF_HAND || stack.has(DataComponents.FOOD)) {
+                cir.setReturnValue(InteractionResult.FAIL);
             }
             return;
         }
     }
 
-    @Inject(method = "interactItem", at = @At("RETURN"))
-    private void gems$tricksterSleightOfHand(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
+    @Inject(method = "useItem", at = @At("RETURN"))
+    private void gems$tricksterSleightOfHand(ServerPlayer player, Level world, ItemStack stack, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
         if (!gems$preUseThrowable) {
             return;
         }
@@ -61,19 +61,19 @@ public abstract class ServerPlayerInteractionManagerRestrictionsMixin {
             return;
         }
         if (com.feel.gems.power.gem.trickster.TricksterPassiveRuntime.shouldNotConsumeThrowable(player)) {
-            stack.increment(1);
+            stack.grow(1);
         }
     }
 
-    @Inject(method = "interactBlock", at = @At("HEAD"), cancellable = true)
-    private void gems$stunOrFumbleBlock(ServerPlayerEntity player, World world, ItemStack stack, Hand hand, BlockHitResult hit, CallbackInfoReturnable<ActionResult> cir) {
+    @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true)
+    private void gems$stunOrFumbleBlock(ServerPlayer player, Level world, ItemStack stack, InteractionHand hand, BlockHitResult hit, CallbackInfoReturnable<InteractionResult> cir) {
         if (AbilityRestrictions.isStunned(player)) {
-            cir.setReturnValue(ActionResult.FAIL);
+            cir.setReturnValue(InteractionResult.FAIL);
             return;
         }
         if (WealthFumble.isActive(player)) {
-            if (hand == Hand.OFF_HAND || stack.contains(DataComponentTypes.FOOD)) {
-                cir.setReturnValue(ActionResult.FAIL);
+            if (hand == InteractionHand.OFF_HAND || stack.has(DataComponents.FOOD)) {
+                cir.setReturnValue(InteractionResult.FAIL);
             }
             return;
         }

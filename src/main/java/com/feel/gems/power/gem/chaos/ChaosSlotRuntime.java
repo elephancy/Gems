@@ -15,13 +15,12 @@ import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.synergy.SynergyRuntime;
 import com.feel.gems.power.bonus.BonusPassiveRuntime;
 import com.feel.gems.legendary.LegendaryCooldowns;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 import java.util.*;
 
 /**
@@ -31,10 +30,6 @@ import java.util.*;
  * After the duration, the slot becomes inactive until re-activated.
  */
 public final class ChaosSlotRuntime {
-    /** @deprecated Use {@link #slotCount()} instead. Kept for legacy compatibility. */
-    @Deprecated
-    public static final int SLOT_COUNT = 6;
-
     /**
      * Returns the configured number of Chaos slots (1-9).
      */
@@ -50,7 +45,7 @@ public final class ChaosSlotRuntime {
         return Math.max(0, GemsBalance.v().chaos().slotAbilityCooldownTicks());
     }
 
-    private static int slotAbilityCooldownTicks(ServerPlayerEntity player) {
+    private static int slotAbilityCooldownTicks(ServerPlayer player) {
         int base = slotAbilityCooldownTicks();
         if (base <= 0) {
             return 0;
@@ -140,29 +135,14 @@ public final class ChaosSlotRuntime {
     private ChaosSlotRuntime() {
     }
 
-    public static void register() {
-        ServerTickEvents.END_SERVER_TICK.register(ChaosSlotRuntime::tick);
-    }
-
     public static void tick(MinecraftServer server) {
-        long currentTick = server.getOverworld().getTime();
+        long currentTick = server.overworld().getGameTime();
         
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             GemPlayerState.initIfNeeded(player);
             if (GemPlayerState.getActiveGem(player) != GemId.CHAOS) {
-                ChaosPlayerState removed = playerStates.remove(player.getUuid());
-                if (removed != null) {
-                    // Remove all passive effects when switching away
-                    for (int i = 0; i < slotCount(); i++) {
-                        SlotState slot = removed.getSlot(i);
-                        if (slot.passiveId != null) {
-                            GemPassive passive = ModPassives.get(slot.passiveId);
-                            if (passive != null) {
-                                passive.remove(player);
-                            }
-                        }
-                    }
-                    // Clear client state
+                if (playerStates.containsKey(player.getUUID())) {
+                    clearState(player);
                     syncAllToClient(player, new ChaosPlayerState(), currentTick);
                 }
                 continue;
@@ -170,10 +150,14 @@ public final class ChaosSlotRuntime {
             
             int energy = GemPlayerState.getEnergy(player);
             if (energy < 1) {
+                if (playerStates.containsKey(player.getUUID())) {
+                    clearState(player);
+                    syncAllToClient(player, new ChaosPlayerState(), currentTick);
+                }
                 continue;
             }
             
-            ChaosPlayerState state = playerStates.computeIfAbsent(player.getUuid(), k -> new ChaosPlayerState());
+            ChaosPlayerState state = playerStates.computeIfAbsent(player.getUUID(), k -> new ChaosPlayerState());
             
             // Check for expired slots and remove passives
             boolean changed = false;
@@ -189,12 +173,12 @@ public final class ChaosSlotRuntime {
                     }
                     state = state.withSlot(i, SlotState.inactive());
                     changed = true;
-                    player.sendMessage(Text.translatable("gems.chaos.slot_expired", i + 1).formatted(Formatting.GRAY), true);
+                    player.sendSystemMessage(Component.translatable("gems.chaos.slot_expired", i + 1).withStyle(ChatFormatting.GRAY), true);
                 }
             }
             
             if (changed) {
-                playerStates.put(player.getUuid(), state);
+                playerStates.put(player.getUUID(), state);
             }
             
             // Sync to client every second
@@ -207,13 +191,15 @@ public final class ChaosSlotRuntime {
     /**
      * Activate a chaos slot - either use the ability if active, or roll new ability/passive if inactive.
      */
-    public static boolean activateSlot(ServerPlayerEntity player, int slotIndex) {
-        if (slotIndex < 0 || slotIndex >= slotCount()) {
+    public static boolean activateSlot(ServerPlayer player, int slotIndex) {
+        if (slotIndex < 0 || slotIndex >= slotCount()
+                || GemPlayerState.getActiveGem(player) != GemId.CHAOS
+                || GemPlayerState.getEnergy(player) < 1) {
             return false;
         }
         
-        long currentTick = player.getEntityWorld().getTime();
-        ChaosPlayerState state = playerStates.computeIfAbsent(player.getUuid(), k -> new ChaosPlayerState());
+        long currentTick = player.level().getGameTime();
+        ChaosPlayerState state = playerStates.computeIfAbsent(player.getUUID(), k -> new ChaosPlayerState());
         SlotState slot = state.getSlot(slotIndex);
         
         if (slot.isActive(currentTick)) {
@@ -229,15 +215,15 @@ public final class ChaosSlotRuntime {
     /**
      * Returns true if the player currently has an active Chaos slot with the given ability.
      */
-    public static boolean hasActiveAbility(ServerPlayerEntity player, Identifier abilityId) {
+    public static boolean hasActiveAbility(ServerPlayer player, Identifier abilityId) {
         if (player == null || abilityId == null) {
             return false;
         }
-        ChaosPlayerState state = playerStates.get(player.getUuid());
+        ChaosPlayerState state = playerStates.get(player.getUUID());
         if (state == null) {
             return false;
         }
-        long currentTick = player.getEntityWorld().getTime();
+        long currentTick = player.level().getGameTime();
         for (int i = 0; i < slotCount(); i++) {
             SlotState slot = state.getSlot(i);
             if (abilityId.equals(slot.abilityId()) && slot.isActive(currentTick)) {
@@ -247,19 +233,23 @@ public final class ChaosSlotRuntime {
         return false;
     }
     
-    private static boolean useSlotAbility(ServerPlayerEntity player, int slotIndex, ChaosPlayerState state, SlotState slot, long currentTick) {
+    private static boolean useSlotAbility(ServerPlayer player, int slotIndex, ChaosPlayerState state, SlotState slot, long currentTick) {
+        if (GemPlayerState.getEnergy(player) < 2) {
+            player.sendSystemMessage(Component.translatable("gems.ability.no_abilities_unlocked"), true);
+            return false;
+        }
         int cooldownTicks = slotAbilityCooldownTicks(player);
         boolean canUse = slot.isActive(currentTick) && (currentTick - slot.lastAbilityUseTick) >= cooldownTicks;
         if (!canUse) {
             int remaining = (int) Math.max(0, cooldownTicks - (currentTick - slot.lastAbilityUseTick));
             int seconds = (remaining + 19) / 20;
-            player.sendMessage(Text.translatable("gems.chaos.slot_on_cooldown", slotIndex + 1, seconds).formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.chaos.slot_on_cooldown", slotIndex + 1, seconds).withStyle(ChatFormatting.RED), true);
             return false;
         }
         
         GemAbility ability = ModAbilities.get(slot.abilityId);
         if (ability == null) {
-            player.sendMessage(Text.translatable("gems.chaos.ability_not_found").formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.chaos.ability_not_found").withStyle(ChatFormatting.RED), true);
             return false;
         }
         
@@ -276,13 +266,13 @@ public final class ChaosSlotRuntime {
             
             SlotState newSlot = slot.withAbilityUsed(currentTick);
             ChaosPlayerState newState = state.withSlot(slotIndex, newSlot);
-            playerStates.put(player.getUuid(), newState);
+            playerStates.put(player.getUUID(), newState);
             syncAllToClient(player, newState, currentTick);
         }
         return success;
     }
     
-    private static void rollNewSlot(ServerPlayerEntity player, int slotIndex, ChaosPlayerState state, long currentTick) {
+    private static void rollNewSlot(ServerPlayer player, int slotIndex, ChaosPlayerState state, long currentTick) {
         // Remove old passive if any
         SlotState oldSlot = state.getSlot(slotIndex);
         if (oldSlot.passiveId != null) {
@@ -301,7 +291,7 @@ public final class ChaosSlotRuntime {
         
         SlotState newSlot = new SlotState(newAbilityId, abilityName, newPassiveId, passiveName, currentTick, 0);
         ChaosPlayerState newState = state.withSlot(slotIndex, newSlot);
-        playerStates.put(player.getUuid(), newState);
+        playerStates.put(player.getUUID(), newState);
         
         // Apply new passive
         if (newPassiveId != null) {
@@ -317,7 +307,7 @@ public final class ChaosSlotRuntime {
     /**
      * Sync all slot states to the client.
      */
-    public static void syncAllToClient(ServerPlayerEntity player, ChaosPlayerState state, long currentTick) {
+    public static void syncAllToClient(ServerPlayer player, ChaosPlayerState state, long currentTick) {
         List<ChaosSlotPayload.SlotData> slots = new ArrayList<>();
         for (int i = 0; i < slotCount(); i++) {
             SlotState slot = state.getSlot(i);
@@ -333,15 +323,15 @@ public final class ChaosSlotRuntime {
         ServerPlayNetworking.send(player, new ChaosSlotPayload(slots));
     }
 
-    public static boolean reduceCooldowns(ServerPlayerEntity player, float factor) {
+    public static boolean reduceCooldowns(ServerPlayer player, float factor) {
         if (factor >= 1.0F) {
             return false;
         }
-        ChaosPlayerState state = playerStates.get(player.getUuid());
+        ChaosPlayerState state = playerStates.get(player.getUUID());
         if (state == null) {
             return false;
         }
-        long now = player.getEntityWorld().getTime();
+        long now = player.level().getGameTime();
         int cooldownTicks = slotAbilityCooldownTicks(player);
         if (cooldownTicks <= 0) {
             return false;
@@ -373,13 +363,13 @@ public final class ChaosSlotRuntime {
             }
         }
         if (changed) {
-            playerStates.put(player.getUuid(), updated);
+            playerStates.put(player.getUUID(), updated);
             syncAllToClient(player, updated, now);
         }
         return changed;
     }
 
-    private static Identifier pickRandomAbility(net.minecraft.util.math.random.Random random) {
+    private static Identifier pickRandomAbility(net.minecraft.util.RandomSource random) {
         List<Identifier> allAbilities = new ArrayList<>();
         for (GemId gemId : GemId.values()) {
             if (gemId == GemId.CHAOS || gemId == GemId.VOID || gemId == GemId.PRISM) {
@@ -403,7 +393,7 @@ public final class ChaosSlotRuntime {
         return allAbilities.get(random.nextInt(allAbilities.size()));
     }
 
-    private static Identifier pickRandomPassive(net.minecraft.util.math.random.Random random) {
+    private static Identifier pickRandomPassive(net.minecraft.util.RandomSource random) {
         List<Identifier> allPassives = new ArrayList<>();
         for (GemId gemId : GemId.values()) {
             if (gemId == GemId.CHAOS || gemId == GemId.VOID || gemId == GemId.PRISM) {
@@ -447,11 +437,10 @@ public final class ChaosSlotRuntime {
     /**
      * Clear all state when player switches away from Chaos gem.
      */
-    public static void clearState(ServerPlayerEntity player) {
-        ChaosPlayerState state = playerStates.remove(player.getUuid());
+    public static void clearState(ServerPlayer player) {
+        ChaosPlayerState state = playerStates.remove(player.getUUID());
         if (state != null) {
-            for (int i = 0; i < slotCount(); i++) {
-                SlotState slot = state.getSlot(i);
+            for (SlotState slot : state.slots()) {
                 if (slot.passiveId != null) {
                     GemPassive passive = ModPassives.get(slot.passiveId);
                     if (passive != null) {

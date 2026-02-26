@@ -8,12 +8,12 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 
 
 
@@ -41,27 +41,27 @@ public final class PillagerVindicatorBreakAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.PILLAGER, GemsBalance.v().pillager().vindicatorBreakDurationTicks());
         if (duration <= 0) {
             return false;
         }
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         nbt.putLong(KEY_UNTIL, GemsTime.now(player) + duration);
 
         int amp = GemsBalance.v().pillager().vindicatorBreakStrengthAmplifier();
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, duration, amp, true, false, false));
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_VINDICATOR_CELEBRATE, 0.6F, 1.0F);
+        player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, duration, amp, true, false, false));
+        AbilityFeedback.sound(player, SoundEvents.VINDICATOR_CELEBRATE, 0.6F, 1.0F);
         return true;
     }
 
-    public static boolean isActive(ServerPlayerEntity player, long now) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        long until = nbt.getLong(KEY_UNTIL, 0L);
+    public static boolean isActive(ServerPlayer player, long now) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        long until = nbt.getLongOr(KEY_UNTIL, 0L);
         return until > 0 && now < until;
     }
 
-    public static void clear(ServerPlayerEntity player) {
+    public static void clear(ServerPlayer player) {
         ((GemsPersistentDataHolder) player).gems$getPersistentData().remove(KEY_UNTIL);
     }
 }

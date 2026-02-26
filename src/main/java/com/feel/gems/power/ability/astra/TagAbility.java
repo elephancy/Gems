@@ -9,14 +9,14 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
 
 
 
@@ -42,25 +42,25 @@ public final class TagAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         LivingEntity target = Targeting.raycastLiving(player, GemsBalance.v().astra().tagRangeBlocks());
         if (target == null) {
-            player.sendMessage(Text.translatable("gems.message.no_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_target"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_trusted"), true);
+        if (target instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_trusted"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_immune"), true);
+        if (target instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_immune"), true);
             return false;
         }
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.ASTRA, GemsBalance.v().astra().tagDurationTicks());
-        target.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, duration, 0, true, false, false));
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_PLING, 0.8F, 1.6F);
-        AbilityFeedback.burstAt(player.getEntityWorld(), target.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.GLOW, 14, 0.2D);
-        player.sendMessage(Text.translatable("gems.ability.astra.tag.tagged", target.getName()), true);
+        target.addEffect(new MobEffectInstance(MobEffects.GLOWING, duration, 0, true, false, false));
+        AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_PLING, 0.8F, 1.6F);
+        AbilityFeedback.burstAt(player.level(), target.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.GLOW, 14, 0.2D);
+        player.sendSystemMessage(Component.translatable("gems.ability.astra.tag.tagged", target.getName()), true);
         return true;
     }
 }

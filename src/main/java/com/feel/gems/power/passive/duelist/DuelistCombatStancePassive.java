@@ -2,13 +2,13 @@ package com.feel.gems.power.passive.duelist;
 
 import com.feel.gems.power.api.GemMaintainedPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
 import java.util.Set;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 
 /**
  * Combat Stance: While holding a sword, gain 10% movement speed.
@@ -43,17 +43,17 @@ public final class DuelistCombatStancePassive implements GemMaintainedPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         maintain(player);
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeStatusEffect(StatusEffects.SPEED);
+    public void remove(ServerPlayer player) {
+        player.removeEffect(MobEffects.SPEED);
     }
 
     @Override
-    public void maintain(ServerPlayerEntity player) {
+    public void maintain(ServerPlayer player) {
         if (!isHoldingSword(player)) {
             return;
         }
@@ -61,12 +61,12 @@ public final class DuelistCombatStancePassive implements GemMaintainedPassive {
         // The config uses a multiplier (1.1 = 10% boost), we approximate with Speed I
         int amplifier = 0;
         int duration = 40; // Refresh every 2 seconds
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, duration, amplifier, true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.SPEED, duration, amplifier, true, false, false));
     }
 
-    private static boolean isHoldingSword(ServerPlayerEntity player) {
+    private static boolean isHoldingSword(ServerPlayer player) {
         Set<Item> swordSet = getSwords();
-        return swordSet.contains(player.getMainHandStack().getItem())
-            || swordSet.contains(player.getOffHandStack().getItem());
+        return swordSet.contains(player.getMainHandItem().getItem())
+            || swordSet.contains(player.getOffhandItem().getItem());
     }
 }

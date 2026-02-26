@@ -9,16 +9,15 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Puppet Master - briefly control an enemy's movement for 3s.
@@ -50,21 +49,21 @@ public final class TricksterPuppetMasterAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int range = GemsBalance.v().trickster().puppetMasterRangeBlocks();
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.TRICKSTER, GemsBalance.v().trickster().puppetMasterDurationTicks());
 
         // Raycast to find target (any living entity), fallback to nearest if raycast misses.
         LivingEntity target = Targeting.raycastLiving(player, range);
         if (target == null) {
-            Box searchBox = player.getBoundingBox().expand(range);
+            AABB searchBox = player.getBoundingBox().inflate(range);
             double bestDist = Double.MAX_VALUE;
-            for (LivingEntity candidate : world.getEntitiesByClass(LivingEntity.class, searchBox, e -> e != player && e.isAlive())) {
-                if (candidate instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
+            for (LivingEntity candidate : world.getEntitiesOfClass(LivingEntity.class, searchBox, e -> e != player && e.isAlive())) {
+                if (candidate instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
                     continue;
                 }
-                double dist = player.squaredDistanceTo(candidate);
+                double dist = player.distanceToSqr(candidate);
                 if (dist < bestDist) {
                     bestDist = dist;
                     target = candidate;
@@ -72,27 +71,27 @@ public final class TricksterPuppetMasterAbility implements GemAbility {
             }
         }
         if (target == null) {
-            AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+            AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
             return false;
         }
 
         // Handle mob targets - make them attack their allies
-        if (target instanceof MobEntity mob) {
-            Box searchBox = mob.getBoundingBox().expand(16);
+        if (target instanceof Mob mob) {
+            AABB searchBox = mob.getBoundingBox().inflate(16);
 
             // Prefer targeting other mobs so the effect looks like "turning on allies".
-            List<MobEntity> nearbyMobs = world.getEntitiesByClass(
-                    MobEntity.class,
+            List<Mob> nearbyMobs = world.getEntitiesOfClass(
+                    Mob.class,
                     searchBox,
                     e -> e != mob && e.isAlive()
             );
 
             if (!nearbyMobs.isEmpty()) {
-                MobEntity newTarget = nearbyMobs.get(world.getRandom().nextInt(nearbyMobs.size()));
+                Mob newTarget = nearbyMobs.get(world.getRandom().nextInt(nearbyMobs.size()));
                 mob.setTarget(newTarget);
             } else {
                 // Fallback: pick any other living entity so the ability still does something in a solo encounter.
-                List<LivingEntity> nearbyLiving = world.getEntitiesByClass(
+                List<LivingEntity> nearbyLiving = world.getEntitiesOfClass(
                         LivingEntity.class,
                         searchBox,
                         e -> e != mob && e != player && e.isAlive()
@@ -100,37 +99,37 @@ public final class TricksterPuppetMasterAbility implements GemAbility {
                 mob.setTarget(nearbyLiving.isEmpty() ? null : nearbyLiving.get(world.getRandom().nextInt(nearbyLiving.size())));
             }
 
-            TricksterPuppetRuntime.setPuppetedMob(mob, player.getUuid(), durationTicks);
+            TricksterPuppetRuntime.setPuppetedMob(mob, player.getUUID(), durationTicks);
 
-            AbilityFeedback.burstAt(world, mob.getEntityPos().add(0, 2, 0), ParticleTypes.ENCHANT, 25, 0.8D);
-            AbilityFeedback.sound(player, SoundEvents.ENTITY_VEX_CHARGE, 1.0F, 0.6F);
+            AbilityFeedback.burstAt(world, mob.position().add(0, 2, 0), ParticleTypes.ENCHANT, 25, 0.8D);
+            AbilityFeedback.sound(player, SoundEvents.VEX_CHARGE, 1.0F, 0.6F);
             return true;
         }
 
         // Handle player targets
-        if (target instanceof ServerPlayerEntity targetPlayer) {
+        if (target instanceof ServerPlayer targetPlayer) {
             if (!VoidImmunity.canBeTargeted(player, targetPlayer)) {
-                AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+                AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
                 return false;
             }
-            long endTime = world.getTime() + durationTicks;
-            PlayerStateManager.setPersistent(player, PUPPET_TARGET_KEY, targetPlayer.getUuidAsString());
+            long endTime = world.getGameTime() + durationTicks;
+            PlayerStateManager.setPersistent(player, PUPPET_TARGET_KEY, targetPlayer.getStringUUID());
             PlayerStateManager.setPersistent(player, PUPPET_END_KEY, String.valueOf(endTime));
 
             // Mark target as being puppeted
-            TricksterPuppetRuntime.setPuppeted(targetPlayer, player.getUuid(), durationTicks);
+            TricksterPuppetRuntime.setPuppeted(targetPlayer, player.getUUID(), durationTicks);
 
-            AbilityFeedback.burstAt(world, targetPlayer.getEntityPos().add(0, 2, 0), ParticleTypes.ENCHANT, 25, 0.8D);
-            AbilityFeedback.sound(player, SoundEvents.ENTITY_VEX_CHARGE, 1.0F, 0.6F);
-            AbilityFeedback.sound(targetPlayer, SoundEvents.ENTITY_VEX_CHARGE, 1.0F, 0.6F);
+            AbilityFeedback.burstAt(world, targetPlayer.position().add(0, 2, 0), ParticleTypes.ENCHANT, 25, 0.8D);
+            AbilityFeedback.sound(player, SoundEvents.VEX_CHARGE, 1.0F, 0.6F);
+            AbilityFeedback.sound(targetPlayer, SoundEvents.VEX_CHARGE, 1.0F, 0.6F);
             return true;
         }
 
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+        AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
         return false;
     }
 
-    public static ServerPlayerEntity getPuppetTarget(ServerPlayerEntity puppeteer) {
+    public static ServerPlayer getPuppetTarget(ServerPlayer puppeteer) {
         String targetStr = PlayerStateManager.getPersistent(puppeteer, PUPPET_TARGET_KEY);
         if (targetStr == null || targetStr.isEmpty()) return null;
 
@@ -138,20 +137,20 @@ public final class TricksterPuppetMasterAbility implements GemAbility {
         if (endStr == null) return null;
 
         long endTime = Long.parseLong(endStr);
-        if (puppeteer.getEntityWorld().getTime() > endTime) {
+        if (puppeteer.level().getGameTime() > endTime) {
             clearPuppet(puppeteer);
             return null;
         }
 
         try {
             java.util.UUID targetId = java.util.UUID.fromString(targetStr);
-            return puppeteer.getEntityWorld().getServer().getPlayerManager().getPlayer(targetId);
+            return puppeteer.level().getServer().getPlayerList().getPlayer(targetId);
         } catch (Exception e) {
             return null;
         }
     }
 
-    public static void clearPuppet(ServerPlayerEntity puppeteer) {
+    public static void clearPuppet(ServerPlayer puppeteer) {
         PlayerStateManager.clearPersistent(puppeteer, PUPPET_TARGET_KEY);
         PlayerStateManager.clearPersistent(puppeteer, PUPPET_END_KEY);
     }

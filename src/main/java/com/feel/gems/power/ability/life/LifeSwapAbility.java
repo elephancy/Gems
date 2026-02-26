@@ -8,15 +8,15 @@ import com.feel.gems.stats.GemsStats;
 import com.feel.gems.state.PlayerStateManager;
 import com.feel.gems.util.GemsTickScheduler;
 import com.feel.gems.util.GemsTime;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 
 
@@ -45,24 +45,24 @@ public final class LifeSwapAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         float minHearts = GemsBalance.v().life().lifeSwapMinHearts();
         if (player.getHealth() < minHearts * 2.0F) {
-            player.sendMessage(Text.translatable("gems.ability.life.life_swap.min_hearts", minHearts), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.life.life_swap.min_hearts", minHearts), true);
             return false;
         }
 
         LivingEntity target = Targeting.raycastLiving(player, GemsBalance.v().life().lifeSwapRangeBlocks());
         if (target == null) {
-            player.sendMessage(Text.translatable("gems.message.no_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_target"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_trusted"), true);
+        if (target instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_trusted"), true);
             return false;
         }
-        if (target instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
-            player.sendMessage(Text.translatable("gems.message.target_immune"), true);
+        if (target instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
+            player.sendSystemMessage(Component.translatable("gems.message.target_immune"), true);
             return false;
         }
 
@@ -71,26 +71,26 @@ public final class LifeSwapAbility implements GemAbility {
         player.setHealth(Math.min(player.getMaxHealth(), targetHealth));
         target.setHealth(Math.min(target.getMaxHealth(), playerHealth));
 
-        if (target instanceof ServerPlayerEntity other) {
+        if (target instanceof ServerPlayer other) {
             int reswapTicks = GemsBalance.v().life().lifeSwapReswapTicks();
             if (reswapTicks > 0) {
-                var server = player.getEntityWorld().getServer();
+                var server = player.level().getServer();
                 if (server != null) {
                     int playerDeaths = GemsStats.deaths(player);
                     int otherDeaths = GemsStats.deaths(other);
-                    String token = player.getUuidAsString() + ":" + other.getUuidAsString() + ":" + GemsTime.now(player);
+                    String token = player.getStringUUID() + ":" + other.getStringUUID() + ":" + GemsTime.now(player);
                     PlayerStateManager.setPersistent(player, LIFE_SWAP_TOKEN_KEY, token);
                     PlayerStateManager.setPersistent(other, LIFE_SWAP_TOKEN_KEY, token);
-                    PlayerStateManager.setPersistent(player, LIFE_SWAP_PARTNER_KEY, other.getUuidAsString());
-                    PlayerStateManager.setPersistent(other, LIFE_SWAP_PARTNER_KEY, player.getUuidAsString());
+                    PlayerStateManager.setPersistent(player, LIFE_SWAP_PARTNER_KEY, other.getStringUUID());
+                    PlayerStateManager.setPersistent(other, LIFE_SWAP_PARTNER_KEY, player.getStringUUID());
                     PlayerStateManager.setPersistent(player, LIFE_SWAP_ORIGINAL_HEALTH_KEY, Float.toString(playerHealth));
                     PlayerStateManager.setPersistent(other, LIFE_SWAP_ORIGINAL_HEALTH_KEY, Float.toString(targetHealth));
-                    java.util.UUID playerId = player.getUuid();
-                    java.util.UUID otherId = other.getUuid();
+                    java.util.UUID playerId = player.getUUID();
+                    java.util.UUID otherId = other.getUUID();
 
                     GemsTickScheduler.schedule(server, reswapTicks, srv -> {
-                        ServerPlayerEntity p = srv.getPlayerManager().getPlayer(playerId);
-                        ServerPlayerEntity t = srv.getPlayerManager().getPlayer(otherId);
+                        ServerPlayer p = srv.getPlayerList().getPlayer(playerId);
+                        ServerPlayer t = srv.getPlayerList().getPlayer(otherId);
                         if (p == null || t == null) {
                             return;
                         }
@@ -128,10 +128,10 @@ public final class LifeSwapAbility implements GemAbility {
             }
         }
 
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_ILLUSIONER_PREPARE_BLINDNESS, 0.7F, 1.4F);
+        AbilityFeedback.sound(player, SoundEvents.ILLUSIONER_PREPARE_BLINDNESS, 0.7F, 1.4F);
         AbilityFeedback.burst(player, ParticleTypes.HEART, 10, 0.25D);
-        AbilityFeedback.burstAt(player.getEntityWorld(), target.getEntityPos().add(0.0D, target.getHeight() * 0.6D, 0.0D), ParticleTypes.HEART, 10, 0.25D);
-        player.sendMessage(Text.translatable("gems.ability.life.life_swap.activated"), true);
+        AbilityFeedback.burstAt(player.level(), target.position().add(0.0D, target.getBbHeight() * 0.6D, 0.0D), ParticleTypes.HEART, 10, 0.25D);
+        player.sendSystemMessage(Component.translatable("gems.ability.life.life_swap.activated"), true);
         return true;
     }
 

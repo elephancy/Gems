@@ -9,17 +9,18 @@ import com.feel.gems.power.gem.flux.FluxCharge;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
+import com.feel.gems.particle.ModParticles;
+import com.feel.gems.sound.ModSounds;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class FluxSurgeAbility implements GemAbility {
     @Override
@@ -43,12 +44,12 @@ public final class FluxSurgeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         var cfg = GemsBalance.v().flux();
         int charge = FluxCharge.get(player);
         int cost = cfg.fluxSurgeChargeCost();
         if (charge < cost) {
-            player.sendMessage(Text.translatable("gems.ability.flux.not_enough_charge"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.flux.not_enough_charge"), true);
             return false;
         }
 
@@ -60,32 +61,33 @@ public final class FluxSurgeAbility implements GemAbility {
         if (duration > 0) {
             int speedAmp = cfg.fluxSurgeSpeedAmplifier();
             int resistAmp = cfg.fluxSurgeResistanceAmplifier();
-            player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, duration, speedAmp, true, false, false));
+            player.addEffect(new MobEffectInstance(MobEffects.SPEED, duration, speedAmp, true, false, false));
             if (resistAmp >= 0) {
-                player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, duration, resistAmp, true, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, duration, resistAmp, true, false, false));
             }
         }
 
-        ServerWorld world = player.getEntityWorld();
+        ServerLevel world = player.level();
         int radius = cfg.fluxSurgeRadiusBlocks();
         if (radius > 0) {
             double knockback = cfg.fluxSurgeKnockback();
-            Box box = new Box(player.getBlockPos()).expand(radius);
-            for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-                if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+            AABB box = new AABB(player.blockPosition()).inflate(radius);
+            for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+                if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                     continue;
                 }
-                if (other instanceof ServerPlayerEntity otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
+                if (other instanceof ServerPlayer otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
                     continue;
                 }
-                Vec3d delta = other.getEntityPos().subtract(player.getEntityPos()).normalize();
-                other.addVelocity(delta.x * knockback, 0.2D, delta.z * knockback);
-                other.velocityDirty = true;
+                Vec3 delta = other.position().subtract(player.position()).normalize();
+                other.push(delta.x * knockback, 0.2D, delta.z * knockback);
+                other.needsSync = true;
             }
         }
 
-        AbilityFeedback.burst(player, net.minecraft.particle.ParticleTypes.ELECTRIC_SPARK, 20, 0.45D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, 0.4F, 1.6F);
+        AbilityFeedback.burst(player, net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, 20, 0.45D);
+        AbilityFeedback.burst(player, ModParticles.GEM_STAR, 7, 0.4D);
+        AbilityFeedback.sound(player, ModSounds.SURGE_PULSE, 0.8F, 1.1F);
         return true;
     }
 }

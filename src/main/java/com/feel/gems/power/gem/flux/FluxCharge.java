@@ -5,14 +5,14 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.RepairableComponent;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Repairable;
 
 
 public final class FluxCharge {
@@ -25,47 +25,47 @@ public final class FluxCharge {
     private FluxCharge() {
     }
 
-    public static int get(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
-        return clamp(nbt.getInt(KEY_CHARGE, 0), 0, 200);
+    public static int get(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
+        return clamp(nbt.getIntOr(KEY_CHARGE, 0), 0, 200);
     }
 
-    public static void set(ServerPlayerEntity player, int charge) {
+    public static void set(ServerPlayer player, int charge) {
         persistent(player).putInt(KEY_CHARGE, clamp(charge, 0, 200));
     }
 
-    public static boolean tryConsumeChargeItem(ServerPlayerEntity player) {
+    public static boolean tryConsumeChargeItem(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.FLUX_CHARGE_STORAGE)) {
-            player.sendMessage(Text.translatable("gems.flux.charge_storage_not_active"), true);
+            player.sendSystemMessage(Component.translatable("gems.flux.charge_storage_not_active"), true);
             return false;
         }
 
         int charge = get(player);
         if (charge >= 100) {
-            player.sendMessage(Text.translatable("gems.flux.charge_at_100"), true);
+            player.sendSystemMessage(Component.translatable("gems.flux.charge_at_100"), true);
             return false;
         }
 
         int[] fuel = findFuelSlot(player);
         if (fuel == null) {
-            player.sendMessage(Text.translatable("gems.flux.no_charge_item"), true);
+            player.sendSystemMessage(Component.translatable("gems.flux.no_charge_item"), true);
             return false;
         }
 
         ItemStack fuelStack = getFuelStack(player, fuel);
         int add = chargeValue(fuelStack);
         if (add <= 0) {
-            player.sendMessage(Text.translatable("gems.flux.no_valid_charge_item"), true);
+            player.sendSystemMessage(Component.translatable("gems.flux.no_valid_charge_item"), true);
             return false;
         }
 
-        fuelStack.decrement(1);
+        fuelStack.shrink(1);
         int next = Math.min(100, charge + add);
         set(player, next);
         if (charge < 100 && next >= 100) {
             persistent(player).putLong(KEY_AT_100, GemsTime.now(player));
         }
-        player.sendMessage(Text.translatable("gems.flux.charge_percent", next), true);
+        player.sendSystemMessage(Component.translatable("gems.flux.charge_percent", next), true);
         return true;
     }
 
@@ -76,15 +76,15 @@ public final class FluxCharge {
      *
      * @return int[]{type, index} where type 0 = offhand, 1 = inventory main list
      */
-    private static int[] findFuelSlot(ServerPlayerEntity player) {
-        ItemStack offhand = player.getOffHandStack();
+    private static int[] findFuelSlot(ServerPlayer player) {
+        ItemStack offhand = player.getOffhandItem();
         if (chargeValue(offhand) > 0) {
             return new int[]{0, 0};
         }
 
         // Only scan the main inventory; charging is an explicit action and this runs only on use().
         // Prefer hotbar slots 0..8.
-        var mainStacks = player.getInventory().getMainStacks();
+        var mainStacks = player.getInventory().getNonEquipmentItems();
         for (int slot = 0; slot < Math.min(9, mainStacks.size()); slot++) {
             if (chargeValue(mainStacks.get(slot)) > 0) {
                 return new int[]{1, slot};
@@ -98,14 +98,14 @@ public final class FluxCharge {
         return null;
     }
 
-    private static ItemStack getFuelStack(ServerPlayerEntity player, int[] fuel) {
+    private static ItemStack getFuelStack(ServerPlayer player, int[] fuel) {
         if (fuel[0] == 0) {
-            return player.getOffHandStack();
+            return player.getOffhandItem();
         }
-        return player.getInventory().getMainStacks().get(fuel[1]);
+        return player.getInventory().getNonEquipmentItems().get(fuel[1]);
     }
 
-    public static void tickOvercharge(ServerPlayerEntity player) {
+    public static void tickOvercharge(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.FLUX_OVERCHARGE_RAMP)) {
             return;
         }
@@ -114,9 +114,9 @@ public final class FluxCharge {
             return;
         }
 
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         long now = GemsTime.now(player);
-        long at100 = nbt.getLong(KEY_AT_100, 0L);
+        long at100 = nbt.getLongOr(KEY_AT_100, 0L);
         if (at100 <= 0) {
             nbt.putLong(KEY_AT_100, now);
             return;
@@ -125,7 +125,7 @@ public final class FluxCharge {
             return;
         }
 
-        long last = nbt.getLong(KEY_LAST_OVERCHARGE_TICK, 0L);
+        long last = nbt.getLongOr(KEY_LAST_OVERCHARGE_TICK, 0L);
         if (now - last < 20L) {
             return;
         }
@@ -133,16 +133,16 @@ public final class FluxCharge {
 
         int next = Math.min(200, charge + GemsBalance.v().flux().overchargePerSecond());
         set(player, next);
-        if (player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld world) {
-            player.damage(world, player.getDamageSources().magic(), GemsBalance.v().flux().overchargeSelfDamagePerSecond());
+        if (player.level() instanceof net.minecraft.server.level.ServerLevel world) {
+            player.hurtServer(world, player.damageSources().magic(), GemsBalance.v().flux().overchargeSelfDamagePerSecond());
         }
         com.feel.gems.net.GemExtraStateSync.send(player);
     }
 
-    public static void clearIfBelow100(ServerPlayerEntity player) {
+    public static void clearIfBelow100(ServerPlayer player) {
         int charge = get(player);
         if (charge < 100) {
-            NbtCompound nbt = persistent(player);
+            CompoundTag nbt = persistent(player);
             if (nbt.contains(KEY_AT_100)) {
                 nbt.remove(KEY_AT_100);
             }
@@ -156,30 +156,30 @@ public final class FluxCharge {
         if (stack == null || stack.isEmpty()) {
             return 0;
         }
-        if (stack.isOf(Items.DIAMOND_BLOCK)) {
+        if (stack.is(Items.DIAMOND_BLOCK)) {
             return GemsBalance.v().flux().chargeDiamondBlock();
         }
-        if (stack.isOf(Items.GOLD_BLOCK)) {
+        if (stack.is(Items.GOLD_BLOCK)) {
             return GemsBalance.v().flux().chargeGoldBlock();
         }
-        if (stack.isOf(Items.COPPER_BLOCK)) {
+        if (stack.is(Items.COPPER_BLOCK.weathering().unaffected())) {
             return GemsBalance.v().flux().chargeCopperBlock();
         }
-        if (stack.isOf(Items.EMERALD_BLOCK)) {
+        if (stack.is(Items.EMERALD_BLOCK)) {
             return GemsBalance.v().flux().chargeEmeraldBlock();
         }
-        if (stack.isOf(Items.AMETHYST_BLOCK)) {
+        if (stack.is(Items.AMETHYST_BLOCK)) {
             return GemsBalance.v().flux().chargeAmethystBlock();
         }
-        if (stack.isOf(Items.NETHERITE_SCRAP)) {
+        if (stack.is(Items.NETHERITE_SCRAP)) {
             return GemsBalance.v().flux().chargeNetheriteScrap();
         }
 
-        if (!EnchantmentHelper.hasEnchantments(stack)) {
+        if (!EnchantmentHelper.hasAnyEnchantments(stack)) {
             return 0;
         }
-        RepairableComponent repairable = stack.get(DataComponentTypes.REPAIRABLE);
-        if (repairable != null && repairable.matches(diamondRepairItem())) {
+        Repairable repairable = stack.get(DataComponents.REPAIRABLE);
+        if (repairable != null && repairable.isValidRepairItem(diamondRepairItem())) {
             return GemsBalance.v().flux().chargeEnchantedDiamondItem();
         }
         return 0;
@@ -192,7 +192,7 @@ public final class FluxCharge {
         return diamondRepairItem;
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 

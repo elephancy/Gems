@@ -4,18 +4,16 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Thorns Nova - Explode thorns outward, damaging all nearby enemies.
@@ -45,18 +43,18 @@ public final class BonusThornsNovaAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Box box = player.getBoundingBox().expand(RANGE);
-        List<LivingEntity> entities = world.getEntitiesByClass(LivingEntity.class, box,
-                e -> e != player && e.isAlive() && !(e instanceof ServerPlayerEntity p && p.isCreative()));
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        AABB box = player.getBoundingBox().inflate(RANGE);
+        List<LivingEntity> entities = world.getEntitiesOfClass(LivingEntity.class, box,
+                e -> e != player && e.isAlive() && !(e instanceof ServerPlayer p && p.isCreative()));
 
         if (entities.isEmpty()) {
             return false;
         }
 
         for (LivingEntity entity : entities) {
-            if (entity instanceof ServerPlayerEntity otherPlayer) {
+            if (entity instanceof ServerPlayer otherPlayer) {
                 if (VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                     continue;
                 }
@@ -64,25 +62,25 @@ public final class BonusThornsNovaAbility implements GemAbility {
                     continue;
                 }
             }
-            entity.damage(world, world.getDamageSources().thorns(player), DAMAGE);
+            entity.hurtServer(world, world.damageSources().thorns(player), DAMAGE);
             
             // Knockback
-            Vec3d knockback = entity.getEntityPos().subtract(player.getEntityPos()).normalize().multiply(0.8);
-            entity.setVelocity(entity.getVelocity().add(knockback.x, 0.2, knockback.z));
-            entity.velocityDirty = true;
+            Vec3 knockback = entity.position().subtract(player.position()).normalize().scale(0.8);
+            entity.setDeltaMovement(entity.getDeltaMovement().add(knockback.x, 0.2, knockback.z));
+            entity.needsSync = true;
         }
 
         // Thorn particle explosion
         for (int i = 0; i < 50; i++) {
-            double angle = world.random.nextDouble() * Math.PI * 2;
-            double radius = world.random.nextDouble() * RANGE;
+            double angle = world.getRandom().nextDouble() * Math.PI * 2;
+            double radius = world.getRandom().nextDouble() * RANGE;
             double x = player.getX() + Math.cos(angle) * radius;
             double z = player.getZ() + Math.sin(angle) * radius;
-            world.spawnParticles(ParticleTypes.CRIT, x, player.getY() + 0.5, z, 2, 0.1, 0.3, 0.1, 0.1);
+            world.sendParticles(ParticleTypes.CRIT, x, player.getY() + 0.5, z, 2, 0.1, 0.3, 0.1, 0.1);
         }
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.BLOCK_SWEET_BERRY_BUSH_PICK_BERRIES, SoundCategory.PLAYERS, 1.5f, 0.5f);
+                SoundEvents.SWEET_BERRY_BUSH_PICK_BERRIES, SoundSource.PLAYERS, 1.5f, 0.5f);
         return true;
     }
 }

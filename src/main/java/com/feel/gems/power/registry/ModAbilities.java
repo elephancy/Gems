@@ -29,7 +29,7 @@ import com.feel.gems.power.gem.beacon.BeaconAuraRuntime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 
 

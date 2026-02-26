@@ -8,17 +8,17 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class AirCrosswindAbility implements GemAbility {
     @Override
@@ -42,47 +42,47 @@ public final class AirCrosswindAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         var cfg = GemsBalance.v().air();
         int range = cfg.crosswindRangeBlocks();
         int radius = cfg.crosswindRadiusBlocks();
         if (range <= 0 || radius <= 0) {
-            player.sendMessage(Text.translatable("gems.message.ability_disabled_server"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.ability_disabled_server"), true);
             return false;
         }
 
-        Vec3d dir = player.getRotationVec(1.0F).normalize();
-        Vec3d start = player.getEntityPos().add(0.0D, 1.0D, 0.0D);
-        Vec3d end = start.add(dir.multiply(range));
-        Box box = new Box(start, end).expand(radius);
+        Vec3 dir = player.getViewVector(1.0F).normalize();
+        Vec3 start = player.position().add(0.0D, 1.0D, 0.0D);
+        Vec3 end = start.add(dir.scale(range));
+        AABB box = new AABB(start, end).inflate(radius);
 
-        ServerWorld world = player.getEntityWorld();
+        ServerLevel world = player.level();
         float damage = cfg.crosswindDamage();
         double knockback = cfg.crosswindKnockback();
         int slowDuration = AugmentRuntime.applyDurationMultiplier(player, GemId.AIR, cfg.crosswindSlownessDurationTicks());
         int slowAmp = cfg.crosswindSlownessAmplifier();
         int hits = 0;
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                 continue;
             }
-            if (other instanceof ServerPlayerEntity otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
+            if (other instanceof ServerPlayer otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
                 continue;
             }
-            other.damage(world, player.getDamageSources().playerAttack(player), damage);
+            other.hurtServer(world, player.damageSources().playerAttack(player), damage);
             if (knockback > 0.0D) {
-                other.addVelocity(dir.x * knockback, 0.1D, dir.z * knockback);
-                other.velocityDirty = true;
+                other.push(dir.x * knockback, 0.1D, dir.z * knockback);
+                other.needsSync = true;
             }
             if (slowDuration > 0) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, slowDuration, slowAmp, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, slowDuration, slowAmp, true, false, false));
             }
             hits++;
         }
 
-        AbilityFeedback.ring(world, player.getEntityPos().add(0.0D, 0.2D, 0.0D), Math.min(range, 12), ParticleTypes.GUST, 24);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_BREEZE_WIND_BURST, 0.9F, 1.1F);
-        player.sendMessage(Text.translatable("gems.ability.air.crosswind.hit", hits), true);
+        AbilityFeedback.ring(world, player.position().add(0.0D, 0.2D, 0.0D), Math.min(range, 12), ParticleTypes.GUST, 24);
+        AbilityFeedback.sound(player, SoundEvents.BREEZE_WIND_CHARGE_BURST, 0.9F, 1.1F);
+        player.sendSystemMessage(Component.translatable("gems.ability.air.crosswind.hit", hits), true);
         return true;
     }
 }

@@ -5,7 +5,7 @@ import com.feel.gems.power.gem.astra.SoulSystem;
 import com.feel.gems.power.gem.flux.FluxCharge;
 import com.feel.gems.state.GemPlayerState;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -14,7 +14,7 @@ public final class GemExtraStateSync {
     private GemExtraStateSync() {
     }
 
-    public static void send(ServerPlayerEntity player) {
+    public static void send(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         GemId active = GemPlayerState.getActiveGem(player);
 

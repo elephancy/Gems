@@ -8,13 +8,13 @@ import com.feel.gems.trust.GemTrust;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Void Rift - rift that damages enemies who touch it.
@@ -43,23 +43,23 @@ public final class BonusVoidRiftAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
         var cfg = GemsBalance.v().bonusPool();
-        Vec3d pos = player.getEntityPos();
-        long until = world.getTime() + cfg.voidRiftDurationSeconds * 20L;
+        Vec3 pos = player.position();
+        long until = world.getGameTime() + cfg.voidRiftDurationSeconds * 20L;
         RIFTS.add(new Rift(world, pos, cfg.voidRiftRadiusBlocks, cfg.voidRiftDamagePerSecond, until, player));
-        world.spawnParticles(ParticleTypes.PORTAL, pos.x, pos.y + 0.5, pos.z, 40, 0.6, 0.4, 0.6, 0.05);
+        world.sendParticles(ParticleTypes.PORTAL, pos.x, pos.y + 0.5, pos.z, 40, 0.6, 0.4, 0.6, 0.05);
         return true;
     }
 
-    public static void tick(ServerWorld world) {
+    public static void tick(ServerLevel world) {
         if (RIFTS.isEmpty()) {
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
         Iterator<Rift> iter = RIFTS.iterator();
         while (iter.hasNext()) {
             Rift rift = iter.next();
@@ -73,20 +73,20 @@ public final class BonusVoidRiftAbility implements GemAbility {
             if (now % 20 != 0) {
                 continue;
             }
-            Box box = new Box(rift.pos, rift.pos).expand(rift.radius);
-            List<LivingEntity> entities = world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive());
+            AABB box = new AABB(rift.pos, rift.pos).inflate(rift.radius);
+            List<LivingEntity> entities = world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive());
             for (LivingEntity entity : entities) {
-                if (entity instanceof ServerPlayerEntity other) {
+                if (entity instanceof ServerPlayer other) {
                     if (GemTrust.isTrusted(rift.owner, other) || VoidImmunity.shouldBlockEffect(rift.owner, other)) {
                         continue;
                     }
                 }
-                entity.damage(world, rift.owner.getDamageSources().indirectMagic(rift.owner, rift.owner), rift.damagePerSecond);
+                entity.hurtServer(world, rift.owner.damageSources().indirectMagic(rift.owner, rift.owner), rift.damagePerSecond);
             }
-            world.spawnParticles(ParticleTypes.REVERSE_PORTAL, rift.pos.x, rift.pos.y + 0.2, rift.pos.z, 10, 0.4, 0.2, 0.4, 0.02);
+            world.sendParticles(ParticleTypes.REVERSE_PORTAL, rift.pos.x, rift.pos.y + 0.2, rift.pos.z, 10, 0.4, 0.2, 0.4, 0.02);
         }
     }
 
-    private record Rift(ServerWorld world, Vec3d pos, int radius, float damagePerSecond, long until, ServerPlayerEntity owner) {
+    private record Rift(ServerLevel world, Vec3 pos, int radius, float damagePerSecond, long until, ServerPlayer owner) {
     }
 }

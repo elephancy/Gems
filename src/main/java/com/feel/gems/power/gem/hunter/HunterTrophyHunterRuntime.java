@@ -3,10 +3,10 @@ package com.feel.gems.power.gem.hunter;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
 import java.util.List;
 import java.util.Random;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Trophy Hunter passive - on player kill, gain one of their random passives temporarily.
@@ -19,7 +19,7 @@ public final class HunterTrophyHunterRuntime {
 
     private HunterTrophyHunterRuntime() {}
 
-    public static void onPlayerKill(ServerPlayerEntity hunter, ServerPlayerEntity victim) {
+    public static void onPlayerKill(ServerPlayer hunter, ServerPlayer victim) {
         // Get victim's active passives
         List<Identifier> victimPassives = GemPowers.getActivePassives(victim);
         if (victimPassives.isEmpty()) return;
@@ -28,13 +28,13 @@ public final class HunterTrophyHunterRuntime {
         Identifier stolenPassive = victimPassives.get(RANDOM.nextInt(victimPassives.size()));
 
         int durationTicks = GemsBalance.v().hunter().trophyHunterDurationTicks();
-        long endTime = hunter.getEntityWorld().getTime() + durationTicks;
+        long endTime = hunter.level().getGameTime() + durationTicks;
 
         PlayerStateManager.setPersistent(hunter, TROPHY_PASSIVE_KEY, stolenPassive.toString());
         PlayerStateManager.setPersistent(hunter, TROPHY_END_KEY, String.valueOf(endTime));
     }
 
-    public static Identifier getTrophyPassive(ServerPlayerEntity hunter) {
+    public static Identifier getTrophyPassive(ServerPlayer hunter) {
         String passiveStr = PlayerStateManager.getPersistent(hunter, TROPHY_PASSIVE_KEY);
         if (passiveStr == null || passiveStr.isEmpty()) return null;
 
@@ -42,7 +42,7 @@ public final class HunterTrophyHunterRuntime {
         if (endStr == null) return null;
 
         long endTime = Long.parseLong(endStr);
-        if (hunter.getEntityWorld().getTime() > endTime) {
+        if (hunter.level().getGameTime() > endTime) {
             clearTrophy(hunter);
             return null;
         }
@@ -50,12 +50,12 @@ public final class HunterTrophyHunterRuntime {
         return Identifier.tryParse(passiveStr);
     }
 
-    public static boolean hasTrophyPassive(ServerPlayerEntity hunter, Identifier passiveId) {
+    public static boolean hasTrophyPassive(ServerPlayer hunter, Identifier passiveId) {
         Identifier trophy = getTrophyPassive(hunter);
         return trophy != null && trophy.equals(passiveId);
     }
 
-    public static void clearTrophy(ServerPlayerEntity hunter) {
+    public static void clearTrophy(ServerPlayer hunter) {
         PlayerStateManager.clearPersistent(hunter, TROPHY_PASSIVE_KEY);
         PlayerStateManager.clearPersistent(hunter, TROPHY_END_KEY);
     }

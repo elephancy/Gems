@@ -6,15 +6,15 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -40,28 +40,28 @@ public final class DashAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        Vec3d dir = player.getRotationVec(1.0F).normalize();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        Vec3 dir = player.getViewVector(1.0F).normalize();
         double dashVel = GemsBalance.v().puff().dashVelocity();
-        player.addVelocity(dir.x * dashVel, 0.1D, dir.z * dashVel);
-        player.velocityDirty = true;
+        player.push(dir.x * dashVel, 0.1D, dir.z * dashVel);
+        player.needsSync = true;
         AbilityFeedback.syncVelocity(player);
-        AbilityFeedback.beam(world, player.getEntityPos().add(0.0D, 1.0D, 0.0D), player.getEntityPos().add(dir.multiply(3.0D)).add(0.0D, 1.0D, 0.0D), ParticleTypes.CLOUD, 10);
+        AbilityFeedback.beam(world, player.position().add(0.0D, 1.0D, 0.0D), player.position().add(dir.scale(3.0D)).add(0.0D, 1.0D, 0.0D), ParticleTypes.CLOUD, 10);
 
-        Box box = player.getBoundingBox().stretch(dir.multiply(GemsBalance.v().puff().dashHitRangeBlocks())).expand(1.0D);
-        for (Entity e : world.getOtherEntities(player, box, ent -> ent instanceof LivingEntity living && living.isAlive())) {
-            if (e instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
+        AABB box = player.getBoundingBox().expandTowards(dir.scale(GemsBalance.v().puff().dashHitRangeBlocks())).inflate(1.0D);
+        for (Entity e : world.getEntities(player, box, ent -> ent instanceof LivingEntity living && living.isAlive())) {
+            if (e instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
                 continue;
             }
-            if (e instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
+            if (e instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
                 continue;
             }
-            ((LivingEntity) e).damage(world, player.getDamageSources().playerAttack(player), GemsBalance.v().puff().dashDamage());
-            AbilityFeedback.burstAt(world, e.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.GUST, 8, 0.25D);
+            ((LivingEntity) e).hurtServer(world, player.damageSources().playerAttack(player), GemsBalance.v().puff().dashDamage());
+            AbilityFeedback.burstAt(world, e.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.GUST, 8, 0.25D);
         }
 
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDER_DRAGON_FLAP, 0.7F, 1.3F);
+        AbilityFeedback.sound(player, SoundEvents.ENDER_DRAGON_FLAP, 0.7F, 1.3F);
         return true;
     }
 }

@@ -1,11 +1,11 @@
 package com.feel.gems.power.util;
 
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 
 
 
 
 public interface RangeLimitedProjectile {
-    void gems$setRangeLimit(Vec3d origin, double maxDistanceBlocks);
+    void gems$setRangeLimit(Vec3 origin, double maxDistanceBlocks);
 }
 

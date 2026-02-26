@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Tracks server-wide leaderboard stats for general titles.
@@ -106,17 +106,17 @@ public final class LeaderboardTracker {
      * Increment the player's kill count.
      * Called from GemsPlayerDeath when a player kills another player.
      */
-    public static void incrementKills(ServerPlayerEntity killer) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) killer).gems$getPersistentData();
-        int kills = nbt.getInt(KEY_KILLS, 0);
+    public static void incrementKills(ServerPlayer killer) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) killer).gems$getPersistentData();
+        int kills = nbt.getIntOr(KEY_KILLS, 0);
         nbt.putInt(KEY_KILLS, kills + 1);
     }
 
     /**
      * Get the player's kill count.
      */
-    public static int getKills(ServerPlayerEntity player) {
-        return ((GemsPersistentDataHolder) player).gems$getPersistentData().getInt(KEY_KILLS, 0);
+    public static int getKills(ServerPlayer player) {
+        return ((GemsPersistentDataHolder) player).gems$getPersistentData().getIntOr(KEY_KILLS, 0);
     }
 
     // ========== Leaderboard Updates ==========
@@ -126,7 +126,7 @@ public final class LeaderboardTracker {
      * Should be called periodically (e.g., every minute) or on significant events.
      */
     public static void updateLeaderboards(MinecraftServer server) {
-        List<ServerPlayerEntity> players = server.getPlayerManager().getPlayerList();
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
         if (players.isEmpty()) {
             return;
         }
@@ -158,8 +158,8 @@ public final class LeaderboardTracker {
         TitleDisplay.refreshAll(server);
     }
 
-    private static void updateLeastDeaths(List<ServerPlayerEntity> players) {
-        ServerPlayerEntity leader = players.stream()
+    private static void updateLeastDeaths(List<ServerPlayer> players) {
+        ServerPlayer leader = players.stream()
                 .filter(p -> getKills(p) >= 1) // Must have at least 1 kill to qualify
                 .min(Comparator.comparingInt(p -> SpySystem.deaths(p)))
                 .orElse(null);
@@ -167,12 +167,12 @@ public final class LeaderboardTracker {
         if (leader != null) {
             int deaths = SpySystem.deaths(leader);
             LEADERS.put(LeaderboardCategory.LEAST_DEATHS, 
-                    new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), deaths));
+                    new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), deaths));
         }
     }
 
-    private static void updateMostKills(List<ServerPlayerEntity> players) {
-        ServerPlayerEntity leader = players.stream()
+    private static void updateMostKills(List<ServerPlayer> players) {
+        ServerPlayer leader = players.stream()
                 .max(Comparator.comparingInt(LeaderboardTracker::getKills))
                 .filter(p -> getKills(p) >= 1) // Must have at least 1 kill
                 .orElse(null);
@@ -180,24 +180,24 @@ public final class LeaderboardTracker {
         if (leader != null) {
             int kills = getKills(leader);
             LEADERS.put(LeaderboardCategory.MOST_KILLS,
-                    new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), kills));
+                    new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), kills));
         }
     }
 
-    private static void updateMostHearts(List<ServerPlayerEntity> players) {
-        ServerPlayerEntity leader = players.stream()
+    private static void updateMostHearts(List<ServerPlayer> players) {
+        ServerPlayer leader = players.stream()
                 .max(Comparator.comparingInt(GemPlayerState::getMaxHearts))
                 .orElse(null);
 
         if (leader != null) {
             int hearts = GemPlayerState.getMaxHearts(leader);
             LEADERS.put(LeaderboardCategory.MOST_HEARTS,
-                    new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), hearts));
+                    new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), hearts));
         }
     }
 
-    private static void updateMaxEnergy(List<ServerPlayerEntity> players) {
-        ServerPlayerEntity leader = players.stream()
+    private static void updateMaxEnergy(List<ServerPlayer> players) {
+        ServerPlayer leader = players.stream()
                 .max(Comparator.comparingInt(GemPlayerState::getEnergy))
                 .filter(p -> GemPlayerState.getEnergy(p) >= GemPlayerState.MAX_ENERGY) // Must be at max energy
                 .orElse(null);
@@ -205,56 +205,56 @@ public final class LeaderboardTracker {
         if (leader != null) {
             int energy = GemPlayerState.getEnergy(leader);
             LEADERS.put(LeaderboardCategory.MAX_ENERGY,
-                    new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), energy));
+                    new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), energy));
         }
     }
 
-    private static void updateMostSynergyTriggers(List<ServerPlayerEntity> players) {
-        ServerPlayerEntity leader = players.stream()
+    private static void updateMostSynergyTriggers(List<ServerPlayer> players) {
+        ServerPlayer leader = players.stream()
                 .max(Comparator.comparingInt(GemsStats::synergyTriggers))
                 .filter(p -> GemsStats.synergyTriggers(p) > 0)
                 .orElse(null);
         if (leader != null) {
             LEADERS.put(LeaderboardCategory.MOST_SYNERGY_TRIGGERS,
-                    new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), GemsStats.synergyTriggers(leader)));
+                    new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), GemsStats.synergyTriggers(leader)));
         }
     }
 
-    private static void updateMostAbilityCasts(List<ServerPlayerEntity> players) {
-        ServerPlayerEntity leader = players.stream()
+    private static void updateMostAbilityCasts(List<ServerPlayer> players) {
+        ServerPlayer leader = players.stream()
                 .max(Comparator.comparingInt(GemsStats::abilityUses))
                 .filter(p -> GemsStats.abilityUses(p) > 0)
                 .orElse(null);
         if (leader != null) {
             LEADERS.put(LeaderboardCategory.MOST_ABILITY_CASTS,
-                    new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), GemsStats.abilityUses(leader)));
+                    new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), GemsStats.abilityUses(leader)));
         }
     }
 
-    private static void updateMostDamageDealt(List<ServerPlayerEntity> players) {
-        ServerPlayerEntity leader = players.stream()
+    private static void updateMostDamageDealt(List<ServerPlayer> players) {
+        ServerPlayer leader = players.stream()
                 .max(Comparator.comparingDouble(GemsStats::damageDealt))
                 .filter(p -> GemsStats.damageDealt(p) > 0.0D)
                 .orElse(null);
         if (leader != null) {
             LEADERS.put(LeaderboardCategory.MOST_DAMAGE_DEALT,
-                    new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), (int) Math.round(GemsStats.damageDealt(leader))));
+                    new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), (int) Math.round(GemsStats.damageDealt(leader))));
         }
     }
 
-    private static void updateGemKillLeaders(List<ServerPlayerEntity> players) {
+    private static void updateGemKillLeaders(List<ServerPlayer> players) {
         for (GemId gem : GemId.values()) {
             LeaderboardCategory category = killCategoryForGem(gem);
             if (category == null) {
                 continue;
             }
-            ServerPlayerEntity leader = players.stream()
+            ServerPlayer leader = players.stream()
                     .max(Comparator.comparingInt(p -> GemsStats.playerKillsWithGem(p, gem)))
                     .filter(p -> GemsStats.playerKillsWithGem(p, gem) > 0)
                     .orElse(null);
             if (leader != null) {
                 int kills = GemsStats.playerKillsWithGem(leader, gem);
-                LEADERS.put(category, new LeaderboardEntry(leader.getUuid(), leader.getName().getString(), kills));
+                LEADERS.put(category, new LeaderboardEntry(leader.getUUID(), leader.getName().getString(), kills));
             }
         }
     }
@@ -292,16 +292,16 @@ public final class LeaderboardTracker {
     /**
      * Check if a player holds a general title.
      */
-    public static boolean holdsTitle(ServerPlayerEntity player, LeaderboardCategory category) {
+    public static boolean holdsTitle(ServerPlayer player, LeaderboardCategory category) {
         LeaderboardEntry leader = LEADERS.get(category);
-        return leader != null && leader.playerId().equals(player.getUuid());
+        return leader != null && leader.playerId().equals(player.getUUID());
     }
 
     /**
      * Get all general titles held by a player.
      */
-    public static List<LeaderboardCategory> getTitles(ServerPlayerEntity player) {
-        UUID playerId = player.getUuid();
+    public static List<LeaderboardCategory> getTitles(ServerPlayer player) {
+        UUID playerId = player.getUUID();
         return LEADERS.entrySet().stream()
                 .filter(e -> e.getValue().playerId().equals(playerId))
                 .map(Map.Entry::getKey)
@@ -325,7 +325,7 @@ public final class LeaderboardTracker {
     /**
      * Get the translatable title text for a category.
      */
-    public static Text getTitleText(LeaderboardCategory category) {
-        return Text.translatable(category.translationKey());
+    public static Component getTitleText(LeaderboardCategory category) {
+        return Component.translatable(category.translationKey());
     }
 }

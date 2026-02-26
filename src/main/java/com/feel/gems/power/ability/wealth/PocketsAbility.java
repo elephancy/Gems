@@ -5,13 +5,13 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.screen.PocketsScreenHandler;
 import com.feel.gems.screen.PocketsStorage;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.SimpleContainer;
 import com.feel.gems.item.GemOwnership;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 
 public final class PocketsAbility implements GemAbility {
@@ -36,22 +36,22 @@ public final class PocketsAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        SimpleInventory pockets = PocketsStorage.load(player);
-        GemOwnership.purgeInventory(player.getEntityWorld().getServer(), pockets);
-        NamedScreenHandlerFactory factory = new NamedScreenHandlerFactory() {
+    public boolean activate(ServerPlayer player) {
+        SimpleContainer pockets = PocketsStorage.load(player);
+        GemOwnership.purgeInventory(player.level().getServer(), pockets);
+        MenuProvider factory = new MenuProvider() {
             @Override
-            public Text getDisplayName() {
-                return Text.translatable("gems.ability.wealth.pockets.title");
+            public Component getDisplayName() {
+                return Component.translatable("gems.ability.wealth.pockets.title");
             }
 
             @Override
-            public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity p) {
+            public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int syncId, net.minecraft.world.entity.player.Inventory inv, net.minecraft.world.entity.player.Player p) {
                 return new PocketsScreenHandler(syncId, inv, player, pockets);
             }
         };
-        player.openHandledScreen(factory);
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_CHEST_OPEN, 0.8F, 1.1F);
+        player.openMenu(factory);
+        AbilityFeedback.sound(player, SoundEvents.CHEST_OPEN, 0.8F, 1.1F);
         return true;
     }
 }

@@ -5,19 +5,18 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.trust.GemTrust;
 import com.feel.gems.config.GemsBalance;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.particle.ParticleTypes;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -55,9 +54,9 @@ public final class BonusDecoyTrapAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        long now = world.getTime();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        long now = world.getGameTime();
         var cfg = GemsBalance.v().bonusPool();
         
         // Periodic cleanup to prevent memory leaks
@@ -79,26 +78,26 @@ public final class BonusDecoyTrapAbility implements GemAbility {
             }
         }
         
-        Vec3d playerPos = new Vec3d(player.getX(), player.getY(), player.getZ());
-        Vec3d pos = playerPos.add(player.getRotationVec(1.0f).multiply(2));
+        Vec3 playerPos = new Vec3(player.getX(), player.getY(), player.getZ());
+        Vec3 pos = playerPos.add(player.getViewVector(1.0f).scale(2));
         
         // Create a fake diamond item
         ItemStack fakeItem = new ItemStack(Items.DIAMOND);
-        fakeItem.set(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,
-                net.minecraft.text.Text.literal("§6Shiny Diamond").styled(s -> s.withItalic(false)));
+        fakeItem.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,
+                net.minecraft.network.chat.Component.literal("§6Shiny Diamond").withStyle(s -> s.withItalic(false)));
         
         ItemEntity trapItem = new ItemEntity(world, pos.x, pos.y + 0.5, pos.z, fakeItem);
         int armTicks = Math.max(0, cfg.decoyTrapArmTimeSeconds) * 20;
-        trapItem.setPickupDelay(armTicks);
+        trapItem.setPickUpDelay(armTicks);
         
-        world.spawnEntity(trapItem);
+        world.addFreshEntity(trapItem);
         long despawnTicks = Math.max(0, cfg.decoyTrapDespawnSeconds) * 20L;
         long expiresAt = despawnTicks > 0 ? now + despawnTicks : Long.MAX_VALUE;
-        TRAP_ITEMS.put(trapItem.getUuid(), new TrapEntry(player.getUuid(), world.getRegistryKey(), expiresAt));
+        TRAP_ITEMS.put(trapItem.getUUID(), new TrapEntry(player.getUUID(), world.dimension(), expiresAt));
         
         // Visual feedback
-        world.spawnParticles(ParticleTypes.ENCHANT, pos.x, pos.y + 0.5, pos.z, 20, 0.3, 0.3, 0.3, 0.1);
-        player.playSound(SoundEvents.ENTITY_ITEM_PICKUP, 0.5f, 0.5f);
+        world.sendParticles(ParticleTypes.ENCHANT, pos.x, pos.y + 0.5, pos.z, 20, 0.3, 0.3, 0.3, 0.1);
+        player.playSound(SoundEvents.ITEM_PICKUP, 0.5f, 0.5f);
         
         return true;
     }
@@ -107,7 +106,7 @@ public final class BonusDecoyTrapAbility implements GemAbility {
      * Check if an item entity is a trap and return the owner's UUID, or null if not a trap.
      */
     public static UUID getTrapOwner(ItemEntity item) {
-        TrapEntry entry = TRAP_ITEMS.get(item.getUuid());
+        TrapEntry entry = TRAP_ITEMS.get(item.getUUID());
         return entry == null ? null : entry.ownerUuid;
     }
 
@@ -115,20 +114,20 @@ public final class BonusDecoyTrapAbility implements GemAbility {
      * Trigger the trap explosion when picked up.
      * @return true if this was a trap and exploded
      */
-    public static boolean triggerTrap(ItemEntity item, ServerPlayerEntity picker) {
-        return triggerTrap(item, (net.minecraft.entity.LivingEntity) picker);
+    public static boolean triggerTrap(ItemEntity item, ServerPlayer picker) {
+        return triggerTrap(item, (net.minecraft.world.entity.LivingEntity) picker);
     }
 
-    public static boolean triggerTrap(ItemEntity item, net.minecraft.entity.LivingEntity picker) {
-        TrapEntry entry = TRAP_ITEMS.remove(item.getUuid());
+    public static boolean triggerTrap(ItemEntity item, net.minecraft.world.entity.LivingEntity picker) {
+        TrapEntry entry = TRAP_ITEMS.remove(item.getUUID());
         if (entry == null) {
             return false;
         }
         UUID ownerUuid = entry.ownerUuid;
         
-        if (picker instanceof ServerPlayerEntity player) {
+        if (picker instanceof ServerPlayer player) {
             // Don't explode for the owner or trusted players
-            if (player.getUuid().equals(ownerUuid)) {
+            if (player.getUUID().equals(ownerUuid)) {
                 item.discard();
                 return true;
             }
@@ -136,9 +135,9 @@ public final class BonusDecoyTrapAbility implements GemAbility {
                 item.discard();
                 return true;
             }
-            MinecraftServer server = player.getEntityWorld().getServer();
+            MinecraftServer server = player.level().getServer();
             if (server != null) {
-                ServerPlayerEntity owner = server.getPlayerManager().getPlayer(ownerUuid);
+                ServerPlayer owner = server.getPlayerList().getPlayer(ownerUuid);
                 if (owner != null && GemTrust.isTrusted(owner, player)) {
                     item.discard();
                     return true;
@@ -147,14 +146,14 @@ public final class BonusDecoyTrapAbility implements GemAbility {
         }
         
         // Explode!
-        if (!(picker.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(picker.level() instanceof ServerLevel world)) {
             return false;
         }
         double x = item.getX();
         double y = item.getY();
         double z = item.getZ();
         float power = Math.max(0.0F, GemsBalance.v().bonusPool().decoyTrapExplosionDamage);
-        world.createExplosion(null, x, y, z, power, World.ExplosionSourceType.MOB);
+        world.explode(null, x, y, z, power, Level.ExplosionInteraction.MOB);
         
         // Remove the item
         item.discard();
@@ -169,17 +168,17 @@ public final class BonusDecoyTrapAbility implements GemAbility {
     }
 
     public static void tickTrapItem(ItemEntity item) {
-        TrapEntry entry = TRAP_ITEMS.get(item.getUuid());
+        TrapEntry entry = TRAP_ITEMS.get(item.getUUID());
         if (entry == null) {
             return;
         }
-        if (!(item.getEntityWorld() instanceof ServerWorld world)) {
-            TRAP_ITEMS.remove(item.getUuid());
+        if (!(item.level() instanceof ServerLevel world)) {
+            TRAP_ITEMS.remove(item.getUUID());
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
         if (now >= entry.expiresAt) {
-            TRAP_ITEMS.remove(item.getUuid());
+            TRAP_ITEMS.remove(item.getUUID());
             item.discard();
         }
     }
@@ -188,7 +187,7 @@ public final class BonusDecoyTrapAbility implements GemAbility {
      * Cleanup stale trap entries for items that no longer exist.
      * Called periodically to prevent memory leaks.
      */
-    private static void cleanupStaleTraps(ServerWorld world) {
+    private static void cleanupStaleTraps(ServerLevel world) {
         if (world == null || TRAP_ITEMS.isEmpty()) {
             return;
         }
@@ -203,7 +202,7 @@ public final class BonusDecoyTrapAbility implements GemAbility {
         }
     }
 
-    private static void pruneExpiredTraps(ServerWorld world, long now) {
+    private static void pruneExpiredTraps(ServerLevel world, long now) {
         if (TRAP_ITEMS.isEmpty()) {
             return;
         }
@@ -223,7 +222,7 @@ public final class BonusDecoyTrapAbility implements GemAbility {
         if (server == null || entry == null) {
             return false;
         }
-        ServerWorld world = server.getWorld(entry.dimension);
+        ServerLevel world = server.getLevel(entry.dimension);
         if (world == null) {
             return false;
         }
@@ -235,7 +234,7 @@ public final class BonusDecoyTrapAbility implements GemAbility {
         if (server == null) {
             return;
         }
-        for (ServerWorld world : server.getWorlds()) {
+        for (ServerLevel world : server.getAllLevels()) {
             Entity entity = world.getEntity(itemUuid);
             if (entity instanceof ItemEntity item) {
                 item.discard();
@@ -253,9 +252,9 @@ public final class BonusDecoyTrapAbility implements GemAbility {
 
     private static final class TrapEntry {
         final UUID ownerUuid;
-        final net.minecraft.registry.RegistryKey<World> dimension;
+        final net.minecraft.resources.ResourceKey<Level> dimension;
         final long expiresAt;
-        private TrapEntry(UUID ownerUuid, net.minecraft.registry.RegistryKey<World> dimension, long expiresAt) {
+        private TrapEntry(UUID ownerUuid, net.minecraft.resources.ResourceKey<Level> dimension, long expiresAt) {
             this.ownerUuid = ownerUuid;
             this.dimension = dimension;
             this.expiresAt = expiresAt;

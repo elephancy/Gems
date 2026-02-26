@@ -2,15 +2,15 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.block.Blocks;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public final class BonusIceWallAbility implements GemAbility {
     @Override
@@ -34,19 +34,19 @@ public final class BonusIceWallAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        Vec3d start = player.getEyePos();
-        Vec3d direction = player.getRotationVector().normalize();
-        Vec3d end = start.add(direction.multiply(10));
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        Vec3 start = player.getEyePosition();
+        Vec3 direction = player.getLookAngle().normalize();
+        Vec3 end = start.add(direction.scale(10));
         
-        HitResult hit = world.raycast(new RaycastContext(
-                start, end, RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, player));
+        HitResult hit = world.clip(new ClipContext(
+                start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
         
-        BlockPos center = BlockPos.ofFloored(hit.getPos());
-        Vec3d perpendicular = new Vec3d(-direction.z, 0, direction.x);
-        if (perpendicular.lengthSquared() < 1.0E-6D) {
-            perpendicular = new Vec3d(1, 0, 0);
+        BlockPos center = BlockPos.containing(hit.getLocation());
+        Vec3 perpendicular = new Vec3(-direction.z, 0, direction.x);
+        if (perpendicular.lengthSqr() < 1.0E-6D) {
+            perpendicular = new Vec3(1, 0, 0);
         } else {
             perpendicular = perpendicular.normalize();
         }
@@ -55,14 +55,14 @@ public final class BonusIceWallAbility implements GemAbility {
             for (int w = -2; w <= 2; w++) {
                 int dx = (int) Math.round(perpendicular.x * w);
                 int dz = (int) Math.round(perpendicular.z * w);
-                BlockPos pos = center.add(dx, h, dz);
-                if (world.getBlockState(pos).isReplaceable() || world.getBlockState(pos).isAir()) {
-                    world.setBlockState(pos, Blocks.PACKED_ICE.getDefaultState());
+                BlockPos pos = center.offset(dx, h, dz);
+                if (world.getBlockState(pos).canBeReplaced() || world.getBlockState(pos).isAir()) {
+                    world.setBlockAndUpdate(pos, Blocks.PACKED_ICE.defaultBlockState());
                 }
             }
         }
         
-        world.spawnParticles(ParticleTypes.SNOWFLAKE, center.getX(), center.getY() + 2, center.getZ(), 40, 2, 2, 2, 0.1);
+        world.sendParticles(ParticleTypes.SNOWFLAKE, center.getX(), center.getY() + 2, center.getZ(), 40, 2, 2, 2, 0.1);
         return true;
     }
 }

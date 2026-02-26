@@ -9,10 +9,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Server-side networking for Spy observed ability selection.
@@ -29,13 +29,13 @@ public final class ServerSpyObservedNetworking {
                 context.server().execute(() -> handleSelect(context.player(), payload)));
     }
 
-    private static void openScreen(ServerPlayerEntity player) {
+    private static void openScreen(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         if (!SpySystem.isSpyActive(player)) {
-            player.sendMessage(Text.translatable("gems.spy.observed.not_spy"), true);
+            player.sendSystemMessage(Component.translatable("gems.spy.observed.not_spy"), true);
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
@@ -88,7 +88,7 @@ public final class ServerSpyObservedNetworking {
         ServerPlayNetworking.send(player, new SpyObservedScreenPayload(entries, stolenEntries, selectedEcho, selectedSteal, selectedCast));
     }
 
-    private static void handleSelect(ServerPlayerEntity player, SpyObservedSelectPayload payload) {
+    private static void handleSelect(ServerPlayer player, SpyObservedSelectPayload payload) {
         if (payload == null) {
             return;
         }
@@ -103,7 +103,7 @@ public final class ServerSpyObservedNetworking {
             default -> false;
         };
         if (!ok) {
-            player.sendMessage(Text.translatable("gems.spy.observed.select_failed"), true);
+            player.sendSystemMessage(Component.translatable("gems.spy.observed.select_failed"), true);
             return;
         }
         openScreen(player);

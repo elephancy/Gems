@@ -4,15 +4,15 @@ import com.feel.gems.power.ability.bonus.BonusDoomBoltAbility;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -21,20 +21,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 
 
-@Mixin(ProjectileEntity.class)
+@Mixin(Projectile.class)
 public abstract class ExplosiveProjectileDoomBoltMixin {
-    @Inject(method = "onCollision(Lnet/minecraft/util/hit/HitResult;)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "onHit(Lnet/minecraft/world/phys/HitResult;)V", at = @At("HEAD"), cancellable = true)
     private void gems$doomBoltCollision(HitResult hitResult, CallbackInfo ci) {
-        ProjectileEntity self = (ProjectileEntity) (Object) this;
-        if (!self.getCommandTags().contains("gems_doom_bolt")) {
+        Projectile self = (Projectile) (Object) this;
+        if (!self.entityTags().contains("gems_doom_bolt")) {
             return;
         }
-        if (!(self.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(self.level() instanceof ServerLevel world)) {
             return;
         }
 
         Entity owner = self.getOwner();
-        ServerPlayerEntity ownerPlayer = owner instanceof ServerPlayerEntity player ? player : null;
+        ServerPlayer ownerPlayer = owner instanceof ServerPlayer player ? player : null;
 
         if (hitResult instanceof EntityHitResult entityHit) {
             Entity hitEntity = entityHit.getEntity();
@@ -45,7 +45,7 @@ public abstract class ExplosiveProjectileDoomBoltMixin {
                         ci.cancel();
                         return;
                     }
-                    if (living instanceof ServerPlayerEntity targetPlayer) {
+                    if (living instanceof ServerPlayer targetPlayer) {
                         if (GemTrust.isTrusted(ownerPlayer, targetPlayer)) {
                             self.discard();
                             ci.cancel();
@@ -60,15 +60,15 @@ public abstract class ExplosiveProjectileDoomBoltMixin {
                 }
                 float damage = BonusDoomBoltAbility.doomBoltDamage();
                 if (owner != null) {
-                    living.damage(world, world.getDamageSources().indirectMagic(self, owner), damage);
+                    living.hurtServer(world, world.damageSources().indirectMagic(self, owner), damage);
                 } else {
-                    living.damage(world, world.getDamageSources().magic(), damage);
+                    living.hurtServer(world, world.damageSources().magic(), damage);
                 }
             }
         }
 
-        AbilityFeedback.burstAt(world, self.getEntityPos(), ParticleTypes.SOUL_FIRE_FLAME, 14, 0.2D);
-        AbilityFeedback.soundAt(world, self.getEntityPos(), SoundEvents.ENTITY_WITHER_SKELETON_HURT, 0.8F, 0.7F);
+        AbilityFeedback.burstAt(world, self.position(), ParticleTypes.SOUL_FIRE_FLAME, 14, 0.2D);
+        AbilityFeedback.soundAt(world, self.position(), SoundEvents.WITHER_SKELETON_HURT, 0.8F, 0.7F);
         self.discard();
         ci.cancel();
     }

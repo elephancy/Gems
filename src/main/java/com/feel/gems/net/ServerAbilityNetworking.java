@@ -7,7 +7,7 @@ import com.feel.gems.power.gem.flux.FluxCharge;
 import com.feel.gems.power.runtime.GemAbilities;
 import com.feel.gems.state.GemPlayerState;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 
 
@@ -31,7 +31,7 @@ public final class ServerAbilityNetworking {
                     var player = context.player();
                     GemPlayerState.initIfNeeded(player);
                     if (GemPlayerState.getActiveGem(player) != GemId.FLUX) {
-                        player.sendMessage(Text.translatable("gems.flux.not_flux_gem"), true);
+                        player.sendSystemMessage(Component.translatable("gems.flux.not_flux_gem"), true);
                         return;
                     }
                     if (FluxCharge.tryConsumeChargeItem(player)) {

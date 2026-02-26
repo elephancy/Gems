@@ -6,9 +6,9 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityRuntime;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -34,14 +34,14 @@ public final class SpaceGravityFieldAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.SPACE, GemsBalance.v().space().gravityFieldDurationTicks());
         if (duration <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.space.gravity_field.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.space.gravity_field.disabled"), true);
             return false;
         }
         AbilityRuntime.startSpaceGravityField(player, duration);
-        player.sendMessage(Text.translatable("gems.ability.space.gravity_field.activated"), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.space.gravity_field.activated"), true);
         return true;
     }
 }

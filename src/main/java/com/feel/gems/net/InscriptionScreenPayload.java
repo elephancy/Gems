@@ -3,10 +3,10 @@ package com.feel.gems.net;
 import com.feel.gems.GemsMod;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * S2C: opens the inscription management screen for a legendary item.
@@ -16,7 +16,7 @@ public record InscriptionScreenPayload(
         boolean mainHand,
         List<Entry> inscriptions,
         int maxSlots
-) implements CustomPayload {
+) implements CustomPacketPayload {
     public record Entry(
             String id,
             String name,
@@ -25,43 +25,43 @@ public record InscriptionScreenPayload(
             float magnitude
     ) {}
 
-    public static final Id<InscriptionScreenPayload> ID =
-            new Id<>(Identifier.of(GemsMod.MOD_ID, "inscription_screen"));
+    public static final Type<InscriptionScreenPayload> ID =
+            new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "inscription_screen"));
 
-    public static final PacketCodec<RegistryByteBuf, InscriptionScreenPayload> CODEC = PacketCodec.ofStatic(
+    public static final StreamCodec<RegistryFriendlyByteBuf, InscriptionScreenPayload> CODEC = StreamCodec.of(
             InscriptionScreenPayload::write,
             InscriptionScreenPayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-    private static void write(RegistryByteBuf buf, InscriptionScreenPayload payload) {
-        buf.writeString(payload.itemKey(), 64);
+    private static void write(RegistryFriendlyByteBuf buf, InscriptionScreenPayload payload) {
+        buf.writeUtf(payload.itemKey(), 64);
         buf.writeBoolean(payload.mainHand());
         buf.writeVarInt(payload.inscriptions().size());
         for (Entry entry : payload.inscriptions()) {
-            buf.writeString(entry.id(), 64);
-            buf.writeString(entry.name(), 128);
-            buf.writeString(entry.description(), 256);
-            buf.writeString(entry.rarity(), 16);
+            buf.writeUtf(entry.id(), 64);
+            buf.writeUtf(entry.name(), 128);
+            buf.writeUtf(entry.description(), 256);
+            buf.writeUtf(entry.rarity(), 16);
             buf.writeFloat(entry.magnitude());
         }
         buf.writeVarInt(payload.maxSlots());
     }
 
-    private static InscriptionScreenPayload read(RegistryByteBuf buf) {
-        String itemKey = buf.readString(64);
+    private static InscriptionScreenPayload read(RegistryFriendlyByteBuf buf) {
+        String itemKey = buf.readUtf(64);
         boolean mainHand = buf.readBoolean();
         int size = buf.readVarInt();
         List<Entry> inscriptions = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            String id = buf.readString(64);
-            String name = buf.readString(128);
-            String description = buf.readString(256);
-            String rarity = buf.readString(16);
+            String id = buf.readUtf(64);
+            String name = buf.readUtf(128);
+            String description = buf.readUtf(256);
+            String rarity = buf.readUtf(16);
             float magnitude = buf.readFloat();
             inscriptions.add(new Entry(id, name, description, rarity, magnitude));
         }

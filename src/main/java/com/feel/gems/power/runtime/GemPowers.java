@@ -16,12 +16,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -35,7 +35,7 @@ public final class GemPowers {
     private GemPowers() {
     }
 
-    public static void sync(ServerPlayerEntity player) {
+    public static void sync(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
 
         GemId activeGem = GemPlayerState.getActiveGem(player);
@@ -68,7 +68,7 @@ public final class GemPowers {
             }
         }
 
-        NbtCompound data = persistentRoot(player);
+        CompoundTag data = persistentRoot(player);
         Set<Identifier> applied = readIdentifierSet(data, KEY_APPLIED_PASSIVES);
         Set<Identifier> target = new HashSet<>(targetPassives);
 
@@ -103,18 +103,18 @@ public final class GemPowers {
      * Sync bonus passives for a player. Called from sync() and on login.
      * Releases all bonus claims if energy drops below 10.
      */
-    private static void syncBonusPassives(ServerPlayerEntity player, int energy, boolean passivesEnabled, boolean suppressed) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void syncBonusPassives(ServerPlayer player, int energy, boolean passivesEnabled, boolean suppressed) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) return;
 
         BonusClaimsState claims = BonusClaimsState.get(server);
-        NbtCompound data = persistentRoot(player);
+        CompoundTag data = persistentRoot(player);
         Set<Identifier> appliedBonus = readIdentifierSet(data, KEY_APPLIED_BONUS_PASSIVES);
 
         // If energy < 10, release all bonus claims and remove passives
         if (energy < 10) {
-            Set<Identifier> playerPassives = claims.getPlayerPassives(player.getUuid());
-            Set<Identifier> playerAbilities = claims.getPlayerAbilities(player.getUuid());
+            Set<Identifier> playerPassives = claims.getPlayerPassives(player.getUUID());
+            Set<Identifier> playerAbilities = claims.getPlayerAbilities(player.getUUID());
             
             if (!playerPassives.isEmpty() || !playerAbilities.isEmpty()) {
                 // Remove applied bonus passives
@@ -127,8 +127,8 @@ public final class GemPowers {
                 writeIdentifierSet(data, KEY_APPLIED_BONUS_PASSIVES, Set.of());
                 
                 // Release all claims
-                claims.releaseAllClaims(player.getUuid());
-                player.sendMessage(net.minecraft.text.Text.translatable("gems.bonus.powers_released"), false);
+                claims.releaseAllClaims(player.getUUID());
+                player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("gems.bonus.powers_released"), false);
             }
             return;
         }
@@ -136,7 +136,7 @@ public final class GemPowers {
         // Energy is 10 - sync bonus passives
         Set<Identifier> targetBonusPassives = Set.of();
         if (passivesEnabled && !suppressed) {
-            Set<Identifier> claimed = claims.getPlayerPassives(player.getUuid());
+            Set<Identifier> claimed = claims.getPlayerPassives(player.getUUID());
             if (!claimed.isEmpty()) {
                 java.util.HashSet<Identifier> filtered = new java.util.HashSet<>();
                 for (Identifier id : claimed) {
@@ -176,11 +176,11 @@ public final class GemPowers {
      * Sync Prism gem passives from player's selections.
      * Prism uses custom selections instead of gem definition passives.
      */
-    private static void syncPrismPassives(ServerPlayerEntity player, int energy, boolean passivesEnabled, boolean suppressed) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void syncPrismPassives(ServerPlayer player, int energy, boolean passivesEnabled, boolean suppressed) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) return;
 
-        NbtCompound data = persistentRoot(player);
+        CompoundTag data = persistentRoot(player);
         Set<Identifier> appliedPrism = readIdentifierSet(data, KEY_APPLIED_PRISM_PASSIVES);
 
         // If energy <= 0 or passives disabled or suppressed, remove all Prism passives
@@ -197,7 +197,7 @@ public final class GemPowers {
 
         // Get player's Prism selections
         PrismSelectionsState prismState = PrismSelectionsState.get(server);
-        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUuid());
+        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUUID());
         List<Identifier> selectedPassives = selection.gemPassives();
 
         // Filter out disabled passives
@@ -233,7 +233,7 @@ public final class GemPowers {
         writeIdentifierSet(data, KEY_APPLIED_PRISM_PASSIVES, targetPrismPassives);
     }
 
-    public static void maintain(ServerPlayerEntity player) {
+    public static void maintain(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         int energy = GemPlayerState.getEnergy(player);
         if (energy <= 0) {
@@ -261,7 +261,7 @@ public final class GemPowers {
         }
         
         GemDefinition def = GemRegistry.definition(activeGem);
-        NbtCompound data = persistentRoot(player);
+        CompoundTag data = persistentRoot(player);
         if (readIdentifierSet(data, KEY_APPLIED_PASSIVES).isEmpty() && !def.passives().isEmpty()) {
             sync(player);
         }
@@ -296,12 +296,12 @@ public final class GemPowers {
     /**
      * Maintain Prism passives - reapply status effects and call maintain on maintained passives.
      */
-    private static void maintainPrismPassives(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void maintainPrismPassives(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) return;
 
         PrismSelectionsState prismState = PrismSelectionsState.get(server);
-        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUuid());
+        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUUID());
         List<Identifier> selectedPassives = selection.gemPassives();
 
         for (Identifier passiveId : selectedPassives) {
@@ -329,12 +329,12 @@ public final class GemPowers {
     /**
      * Maintain bonus passives - reapply status effects and call maintain on maintained passives.
      */
-    private static void maintainBonusPassives(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void maintainBonusPassives(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) return;
 
         BonusClaimsState claims = BonusClaimsState.get(server);
-        Set<Identifier> playerPassives = claims.getPlayerPassives(player.getUuid());
+        Set<Identifier> playerPassives = claims.getPlayerPassives(player.getUUID());
 
         for (Identifier passiveId : playerPassives) {
             if (GemsDisables.isBonusPassiveDisabledFor(player, passiveId)) {
@@ -357,7 +357,7 @@ public final class GemPowers {
         }
     }
 
-    public static boolean isPassiveActive(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isPassiveActive(ServerPlayer player, Identifier passiveId) {
         GemPlayerState.initIfNeeded(player);
         int energy = GemPlayerState.getEnergy(player);
         if (energy <= 0) {
@@ -398,7 +398,7 @@ public final class GemPowers {
     /**
      * Check if a Prism passive is active for a player.
      */
-    public static boolean isPrismPassiveActive(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isPrismPassiveActive(ServerPlayer player, Identifier passiveId) {
         if (GemPlayerState.getEnergy(player) <= 0) {
             return false;
         }
@@ -408,11 +408,11 @@ public final class GemPowers {
         if (AbilityRestrictions.isSuppressed(player)) {
             return false;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) return false;
 
         PrismSelectionsState prismState = PrismSelectionsState.get(server);
-        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUuid());
+        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUUID());
         List<Identifier> selectedPassives = selection.gemPassives();
         return selectedPassives.contains(passiveId) && 
                !GemsDisables.isPassiveDisabledFor(player, passiveId) &&
@@ -422,7 +422,7 @@ public final class GemPowers {
     /**
      * Check if a bonus passive is active for a player.
      */
-    public static boolean isBonusPassiveActive(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isBonusPassiveActive(ServerPlayer player, Identifier passiveId) {
         if (GemPlayerState.getEnergy(player) < 10) {
             return false;
         }
@@ -432,18 +432,18 @@ public final class GemPowers {
         if (AbilityRestrictions.isSuppressed(player)) {
             return false;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) return false;
 
         BonusClaimsState claims = BonusClaimsState.get(server);
-        Set<Identifier> playerPassives = claims.getPlayerPassives(player.getUuid());
+        Set<Identifier> playerPassives = claims.getPlayerPassives(player.getUUID());
         if (playerPassives.contains(passiveId) && !GemsDisables.isBonusPassiveDisabledFor(player, passiveId)) {
             return true;
         }
 
         // Defensive fallback: treat already-applied bonus passives as active. This keeps gameplay consistent
         // if the persistent claims state is temporarily out-of-sync (GameTests create many ephemeral players).
-        NbtCompound data = persistentRoot(player);
+        CompoundTag data = persistentRoot(player);
         Set<Identifier> appliedBonus = readIdentifierSet(data, KEY_APPLIED_BONUS_PASSIVES);
         return appliedBonus.contains(passiveId) && !GemsDisables.isBonusPassiveDisabledFor(player, passiveId);
     }
@@ -451,7 +451,7 @@ public final class GemPowers {
     /**
      * Check if a Trophy Necklace stolen passive is active for a player.
      */
-    public static boolean isTrophyPassiveActive(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isTrophyPassiveActive(ServerPlayer player, Identifier passiveId) {
         if (GemPlayerState.getEnergy(player) <= 0) {
             return false;
         }
@@ -475,7 +475,7 @@ public final class GemPowers {
      * Get the list of active passive identifiers for a player.
      * Returns empty if energy is 0, passives are disabled, or the player is suppressed.
      */
-    public static List<Identifier> getActivePassives(ServerPlayerEntity player) {
+    public static List<Identifier> getActivePassives(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         int energy = GemPlayerState.getEnergy(player);
         if (energy <= 0) {
@@ -491,10 +491,10 @@ public final class GemPowers {
         
         // Prism gem uses selected passives
         if (activeGem == GemId.PRISM) {
-            MinecraftServer server = player.getEntityWorld().getServer();
+            MinecraftServer server = player.level().getServer();
             if (server == null) return List.of();
             PrismSelectionsState prismState = PrismSelectionsState.get(server);
-            PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUuid());
+            PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUUID());
             List<Identifier> selectedPassives = selection.gemPassives();
             ArrayList<Identifier> result = new ArrayList<>(selectedPassives.size());
             for (Identifier id : selectedPassives) {
@@ -508,7 +508,7 @@ public final class GemPowers {
             }
             if (energy >= 10) {
                 BonusClaimsState claims = BonusClaimsState.get(server);
-                for (Identifier id : claims.getPlayerPassives(player.getUuid())) {
+                for (Identifier id : claims.getPlayerPassives(player.getUUID())) {
                     if (!GemsDisables.isBonusPassiveDisabledFor(player, id)) {
                         if (com.feel.gems.item.legendary.HuntersTrophyNecklaceItem.isPassiveStolenFrom(player, id)) {
                             continue;
@@ -542,9 +542,9 @@ public final class GemPowers {
             }
         }
         if (energy >= 10) {
-            MinecraftServer server = player.getEntityWorld().getServer();
+            MinecraftServer server = player.level().getServer();
             if (server != null) {
-                for (Identifier id : BonusClaimsState.get(server).getPlayerPassives(player.getUuid())) {
+                for (Identifier id : BonusClaimsState.get(server).getPlayerPassives(player.getUUID())) {
                     if (!GemsDisables.isBonusPassiveDisabledFor(player, id)) {
                         if (com.feel.gems.item.legendary.HuntersTrophyNecklaceItem.isPassiveStolenFrom(player, id)) {
                             continue;
@@ -565,8 +565,8 @@ public final class GemPowers {
         return result.isEmpty() ? List.of() : List.copyOf(result);
     }
 
-    private static void syncTrophyPassives(ServerPlayerEntity player, int energy, boolean passivesEnabled, boolean suppressed) {
-        NbtCompound data = persistentRoot(player);
+    private static void syncTrophyPassives(ServerPlayer player, int energy, boolean passivesEnabled, boolean suppressed) {
+        CompoundTag data = persistentRoot(player);
         Set<Identifier> applied = readIdentifierSet(data, KEY_APPLIED_TROPHY_PASSIVES);
 
         if (energy <= 0 || !passivesEnabled || suppressed) {
@@ -616,7 +616,7 @@ public final class GemPowers {
         writeIdentifierSet(data, KEY_APPLIED_TROPHY_PASSIVES, target);
     }
 
-    private static void maintainTrophyPassives(ServerPlayerEntity player) {
+    private static void maintainTrophyPassives(ServerPlayer player) {
         Set<Identifier> stolen = com.feel.gems.item.legendary.HuntersTrophyNecklaceItem.getStolenPassives(player);
         if (stolen.isEmpty()) {
             return;
@@ -638,18 +638,18 @@ public final class GemPowers {
         }
     }
 
-    private static NbtCompound persistentRoot(ServerPlayerEntity player) {
+    private static CompoundTag persistentRoot(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 
-    private static Set<Identifier> readIdentifierSet(NbtCompound root, String key) {
-        NbtList list = root.getList(key).orElse(null);
+    private static Set<Identifier> readIdentifierSet(CompoundTag root, String key) {
+        ListTag list = root.getList(key).orElse(null);
         if (list == null || list.isEmpty()) {
             return Set.of();
         }
         Set<Identifier> result = new HashSet<>();
         for (int i = 0; i < list.size(); i++) {
-            String raw = list.getString(i, "");
+            String raw = list.getStringOr(i, "");
             Identifier id = Identifier.tryParse(raw);
             if (id != null) {
                 result.add(id);
@@ -658,10 +658,10 @@ public final class GemPowers {
         return result;
     }
 
-    private static void writeIdentifierSet(NbtCompound root, String key, Set<Identifier> ids) {
-        NbtList list = new NbtList();
+    private static void writeIdentifierSet(CompoundTag root, String key, Set<Identifier> ids) {
+        ListTag list = new ListTag();
         for (Identifier id : ids) {
-            list.add(NbtString.of(id.toString()));
+            list.add(StringTag.valueOf(id.toString()));
         }
         root.put(key, list);
     }

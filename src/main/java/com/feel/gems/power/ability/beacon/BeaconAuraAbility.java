@@ -5,11 +5,11 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.beacon.BeaconAuraRuntime;
 import com.feel.gems.power.gem.beacon.BeaconSupportRuntime;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 
 
@@ -41,21 +41,21 @@ public final class BeaconAuraAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         BeaconAuraRuntime.AuraType active = BeaconAuraRuntime.activeType(player);
         if (active == type) {
             BeaconAuraRuntime.setActive(player, null);
-            AbilityFeedback.sound(player, SoundEvents.BLOCK_BEACON_DEACTIVATE, 0.7F, 0.9F);
-            player.sendMessage(Text.translatable("gems.ability.beacon.aura.disabled"), true);
+            AbilityFeedback.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.7F, 0.9F);
+            player.sendSystemMessage(Component.translatable("gems.ability.beacon.aura.disabled"), true);
             return true;
         }
 
         BeaconSupportRuntime.applyRally(player);
         BeaconAuraRuntime.setActive(player, type);
 
-        AbilityFeedback.ring(player.getEntityWorld(), player.getEntityPos().add(0.0D, 0.1D, 0.0D), 2.5D, ParticleTypes.END_ROD, 24);
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_BEACON_POWER_SELECT, 0.8F, 1.2F);
-        player.sendMessage(Text.translatable("gems.ability.beacon.aura.set", type.label()), true);
+        AbilityFeedback.ring(player.level(), player.position().add(0.0D, 0.1D, 0.0D), 2.5D, ParticleTypes.END_ROD, 24);
+        AbilityFeedback.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.8F, 1.2F);
+        player.sendSystemMessage(Component.translatable("gems.ability.beacon.aura.set", type.label()), true);
         return true;
     }
 }

@@ -1,10 +1,10 @@
 package com.feel.gems.mixin;
 
 import java.util.Set;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -30,12 +30,12 @@ public abstract class ItemStackOwnerStackingMixin {
     private static final ThreadLocal<Boolean> GEMS_IGNORE_OWNER_COMPARE =
             ThreadLocal.withInitial(() -> false);
 
-    @Inject(method = "areItemsAndComponentsEqual", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "isSameItemSameComponents", at = @At("RETURN"), cancellable = true)
     private static void gems$ignoreOwnerTags(ItemStack left, ItemStack right, CallbackInfoReturnable<Boolean> cir) {
         if (cir.getReturnValueZ() || GEMS_IGNORE_OWNER_COMPARE.get()) {
             return;
         }
-        if (left.isEmpty() || right.isEmpty() || !left.isOf(right.getItem())) {
+        if (left.isEmpty() || right.isEmpty() || !left.is(right.getItem())) {
             return;
         }
         ItemStack leftCopy = left.copy();
@@ -47,7 +47,7 @@ public abstract class ItemStackOwnerStackingMixin {
         }
         GEMS_IGNORE_OWNER_COMPARE.set(true);
         try {
-            if (ItemStack.areItemsAndComponentsEqual(leftCopy, rightCopy)) {
+            if (ItemStack.isSameItemSameComponents(leftCopy, rightCopy)) {
                 cir.setReturnValue(true);
             }
         } finally {
@@ -57,11 +57,11 @@ public abstract class ItemStackOwnerStackingMixin {
 
     @Unique
     private static boolean stripOwnerTags(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return false;
         }
-        NbtCompound nbt = custom.copyNbt();
+        CompoundTag nbt = custom.copyTag();
         boolean changed = false;
         for (String key : OWNER_KEYS) {
             if (nbt.contains(key)) {
@@ -73,9 +73,9 @@ public abstract class ItemStackOwnerStackingMixin {
             return false;
         }
         if (nbt.isEmpty()) {
-            stack.remove(DataComponentTypes.CUSTOM_DATA);
+            stack.remove(DataComponents.CUSTOM_DATA);
         } else {
-            NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, out -> out.copyFrom(nbt));
+            CustomData.update(DataComponents.CUSTOM_DATA, stack, out -> out.merge(nbt));
         }
         return true;
     }

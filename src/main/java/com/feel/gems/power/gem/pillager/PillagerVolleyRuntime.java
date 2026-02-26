@@ -12,16 +12,16 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.entity.projectile.ArrowEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.projectile.arrow.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.Vec3;
 
 
 public final class PillagerVolleyRuntime {
@@ -32,25 +32,25 @@ public final class PillagerVolleyRuntime {
     private PillagerVolleyRuntime() {
     }
 
-    public static void start(ServerPlayerEntity player, int durationTicks) {
+    public static void start(ServerPlayer player, int durationTicks) {
         long now = GemsTime.now(player);
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         nbt.putLong(KEY_UNTIL, now + durationTicks);
         nbt.putLong(KEY_NEXT_SHOT, now);
-        ACTIVE.add(player.getUuid());
-        AbilityFeedback.sound(player, SoundEvents.ITEM_CROSSBOW_QUICK_CHARGE_3, 0.9F, 1.2F);
+        ACTIVE.add(player.getUUID());
+        AbilityFeedback.sound(player, SoundEvents.CROSSBOW_QUICK_CHARGE_3, 0.9F, 1.2F);
     }
 
-    public static void stop(ServerPlayerEntity player) {
+    public static void stop(ServerPlayer player) {
         stop(player, true);
     }
 
-    private static void stop(ServerPlayerEntity player, boolean removeFromActive) {
-        NbtCompound nbt = persistent(player);
+    private static void stop(ServerPlayer player, boolean removeFromActive) {
+        CompoundTag nbt = persistent(player);
         nbt.remove(KEY_UNTIL);
         nbt.remove(KEY_NEXT_SHOT);
         if (removeFromActive) {
-            ACTIVE.remove(player.getUuid());
+            ACTIVE.remove(player.getUUID());
         }
     }
 
@@ -61,7 +61,7 @@ public final class PillagerVolleyRuntime {
         Iterator<UUID> it = ACTIVE.iterator();
         while (it.hasNext()) {
             UUID uuid = it.next();
-            ServerPlayerEntity player = server.getPlayerManager().getPlayer(uuid);
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) {
                 it.remove();
                 continue;
@@ -80,15 +80,15 @@ public final class PillagerVolleyRuntime {
                     continue;
                 }
             }
-            NbtCompound nbt = persistent(player);
+            CompoundTag nbt = persistent(player);
             long now = GemsTime.now(player);
-            long until = nbt.getLong(KEY_UNTIL, 0L);
+            long until = nbt.getLongOr(KEY_UNTIL, 0L);
             if (until <= 0 || now >= until) {
                 stop(player, false);
                 it.remove();
                 continue;
             }
-            long next = nbt.getLong(KEY_NEXT_SHOT, 0L);
+            long next = nbt.getLongOr(KEY_NEXT_SHOT, 0L);
             if (now < next) {
                 continue;
             }
@@ -99,8 +99,8 @@ public final class PillagerVolleyRuntime {
         }
     }
 
-    private static void fireShot(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    private static void fireShot(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
         int arrows = GemsBalance.v().pillager().volleyArrowsPerShot();
@@ -111,23 +111,23 @@ public final class PillagerVolleyRuntime {
         float inaccuracy = GemsBalance.v().pillager().volleyArrowInaccuracy();
         float damage = GemsBalance.v().pillager().volleyArrowDamage();
 
-        Vec3d dir = player.getRotationVec(1.0F);
-        Vec3d spawn = player.getEyePos().add(dir.multiply(1.2D));
+        Vec3 dir = player.getViewVector(1.0F);
+        Vec3 spawn = player.getEyePosition().add(dir.scale(1.2D));
 
         for (int i = 0; i < arrows; i++) {
-            ArrowEntity arrow = new ArrowEntity(world, player, new ItemStack(Items.ARROW), new ItemStack(Items.BOW));
-            arrow.setPosition(spawn.x, spawn.y, spawn.z);
-            arrow.setVelocity(dir.x, dir.y, dir.z, velocity, inaccuracy);
-            arrow.setDamage(damage);
-            arrow.pickupType = ArrowEntity.PickupPermission.DISALLOWED;
-            world.spawnEntity(arrow);
+            Arrow arrow = new Arrow(world, player, new ItemStack(Items.ARROW), new ItemStack(Items.BOW));
+            arrow.setPos(spawn.x, spawn.y, spawn.z);
+            arrow.shoot(dir.x, dir.y, dir.z, velocity, inaccuracy);
+            arrow.setBaseDamage(damage);
+            arrow.pickup = Arrow.Pickup.DISALLOWED;
+            world.addFreshEntity(arrow);
         }
 
         AbilityFeedback.burstAt(world, spawn, ParticleTypes.CRIT, 3, 0.05D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_SKELETON_SHOOT, 0.7F, 1.3F);
+        AbilityFeedback.sound(player, SoundEvents.SKELETON_SHOOT, 0.7F, 1.3F);
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 }

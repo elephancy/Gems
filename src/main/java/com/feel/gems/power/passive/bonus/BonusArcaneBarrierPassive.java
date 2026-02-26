@@ -2,8 +2,8 @@ package com.feel.gems.power.passive.bonus;
 
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Arcane Barrier - Absorb first hit every 30 seconds.
@@ -28,13 +28,13 @@ public final class BonusArcaneBarrierPassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         // Set barrier as ready
-        player.removeCommandTag("gems_arcane_barrier_cooldown");
+        player.removeTag("gems_arcane_barrier_cooldown");
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeCommandTag("gems_arcane_barrier_cooldown");
+    public void remove(ServerPlayer player) {
+        player.removeTag("gems_arcane_barrier_cooldown");
     }
 }

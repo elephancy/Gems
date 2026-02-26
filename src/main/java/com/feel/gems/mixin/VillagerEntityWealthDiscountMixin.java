@@ -4,47 +4,47 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.mixin.accessor.TradeOfferAccessor;
 import java.util.Optional;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.village.TradeOffer;
-import net.minecraft.village.TradeOfferList;
-import net.minecraft.village.TradedItem;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(VillagerEntity.class)
+@Mixin(Villager.class)
 public final class VillagerEntityWealthDiscountMixin {
     private static final int GEMS_WEALTH_MAX_USES = 999999;
 
     @Unique
-    private TradeOfferList gems$wealthOffersBackup;
+    private MerchantOffers gems$wealthOffersBackup;
 
-    @Inject(method = "prepareOffersFor", at = @At("TAIL"))
-    private void gems$applyWealthDiscount(PlayerEntity player, CallbackInfo ci) {
-        if (!(player instanceof ServerPlayerEntity serverPlayer)) {
+    @Inject(method = "updateSpecialPrices", at = @At("TAIL"))
+    private void gems$applyWealthDiscount(Player player, CallbackInfo ci) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
         if (!GemPowers.isPassiveActive(serverPlayer, PowerIds.WEALTH_CURED_PRICES)) {
             return;
         }
-        VillagerEntity villager = (VillagerEntity) (Object) this;
-        TradeOfferList offers = villager.getOffers();
+        Villager villager = (Villager) (Object) this;
+        MerchantOffers offers = villager.getOffers();
         if (gems$wealthOffersBackup == null) {
             gems$wealthOffersBackup = offers.copy();
         }
-        for (TradeOffer offer : offers) {
-            int current = offer.getDisplayedFirstBuyItem().getCount();
+        for (MerchantOffer offer : offers) {
+            int current = offer.getCostA().getCount();
             if (current > 1) {
-                offer.increaseSpecialPrice(1 - current);
+                offer.addToSpecialPriceDiff(1 - current);
             }
-            Optional<TradedItem> second = offer.getSecondBuyItem();
+            Optional<ItemCost> second = offer.getItemCostB();
             if (second.isPresent() && second.get().count() > 1) {
-                TradedItem original = second.get();
-                TradedItem adjusted = new TradedItem(original.item(), 1, original.components());
+                ItemCost original = second.get();
+                ItemCost adjusted = new ItemCost(original.item(), 1, original.components());
                 ((TradeOfferAccessor) offer).gems$setSecondBuyItem(Optional.of(adjusted));
             }
             TradeOfferAccessor accessor = (TradeOfferAccessor) offer;
@@ -57,12 +57,12 @@ public final class VillagerEntityWealthDiscountMixin {
         }
     }
 
-    @Inject(method = "resetCustomer", at = @At("TAIL"))
-    private void gems$restoreWealthOffers(CallbackInfo ci) {
-        if (gems$wealthOffersBackup == null) {
+    @Inject(method = "setTradingPlayer", at = @At("TAIL"))
+    private void gems$restoreWealthOffers(Player player, CallbackInfo ci) {
+        if (player != null || gems$wealthOffersBackup == null) {
             return;
         }
-        VillagerEntity villager = (VillagerEntity) (Object) this;
+        Villager villager = (Villager) (Object) this;
         villager.setOffers(gems$wealthOffersBackup);
         gems$wealthOffersBackup = null;
     }

@@ -5,17 +5,17 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -47,42 +47,42 @@ public final class HunterHuntingTrapAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        BlockPos trapPos = player.getBlockPos();
-        String worldId = world.getRegistryKey().getValue().toString();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        BlockPos trapPos = player.blockPosition();
+        String worldId = world.dimension().identifier().toString();
 
         int lifetimeTicks = GemsBalance.v().hunter().huntingTrapLifetimeTicks();
-        long expireTime = world.getTime() + lifetimeTicks;
+        long expireTime = world.getGameTime() + lifetimeTicks;
 
-        TrapData trap = new TrapData(player.getUuid(), expireTime, worldId);
+        TrapData trap = new TrapData(player.getUUID(), expireTime, worldId);
         ACTIVE_TRAPS.put(new TrapKey(worldId, trapPos), trap);
 
-        AbilityFeedback.burstAt(world, Vec3d.ofCenter(trapPos), ParticleTypes.ENCHANT, 15, 0.3D);
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_TRIPWIRE_ATTACH, 0.5F, 1.2F);
+        AbilityFeedback.burstAt(world, Vec3.atCenterOf(trapPos), ParticleTypes.ENCHANT, 15, 0.3D);
+        AbilityFeedback.sound(player, SoundEvents.TRIPWIRE_ATTACH, 0.5F, 1.2F);
         return true;
     }
 
-    public static void checkStep(ServerPlayerEntity player) {
+    public static void checkStep(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        ServerWorld world = player.getEntityWorld();
-        String worldId = world.getRegistryKey().getValue().toString();
-        BlockPos pos = player.getBlockPos();
+        ServerLevel world = player.level();
+        String worldId = world.dimension().identifier().toString();
+        BlockPos pos = player.blockPosition();
         TrapKey key = new TrapKey(worldId, pos);
         TrapData trap = ACTIVE_TRAPS.get(key);
         if (trap == null) {
             return;
         }
-        if (player.getUuid().equals(trap.ownerId)) {
+        if (player.getUUID().equals(trap.ownerId)) {
             return;
         }
 
-        ServerPlayerEntity owner = null;
+        ServerPlayer owner = null;
         MinecraftServer server = world.getServer();
         if (server != null) {
-            owner = server.getPlayerManager().getPlayer(trap.ownerId);
+            owner = server.getPlayerList().getPlayer(trap.ownerId);
             if (owner != null) {
                 if (com.feel.gems.trust.GemTrust.isTrusted(owner, player)) {
                     return;
@@ -101,14 +101,14 @@ public final class HunterHuntingTrapAbility implements GemAbility {
         triggerTrap(consumed, player, pos, world, owner);
     }
 
-    public static void tickWorld(ServerWorld world) {
+    public static void tickWorld(ServerLevel world) {
         if (world == null || ACTIVE_TRAPS.isEmpty()) {
             return;
         }
 
-        String worldId = world.getRegistryKey().getValue().toString();
+        String worldId = world.dimension().identifier().toString();
         MinecraftServer server = world.getServer();
-        long now = world.getTime();
+        long now = world.getGameTime();
 
         Iterator<Map.Entry<TrapKey, TrapData>> it = ACTIVE_TRAPS.entrySet().iterator();
         while (it.hasNext()) {
@@ -125,15 +125,15 @@ public final class HunterHuntingTrapAbility implements GemAbility {
             }
 
             // Trigger on mobs that walk over the trap too, but keep the per-player fast-path in checkStep().
-            Box box = new Box(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1);
-            var mobs = world.getEntitiesByClass(net.minecraft.entity.LivingEntity.class, box,
-                    e -> e.isAlive() && !(e instanceof ServerPlayerEntity));
+            AABB box = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1);
+            var mobs = world.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, box,
+                    e -> e.isAlive() && !(e instanceof ServerPlayer));
             if (mobs.isEmpty()) {
                 continue;
             }
 
-            ServerPlayerEntity owner = server != null ? server.getPlayerManager().getPlayer(trap.ownerId) : null;
-            net.minecraft.entity.LivingEntity victim = mobs.getFirst();
+            ServerPlayer owner = server != null ? server.getPlayerList().getPlayer(trap.ownerId) : null;
+            net.minecraft.world.entity.LivingEntity victim = mobs.getFirst();
 
             // Consume trap.
             it.remove();
@@ -142,40 +142,40 @@ public final class HunterHuntingTrapAbility implements GemAbility {
         }
     }
 
-    private static void triggerTrap(TrapData trap, net.minecraft.entity.LivingEntity victim, BlockPos pos, ServerWorld world, ServerPlayerEntity owner) {
+    private static void triggerTrap(TrapData trap, net.minecraft.world.entity.LivingEntity victim, BlockPos pos, ServerLevel world, ServerPlayer owner) {
         float damage = GemsBalance.v().hunter().huntingTrapDamage();
         int rootTicks = GemsBalance.v().hunter().huntingTrapRootTicks();
 
         if (owner != null) {
-            victim.damage(world, owner.getDamageSources().indirectMagic(owner, owner), damage);
+            victim.hurtServer(world, owner.damageSources().indirectMagic(owner, owner), damage);
         } else {
-            victim.damage(world, world.getDamageSources().magic(), damage);
+            victim.hurtServer(world, world.damageSources().magic(), damage);
         }
         // Max slowness = rooted
-        if (owner != null && victim instanceof ServerPlayerEntity playerVictim) {
+        if (owner != null && victim instanceof ServerPlayer playerVictim) {
             // Respect Void immunity / trust for players; mobs are always valid victims.
             if (com.feel.gems.trust.GemTrust.isTrusted(owner, playerVictim) || VoidImmunity.shouldBlockEffect(owner, playerVictim)) {
                 return;
             }
-            victim.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, rootTicks, 127, true, false, false), owner);
+            victim.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, rootTicks, 127, true, false, false), owner);
         } else {
-            victim.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, rootTicks, 127, true, false, false));
+            victim.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, rootTicks, 127, true, false, false));
         }
 
-        AbilityFeedback.burstAt(world, Vec3d.ofCenter(pos).add(0, 1, 0), ParticleTypes.CRIT, 20, 0.5D);
-        if (victim instanceof ServerPlayerEntity playerVictim) {
-            AbilityFeedback.sound(playerVictim, SoundEvents.ENTITY_IRON_GOLEM_HURT, 1.0F, 0.5F);
+        AbilityFeedback.burstAt(world, Vec3.atCenterOf(pos).add(0, 1, 0), ParticleTypes.CRIT, 20, 0.5D);
+        if (victim instanceof ServerPlayer playerVictim) {
+            AbilityFeedback.sound(playerVictim, SoundEvents.IRON_GOLEM_HURT, 1.0F, 0.5F);
         } else {
             world.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
-                    SoundEvents.ENTITY_IRON_GOLEM_HURT,
-                    net.minecraft.sound.SoundCategory.PLAYERS,
+                    SoundEvents.IRON_GOLEM_HURT,
+                    net.minecraft.sounds.SoundSource.PLAYERS,
                     1.0F, 0.5F);
         }
     }
 
-    public static void cleanExpiredTraps(ServerWorld world) {
-        long currentTime = world.getTime();
-        String worldId = world.getRegistryKey().getValue().toString();
+    public static void cleanExpiredTraps(ServerLevel world) {
+        long currentTime = world.getGameTime();
+        String worldId = world.dimension().identifier().toString();
         ACTIVE_TRAPS.entrySet().removeIf(entry ->
                 entry.getKey().worldId.equals(worldId) && currentTime > entry.getValue().expireTime
         );

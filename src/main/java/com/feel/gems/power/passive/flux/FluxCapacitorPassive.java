@@ -4,10 +4,10 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemMaintainedPassive;
 import com.feel.gems.power.gem.flux.FluxCharge;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 
 public final class FluxCapacitorPassive implements GemMaintainedPassive {
     @Override
@@ -26,22 +26,22 @@ public final class FluxCapacitorPassive implements GemMaintainedPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         maintain(player);
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeStatusEffect(StatusEffects.ABSORPTION);
+    public void remove(ServerPlayer player) {
+        player.removeEffect(MobEffects.ABSORPTION);
     }
 
     @Override
-    public void maintain(ServerPlayerEntity player) {
+    public void maintain(ServerPlayer player) {
         var cfg = GemsBalance.v().flux();
         if (FluxCharge.get(player) < cfg.fluxCapacitorChargeThreshold()) {
             return;
         }
         int amplifier = cfg.fluxCapacitorAbsorptionAmplifier();
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 60, amplifier, true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 60, amplifier, true, false, false));
     }
 }

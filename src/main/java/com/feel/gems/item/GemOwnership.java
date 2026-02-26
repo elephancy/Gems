@@ -10,22 +10,23 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.datafixer.DataFixTypes;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Uuids;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.PersistentStateType;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
+import net.minecraft.world.phys.AABB;
 
 
 
@@ -37,7 +38,6 @@ public final class GemOwnership {
     private static final String KEY_OWNER = "GemOwner";
     private static final String KEY_EPOCH = "GemOwnerEpoch";
     private static final String KEY_SKIP_HEART_DROP = "gemsSkipHeartDropOnce";
-    private static final String KEY_OWNER_FALLBACK = "gemsOwner";
 
     private static final int PLAYER_PURGE_BUDGET = 8;
     private static final int CHUNK_PURGE_BUDGET = 6;
@@ -47,10 +47,10 @@ public final class GemOwnership {
 
     private static final String KEY_OFFLINE_PENALTIES = "gems_offline_gem_penalties";
     private static final String KEY_OWNER_EPOCHS = "gems_owner_epochs";
-    private static final PersistentStateType<OfflinePenaltyState> OFFLINE_PENALTY_STATE_TYPE =
-            new PersistentStateType<>(KEY_OFFLINE_PENALTIES, OfflinePenaltyState::new, OfflinePenaltyState.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
-    private static final PersistentStateType<OwnerEpochState> OWNER_EPOCH_STATE_TYPE =
-            new PersistentStateType<>(KEY_OWNER_EPOCHS, OwnerEpochState::new, OwnerEpochState.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<OfflinePenaltyState> OFFLINE_PENALTY_STATE_TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(KEY_OFFLINE_PENALTIES), OfflinePenaltyState::new, OfflinePenaltyState.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<OwnerEpochState> OWNER_EPOCH_STATE_TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(KEY_OWNER_EPOCHS), OwnerEpochState::new, OwnerEpochState.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
 
     private GemOwnership() {
     }
@@ -59,97 +59,57 @@ public final class GemOwnership {
         if (!(stack.getItem() instanceof GemItem)) {
             return;
         }
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             GemsNbt.putUuid(nbt, KEY_OWNER, owner);
             nbt.putInt(KEY_EPOCH, epoch);
         });
     }
 
-    public static void tagOwned(ItemStack stack, ServerPlayerEntity owner) {
+    public static void tagOwned(ItemStack stack, ServerPlayer owner) {
         if (!(stack.getItem() instanceof GemItem gem)) {
             return;
         }
         int epoch = currentEpochFor(owner, gem.gemId());
-        tagOwned(stack, owner.getUuid(), epoch);
+        tagOwned(stack, owner.getUUID(), epoch);
     }
 
-    public static void ensureOwner(ItemStack stack, ServerPlayerEntity owner) {
+    public static void ensureOwner(ItemStack stack, ServerPlayer owner) {
         if (!(stack.getItem() instanceof GemItem)) {
             return;
         }
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             if (GemsNbt.containsUuid(nbt, KEY_OWNER)) {
                 return;
             }
-            GemsNbt.putUuid(nbt, KEY_OWNER, owner.getUuid());
-            if (stack.getItem() instanceof GemItem gem) {
-                nbt.putInt(KEY_EPOCH, currentEpochFor(owner, gem.gemId()));
-            } else {
-                nbt.putInt(KEY_EPOCH, GemPlayerState.getGemEpoch(owner));
-            }
+            GemsNbt.putUuid(nbt, KEY_OWNER, owner.getUUID());
+            GemItem gem = (GemItem) stack.getItem();
+            nbt.putInt(KEY_EPOCH, currentEpochFor(owner, gem.gemId()));
         });
     }
 
     public static UUID ownerUuid(ItemStack stack) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return null;
         }
-        NbtCompound nbt = custom.copyNbt();
-        if (GemsNbt.containsUuid(nbt, KEY_OWNER)) {
-            return GemsNbt.getUuid(nbt, KEY_OWNER);
-        }
-        if (GemsNbt.containsUuid(nbt, KEY_OWNER_FALLBACK)) {
-            return GemsNbt.getUuid(nbt, KEY_OWNER_FALLBACK);
-        }
-        return null;
-    }
-
-    public static void tagUnownedGems(ServerPlayerEntity player) {
-        if (player == null) {
-            return;
-        }
-        GemPlayerState.initIfNeeded(player);
-        int epoch = GemPlayerState.getGemEpoch(player);
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
-            tagIfMissingOwner(stack, player, epoch);
-        }
-        tagIfMissingOwner(player.getOffHandStack(), player, epoch);
-        tagIfMissingOwner(player.getEquippedStack(net.minecraft.entity.EquipmentSlot.HEAD), player, epoch);
-        tagIfMissingOwner(player.getEquippedStack(net.minecraft.entity.EquipmentSlot.CHEST), player, epoch);
-        tagIfMissingOwner(player.getEquippedStack(net.minecraft.entity.EquipmentSlot.LEGS), player, epoch);
-        tagIfMissingOwner(player.getEquippedStack(net.minecraft.entity.EquipmentSlot.FEET), player, epoch);
-    }
-
-    private static void tagIfMissingOwner(ItemStack stack, ServerPlayerEntity player, int epoch) {
-        if (stack.isEmpty() || !(stack.getItem() instanceof GemItem)) {
-            return;
-        }
-        if (ownerUuid(stack) != null) {
-            return;
-        }
-        tagOwned(stack, player);
+        CompoundTag nbt = custom.copyTag();
+        return GemsNbt.getUuid(nbt, KEY_OWNER);
     }
 
     public static boolean isInvalidForEpoch(MinecraftServer server, ItemStack stack) {
         if (!(stack.getItem() instanceof GemItem gem)) {
             return false;
         }
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return false;
         }
-        NbtCompound tag = custom.copyNbt();
-        UUID owner = null;
-        if (GemsNbt.containsUuid(tag, KEY_OWNER)) {
-            owner = GemsNbt.getUuid(tag, KEY_OWNER);
-        } else if (GemsNbt.containsUuid(tag, KEY_OWNER_FALLBACK)) {
-            owner = GemsNbt.getUuid(tag, KEY_OWNER_FALLBACK);
-        }
+        CompoundTag tag = custom.copyTag();
+        UUID owner = GemsNbt.getUuid(tag, KEY_OWNER);
         if (owner == null) {
             return false;
         }
-        int storedEpoch = tag.getInt(KEY_EPOCH, 0);
+        int storedEpoch = tag.getIntOr(KEY_EPOCH, 0);
         int current = resolveEpoch(server, owner, gem.gemId());
         if (current < 0) {
             return false;
@@ -165,32 +125,32 @@ public final class GemOwnership {
         return false;
     }
 
-    public static void purgeInventory(MinecraftServer server, Inventory inv) {
-        for (int i = 0; i < inv.size(); i++) {
-            ItemStack stack = inv.getStack(i);
+    public static void purgeInventory(MinecraftServer server, Container inv) {
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
             if (stack.isEmpty()) {
                 continue;
             }
             if (purgeIfInvalid(server, stack)) {
-                inv.setStack(i, ItemStack.EMPTY);
+                inv.setItem(i, ItemStack.EMPTY);
             }
         }
     }
 
-    public static void purgePlayerInventories(MinecraftServer server, PlayerEntity player) {
+    public static void purgePlayerInventories(MinecraftServer server, Player player) {
         purgeInventory(server, player.getInventory());
-        if (player instanceof ServerPlayerEntity sp) {
+        if (player instanceof ServerPlayer sp) {
             purgeInventory(server, sp.getEnderChestInventory());
         }
     }
 
     public static void purgePendingPlayerInventories(MinecraftServer server) {
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             purgePlayerInventories(server, player);
         }
     }
 
-    public static void purgeInventoryIfPending(MinecraftServer server, Inventory inv) {
+    public static void purgeInventoryIfPending(MinecraftServer server, Container inv) {
         if (inv == null) {
             return;
         }
@@ -198,20 +158,20 @@ public final class GemOwnership {
     }
 
     public static boolean isOwnedBy(ItemStack stack, UUID owner) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
-        if (custom == null || !GemsNbt.containsUuid(custom.copyNbt(), KEY_OWNER)) {
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
+        if (custom == null || !GemsNbt.containsUuid(custom.copyTag(), KEY_OWNER)) {
             return false;
         }
-        UUID stored = GemsNbt.getUuid(custom.copyNbt(), KEY_OWNER);
+        UUID stored = GemsNbt.getUuid(custom.copyTag(), KEY_OWNER);
         return stored != null && stored.equals(owner);
     }
 
-    public static int removeOwnedGemFromInventory(ServerPlayerEntity holder, UUID owner, GemId gemId) {
+    public static int removeOwnedGemFromInventory(ServerPlayer holder, UUID owner, GemId gemId) {
         if (holder == null || owner == null || gemId == null) {
             return 0;
         }
         int removed = 0;
-        var mainStacks = holder.getInventory().getMainStacks();
+        var mainStacks = holder.getInventory().getNonEquipmentItems();
         for (int i = 0; i < mainStacks.size(); i++) {
             ItemStack stack = mainStacks.get(i);
             if (isOwnedGem(stack, owner, gemId)) {
@@ -219,37 +179,37 @@ public final class GemOwnership {
                 removed++;
             }
         }
-        ItemStack offhand = holder.getOffHandStack();
+        ItemStack offhand = holder.getOffhandItem();
         if (isOwnedGem(offhand, owner, gemId)) {
-            holder.equipStack(net.minecraft.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            holder.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
             removed++;
         }
-        net.minecraft.entity.EquipmentSlot[] armorSlots = {
-                net.minecraft.entity.EquipmentSlot.HEAD,
-                net.minecraft.entity.EquipmentSlot.CHEST,
-                net.minecraft.entity.EquipmentSlot.LEGS,
-                net.minecraft.entity.EquipmentSlot.FEET
+        net.minecraft.world.entity.EquipmentSlot[] armorSlots = {
+                net.minecraft.world.entity.EquipmentSlot.HEAD,
+                net.minecraft.world.entity.EquipmentSlot.CHEST,
+                net.minecraft.world.entity.EquipmentSlot.LEGS,
+                net.minecraft.world.entity.EquipmentSlot.FEET
         };
         for (var slot : armorSlots) {
-            ItemStack stack = holder.getEquippedStack(slot);
+            ItemStack stack = holder.getItemBySlot(slot);
             if (isOwnedGem(stack, owner, gemId)) {
-                holder.equipStack(slot, ItemStack.EMPTY);
+                holder.setItemSlot(slot, ItemStack.EMPTY);
                 removed++;
             }
         }
         return removed;
     }
 
-    public static int removeOwnedGemFromEnderChest(ServerPlayerEntity holder, UUID owner, GemId gemId) {
+    public static int removeOwnedGemFromEnderChest(ServerPlayer holder, UUID owner, GemId gemId) {
         if (holder == null || owner == null || gemId == null) {
             return 0;
         }
         int removed = 0;
-        Inventory inv = holder.getEnderChestInventory();
-        for (int i = 0; i < inv.size(); i++) {
-            ItemStack stack = inv.getStack(i);
+        Container inv = holder.getEnderChestInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
             if (isOwnedGem(stack, owner, gemId)) {
-                inv.setStack(i, ItemStack.EMPTY);
+                inv.setItem(i, ItemStack.EMPTY);
                 removed++;
             }
         }
@@ -266,18 +226,16 @@ public final class GemOwnership {
         return isOwnedBy(stack, owner);
     }
 
-    public static void applyOwnerPenalty(ServerPlayerEntity owner) {
+    public static void applyOwnerPenalty(ServerPlayer owner) {
         GemPlayerState.initIfNeeded(owner);
         GemPlayerState.addMaxHearts(owner, -2);
-        // int energy = GemPlayerState.getEnergy(owner);
-        // GemPlayerState.setEnergy(owner, Math.min(energy, 1));
         GemPlayerState.applyMaxHearts(owner);
         ((com.feel.gems.state.GemsPersistentDataHolder) owner).gems$getPersistentData().putBoolean(KEY_SKIP_HEART_DROP, true);
-        owner.damage(owner.getEntityWorld(), owner.getDamageSources().magic(), Float.MAX_VALUE);
-        owner.sendMessage(net.minecraft.text.Text.translatable("gems.item.gem.penalty_applied"), false);
+        owner.hurtServer(owner.level(), owner.damageSources().magic(), Float.MAX_VALUE);
+        owner.sendSystemMessage(net.minecraft.network.chat.Component.translatable("gems.item.gem.penalty_applied"), false);
     }
 
-    public static boolean consumeSkipHeartDrop(ServerPlayerEntity player) {
+    public static boolean consumeSkipHeartDrop(ServerPlayer player) {
         var data = ((com.feel.gems.state.GemsPersistentDataHolder) player).gems$getPersistentData();
         boolean skip = data.getBoolean(KEY_SKIP_HEART_DROP).orElse(false);
         if (skip) {
@@ -286,14 +244,14 @@ public final class GemOwnership {
         return skip;
     }
 
-    public static void markSkipHeartDropOnce(ServerPlayerEntity player) {
+    public static void markSkipHeartDropOnce(ServerPlayer player) {
         var data = ((com.feel.gems.state.GemsPersistentDataHolder) player).gems$getPersistentData();
         data.putBoolean(KEY_SKIP_HEART_DROP, true);
     }
 
-    private static final class OfflinePenaltyState extends PersistentState {
+    private static final class OfflinePenaltyState extends SavedData {
         private static final Codec<OfflinePenaltyState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                net.minecraft.util.Uuids.SET_CODEC.optionalFieldOf(KEY_OFFLINE_PENALTIES, Set.of()).forGetter(state -> state.queued)
+                net.minecraft.core.UUIDUtil.CODEC_SET.optionalFieldOf(KEY_OFFLINE_PENALTIES, Set.of()).forGetter(state -> state.queued)
         ).apply(instance, OfflinePenaltyState::new));
 
         private final Set<UUID> queued;
@@ -329,29 +287,29 @@ public final class GemOwnership {
         }
         OfflinePenaltyState state = penalties(server);
         state.queue(owner);
-        state.markDirty();
+        state.setDirty();
     }
 
-    public static void consumeOfflinePenalty(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void consumeOfflinePenalty(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
         OfflinePenaltyState state = penalties(server);
-        if (state.consume(player.getUuid())) {
+        if (state.consume(player.getUUID())) {
             applyOwnerPenalty(player);
-            state.markDirty();
+            state.setDirty();
         }
     }
 
     private static OfflinePenaltyState penalties(MinecraftServer server) {
-        PersistentStateManager mgr = server.getOverworld().getPersistentStateManager();
-        return mgr.getOrCreate(OFFLINE_PENALTY_STATE_TYPE);
+        SavedDataStorage mgr = server.overworld().getDataStorage();
+        return mgr.computeIfAbsent(OFFLINE_PENALTY_STATE_TYPE);
     }
 
     private static OwnerEpochState epochs(MinecraftServer server) {
-        PersistentStateManager mgr = server.getOverworld().getPersistentStateManager();
-        return mgr.getOrCreate(OWNER_EPOCH_STATE_TYPE);
+        SavedDataStorage mgr = server.overworld().getDataStorage();
+        return mgr.computeIfAbsent(OWNER_EPOCH_STATE_TYPE);
     }
 
     public static void recordOwnerEpoch(MinecraftServer server, UUID owner, int epoch) {
@@ -360,7 +318,7 @@ public final class GemOwnership {
         }
         OwnerEpochState state = epochs(server);
         state.setBaseEpoch(owner, epoch);
-        state.markDirty();
+        state.setDirty();
     }
 
     public static void setGemEpochOverride(MinecraftServer server, UUID owner, GemId gemId, int epoch) {
@@ -369,8 +327,8 @@ public final class GemOwnership {
         }
         OwnerEpochState state = epochs(server);
         state.setGemEpoch(owner, gemId, epoch);
-        state.markPending(owner, server.getOverworld().getTime() + PURGE_WINDOW_TICKS);
-        state.markDirty();
+        state.markPending(owner, server.overworld().getGameTime() + PURGE_WINDOW_TICKS);
+        state.setDirty();
     }
 
     public static int getGemEpochOverride(MinecraftServer server, UUID owner, GemId gemId) {
@@ -389,17 +347,17 @@ public final class GemOwnership {
         return max + 1;
     }
 
-    public static int currentEpochFor(ServerPlayerEntity owner, GemId gemId) {
+    public static int currentEpochFor(ServerPlayer owner, GemId gemId) {
         if (owner == null || gemId == null) {
             return 0;
         }
-        MinecraftServer server = owner.getEntityWorld().getServer();
+        MinecraftServer server = owner.level().getServer();
         int base = GemPlayerState.getGemEpoch(owner);
         if (server != null) {
             OwnerEpochState state = epochs(server);
-            state.setBaseEpoch(owner.getUuid(), base);
-            int gemEpoch = state.getGemEpoch(owner.getUuid(), gemId);
-            state.markDirty();
+            state.setBaseEpoch(owner.getUUID(), base);
+            int gemEpoch = state.getGemEpoch(owner.getUUID(), gemId);
+            state.setDirty();
             if (gemEpoch >= 0) {
                 return Math.max(base, gemEpoch);
             }
@@ -413,7 +371,7 @@ public final class GemOwnership {
         }
         OwnerEpochState state = epochs(server);
         int base;
-        ServerPlayerEntity player = server.getPlayerManager().getPlayer(owner);
+        ServerPlayer player = server.getPlayerList().getPlayer(owner);
         if (player != null) {
             base = GemPlayerState.getGemEpoch(player);
             state.setBaseEpoch(owner, base);
@@ -421,7 +379,7 @@ public final class GemOwnership {
             base = state.getBaseEpoch(owner);
         }
         int gemEpoch = state.getGemEpoch(owner, gemId);
-        state.markDirty();
+        state.setDirty();
         if (gemEpoch < 0) {
             return base;
         }
@@ -435,7 +393,7 @@ public final class GemOwnership {
         if (server == null) {
             return false;
         }
-        return epochs(server).hasPending(server.getOverworld().getTime());
+        return epochs(server).hasPending(server.overworld().getGameTime());
     }
 
     public static void tickPurgeQueue(MinecraftServer server) {
@@ -450,30 +408,30 @@ public final class GemOwnership {
     }
 
     private static PurgeTask buildTask(MinecraftServer server, UUID owner) {
-        Deque<ServerPlayerEntity> players = new ArrayDeque<>();
-        ServerPlayerEntity ownerPlayer = server.getPlayerManager().getPlayer(owner);
+        Deque<ServerPlayer> players = new ArrayDeque<>();
+        ServerPlayer ownerPlayer = server.getPlayerList().getPlayer(owner);
         if (ownerPlayer != null) {
             players.add(ownerPlayer);
         }
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (ownerPlayer != null && player == ownerPlayer) {
                 continue;
             }
             players.add(player);
         }
 
-        int view = server.getPlayerManager().getViewDistance();
+        int view = server.getPlayerList().getViewDistance();
         return new PurgeTask(owner, players, view);
     }
 
     private static final class PurgeTask {
         private final UUID owner;
-        private final Deque<ServerPlayerEntity> players;
+        private final Deque<ServerPlayer> players;
         private final int viewDistanceChunks;
         private java.util.Iterator<ItemEntity> scanningItems;
         private int scanBudgetRemaining;
 
-        PurgeTask(UUID owner, Deque<ServerPlayerEntity> players, int viewDistanceChunks) {
+        PurgeTask(UUID owner, Deque<ServerPlayer> players, int viewDistanceChunks) {
             this.owner = owner;
             this.players = players;
             this.viewDistanceChunks = viewDistanceChunks;
@@ -491,8 +449,8 @@ public final class GemOwnership {
 
             if (scanningItems == null) {
                 while (!players.isEmpty() && scanningItems == null) {
-                    ServerPlayerEntity next = players.poll();
-                    if (next == null || next.isRemoved() || next.getEntityWorld().getServer() != server) {
+                    ServerPlayer next = players.poll();
+                    if (next == null || next.isRemoved() || next.level().getServer() != server) {
                         continue;
                     }
                     scanBudgetRemaining = CHUNK_PURGE_BUDGET * 64;
@@ -506,7 +464,7 @@ public final class GemOwnership {
                     if (itemEntity == null) {
                         continue;
                     }
-                    ItemStack stack = itemEntity.getStack();
+                    ItemStack stack = itemEntity.getItem();
                     if (stack.isEmpty()) {
                         continue;
                     }
@@ -522,8 +480,8 @@ public final class GemOwnership {
             return players.isEmpty() && scanningItems == null;
         }
 
-        private java.util.Iterator<ItemEntity> findNearbyItemEntities(ServerPlayerEntity aroundPlayer) {
-            ServerWorld world = aroundPlayer.getEntityWorld();
+        private java.util.Iterator<ItemEntity> findNearbyItemEntities(ServerPlayer aroundPlayer) {
+            ServerLevel world = aroundPlayer.level();
             if (world == null) {
                 return java.util.List.<ItemEntity>of().iterator();
             }
@@ -531,25 +489,25 @@ public final class GemOwnership {
             if (radiusBlocks <= 0) {
                 return java.util.List.<ItemEntity>of().iterator();
             }
-            int minY = world.getBottomY();
-            int maxY = world.getTopYInclusive();
-            Box box = new Box(
+            int minY = world.getMinY();
+            int maxY = world.getMaxY();
+            AABB box = new AABB(
                     aroundPlayer.getX() - radiusBlocks, minY, aroundPlayer.getZ() - radiusBlocks,
                     aroundPlayer.getX() + radiusBlocks, maxY, aroundPlayer.getZ() + radiusBlocks
             );
-            return world.getEntitiesByClass(ItemEntity.class, box, e -> true).iterator();
+            return world.getEntitiesOfClass(ItemEntity.class, box, e -> true).iterator();
         }
     }
 
-    private static final class OwnerEpochState extends PersistentState {
+    private static final class OwnerEpochState extends SavedData {
         static final Codec<OwnerEpochState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                Codec.unboundedMap(Uuids.CODEC, Codec.INT)
+                Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, Codec.INT)
                         .optionalFieldOf("epochs", java.util.Map.of())
                         .forGetter(state -> state.baseEpochs),
-                Codec.unboundedMap(Uuids.CODEC, Codec.unboundedMap(Codec.STRING, Codec.INT))
+                Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, Codec.unboundedMap(Codec.STRING, Codec.INT))
                         .optionalFieldOf("gemEpochs", java.util.Map.of())
                         .forGetter(state -> state.gemEpochsRaw),
-                Codec.unboundedMap(Uuids.CODEC, Codec.LONG)
+                Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, Codec.LONG)
                         .optionalFieldOf("purgeUntil", java.util.Map.of())
                         .forGetter(state -> state.purgeUntil)
         ).apply(instance, OwnerEpochState::new));

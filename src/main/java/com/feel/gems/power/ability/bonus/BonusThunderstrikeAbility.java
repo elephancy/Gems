@@ -2,15 +2,16 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LightningEntity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 public final class BonusThunderstrikeAbility implements GemAbility {
     @Override
@@ -34,19 +35,19 @@ public final class BonusThunderstrikeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        Vec3d start = player.getEyePos();
-        Vec3d direction = player.getRotationVector();
-        Vec3d end = start.add(direction.multiply(50));
-        HitResult hit = world.raycast(new RaycastContext(
-                start, end, RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, player));
-        Vec3d target = hit.getPos();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        Vec3 start = player.getEyePosition();
+        Vec3 direction = player.getLookAngle();
+        Vec3 end = start.add(direction.scale(50));
+        HitResult hit = world.clip(new ClipContext(
+                start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+        Vec3 target = hit.getLocation();
 
-        LightningEntity lightning = EntityType.LIGHTNING_BOLT.create(world, SpawnReason.TRIGGERED);
+        LightningBolt lightning = EntityTypes.LIGHTNING_BOLT.create(world, EntitySpawnReason.TRIGGERED);
         if (lightning != null) {
-            lightning.refreshPositionAfterTeleport(target.x, target.y, target.z);
-            world.spawnEntity(lightning);
+            lightning.snapTo(target.x, target.y, target.z);
+            world.addFreshEntity(lightning);
         }
         return true;
     }

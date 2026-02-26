@@ -2,12 +2,12 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 
 public final class BonusEarthshatterAbility implements GemAbility {
     @Override
@@ -31,18 +31,18 @@ public final class BonusEarthshatterAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        Box area = player.getBoundingBox().expand(6);
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        AABB area = player.getBoundingBox().inflate(6);
         
-        world.spawnParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY(), player.getZ(), 20, 3, 0.5, 3, 0.1);
+        world.sendParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY(), player.getZ(), 20, 3, 0.5, 3, 0.1);
         
-        world.getOtherEntities(player, area, e -> e instanceof LivingEntity)
+        world.getEntities(player, area, e -> e instanceof LivingEntity)
                 .forEach(e -> {
                     if (e instanceof LivingEntity living) {
-                        living.damage(world, player.getDamageSources().playerAttack(player), 8.0f);
-                        living.setVelocity(living.getVelocity().add(0, 0.8, 0));
-                        living.velocityDirty = true;
+                        living.hurtServer(world, player.damageSources().playerAttack(player), 8.0f);
+                        living.setDeltaMovement(living.getDeltaMovement().add(0, 0.8, 0));
+                        living.needsSync = true;
                     }
                 });
         return true;

@@ -1,7 +1,7 @@
 package com.feel.gems.power.api;
 
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -13,8 +13,8 @@ public interface GemPassive {
 
     String description();
 
-    void apply(ServerPlayerEntity player);
+    void apply(ServerPlayer player);
 
-    void remove(ServerPlayerEntity player);
+    void remove(ServerPlayer player);
 }
 

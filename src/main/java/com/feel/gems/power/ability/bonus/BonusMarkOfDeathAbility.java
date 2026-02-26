@@ -9,9 +9,9 @@ import com.feel.gems.trust.GemTrust;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 
 /**
  * Mark of Death - mark a target to take bonus damage from all sources.
@@ -40,20 +40,20 @@ public final class BonusMarkOfDeathAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int range = GemsBalance.v().bonusPool().markOfDeathRangeBlocks;
         LivingEntity target = Targeting.raycastLiving(player, range);
         if (target == null || target == player) {
             return false;
         }
-        if (target instanceof ServerPlayerEntity other) {
+        if (target instanceof ServerPlayer other) {
             if (GemTrust.isTrusted(player, other) || VoidImmunity.shouldBlockEffect(player, other)) {
                 return false;
             }
         }
         int duration = GemsBalance.v().bonusPool().markOfDeathDurationSeconds * 20;
-        long until = player.getEntityWorld().getTime() + Math.max(0, duration);
-        MARKED.put(target.getUuid(), until);
+        long until = player.level().getGameTime() + Math.max(0, duration);
+        MARKED.put(target.getUUID(), until);
         return true;
     }
 
@@ -61,12 +61,12 @@ public final class BonusMarkOfDeathAbility implements GemAbility {
         if (target == null) {
             return false;
         }
-        Long until = MARKED.get(target.getUuid());
+        Long until = MARKED.get(target.getUUID());
         if (until == null) {
             return false;
         }
-        if (target.getEntityWorld().getTime() > until) {
-            MARKED.remove(target.getUuid());
+        if (target.level().getGameTime() > until) {
+            MARKED.remove(target.getUUID());
             return false;
         }
         return true;

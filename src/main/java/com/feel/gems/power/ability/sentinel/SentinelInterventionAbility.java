@@ -7,13 +7,13 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTeleport;
-import net.minecraft.entity.Entity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 
 public final class SentinelInterventionAbility implements GemAbility {
     public static final String INTERVENTION_TARGET_KEY = "sentinel_intervention_target";
@@ -40,22 +40,22 @@ public final class SentinelInterventionAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int range = GemsBalance.v().sentinel().interventionRangeBlocks();
 
         // Find nearest trusted ally within range
-        Box box = player.getBoundingBox().expand(range);
-        ServerPlayerEntity target = null;
+        AABB box = player.getBoundingBox().inflate(range);
+        ServerPlayer target = null;
         double closestDist = Double.MAX_VALUE;
 
-        for (Entity e : world.getOtherEntities(player, box, ent -> ent instanceof ServerPlayerEntity)) {
-            ServerPlayerEntity ally = (ServerPlayerEntity) e;
+        for (Entity e : world.getEntities(player, box, ent -> ent instanceof ServerPlayer)) {
+            ServerPlayer ally = (ServerPlayer) e;
             if (!GemTrust.isTrusted(player, ally)) continue;
             if (!GemTrust.isTrusted(ally, player)) continue;
             if (VoidImmunity.shouldBlockEffect(player, ally)) continue;
 
-            double dist = ally.squaredDistanceTo(player);
+            double dist = ally.distanceToSqr(player);
             if (dist < closestDist) {
                 closestDist = dist;
                 target = ally;
@@ -63,20 +63,20 @@ public final class SentinelInterventionAbility implements GemAbility {
         }
 
         if (target == null) {
-            AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+            AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
             return false;
         }
 
         // Teleport to ally
-        GemsTeleport.teleport(player, world, target.getX(), target.getY(), target.getZ(), target.getYaw(), target.getPitch());
-        player.velocityDirty = true;
+        GemsTeleport.teleport(player, world, target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
+        player.needsSync = true;
 
         // Set up damage absorption for ally
         SentinelInterventionRuntime.setProtecting(player, target);
 
-        AbilityFeedback.burstAt(world, player.getEntityPos().add(0, 1, 0), ParticleTypes.ENCHANT, 30, 1.0D);
-        AbilityFeedback.burstAt(world, target.getEntityPos().add(0, 1, 0), ParticleTypes.ENCHANT, 30, 1.0D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_ENDERMAN_TELEPORT, 1.0F, 1.2F);
+        AbilityFeedback.burstAt(world, player.position().add(0, 1, 0), ParticleTypes.ENCHANT, 30, 1.0D);
+        AbilityFeedback.burstAt(world, target.position().add(0, 1, 0), ParticleTypes.ENCHANT, 30, 1.0D);
+        AbilityFeedback.sound(player, SoundEvents.ENDERMAN_TELEPORT, 1.0F, 1.2F);
         return true;
     }
 }

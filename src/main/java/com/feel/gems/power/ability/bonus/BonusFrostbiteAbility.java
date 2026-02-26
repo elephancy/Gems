@@ -2,11 +2,11 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.AABB;
 
 public final class BonusFrostbiteAbility implements GemAbility {
     @Override
@@ -30,13 +30,13 @@ public final class BonusFrostbiteAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        Box area = player.getBoundingBox().expand(8);
-        player.getEntityWorld().getOtherEntities(player, area, e -> e instanceof net.minecraft.entity.LivingEntity)
+    public boolean activate(ServerPlayer player) {
+        AABB area = player.getBoundingBox().inflate(8);
+        player.level().getEntities(player, area, e -> e instanceof net.minecraft.world.entity.LivingEntity)
                 .forEach(e -> {
-                    if (e instanceof net.minecraft.entity.LivingEntity living) {
-                        living.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200, 2));
-                        living.addStatusEffect(new StatusEffectInstance(StatusEffects.MINING_FATIGUE, 200, 1));
+                    if (e instanceof net.minecraft.world.entity.LivingEntity living) {
+                        living.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 200, 2));
+                        living.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, 200, 1));
                     }
                 });
         return true;

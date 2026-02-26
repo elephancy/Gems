@@ -4,17 +4,16 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Vortex Strike - Spin attack that pulls enemies closer and damages them.
@@ -45,18 +44,18 @@ public final class BonusVortexStrikeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Box box = player.getBoundingBox().expand(RANGE);
-        List<LivingEntity> entities = world.getEntitiesByClass(LivingEntity.class, box,
-                e -> e != player && e.isAlive() && !(e instanceof ServerPlayerEntity p && p.isCreative()));
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        AABB box = player.getBoundingBox().inflate(RANGE);
+        List<LivingEntity> entities = world.getEntitiesOfClass(LivingEntity.class, box,
+                e -> e != player && e.isAlive() && !(e instanceof ServerPlayer p && p.isCreative()));
 
         if (entities.isEmpty()) {
             return false;
         }
 
         for (LivingEntity entity : entities) {
-            if (entity instanceof ServerPlayerEntity otherPlayer) {
+            if (entity instanceof ServerPlayer otherPlayer) {
                 if (VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                     continue;
                 }
@@ -65,13 +64,13 @@ public final class BonusVortexStrikeAbility implements GemAbility {
                 }
             }
             // Deal damage (avoid vanilla melee knockback fighting the pull).
-            entity.damage(world, player.getDamageSources().indirectMagic(player, player), DAMAGE);
+            entity.hurtServer(world, player.damageSources().indirectMagic(player, player), DAMAGE);
 
             // Pull toward player.
-            Vec3d pullDir = player.getEntityPos().subtract(entity.getEntityPos()).normalize().multiply(PULL_STRENGTH);
-            Vec3d vel = entity.getVelocity().add(pullDir.x, 0.1, pullDir.z);
-            entity.setVelocity(vel);
-            entity.velocityDirty = true;
+            Vec3 pullDir = player.position().subtract(entity.position()).normalize().scale(PULL_STRENGTH);
+            Vec3 vel = entity.getDeltaMovement().add(pullDir.x, 0.1, pullDir.z);
+            entity.setDeltaMovement(vel);
+            entity.needsSync = true;
         }
 
         // Spinning particle effect
@@ -81,13 +80,13 @@ public final class BonusVortexStrikeAbility implements GemAbility {
                 double radius = 2 + ring;
                 double x = player.getX() + Math.cos(angle) * radius;
                 double z = player.getZ() + Math.sin(angle) * radius;
-                world.spawnParticles(ParticleTypes.SWEEP_ATTACK, x, player.getY() + 0.5, z, 
+                world.sendParticles(ParticleTypes.SWEEP_ATTACK, x, player.getY() + 0.5, z,
                         1, 0, 0, 0, 0);
             }
         }
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 1.5f, 0.8f);
+                SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.5f, 0.8f);
         return true;
     }
 }

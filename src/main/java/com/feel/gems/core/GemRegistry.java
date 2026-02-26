@@ -9,10 +9,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
 import java.util.List;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.resource.SynchronousResourceReloader;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 
 
 
@@ -24,7 +24,7 @@ public final class GemRegistry {
     private static EnumMap<GemId, GemDefinition> DEFINITIONS = new EnumMap<>(GemId.class);
     private static final Gson GSON = new Gson();
     private static final String DEFINITIONS_CLASSPATH = "data/gems/gem_definitions.json";
-    private static final Identifier DEFINITIONS_ID = Identifier.of(GemsMod.MOD_ID, "gem_definitions.json");
+    private static final Identifier DEFINITIONS_ID = Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "gem_definitions.json");
 
     private static boolean initialized = false;
 
@@ -46,9 +46,9 @@ public final class GemRegistry {
         // Dedicated/integrated servers: reload from datapacks on /reload and startup.
         // Unit tests may run without Fabric Loader being fully bootstrapped; skip if unavailable.
         try {
-            ResourceLoader.get(ResourceType.SERVER_DATA).registerReloader(
-                    Identifier.of(GemsMod.MOD_ID, "gem_registry"),
-                    (SynchronousResourceReloader) GemRegistry::reloadFromResourceManager
+            ResourceLoader.get(PackType.SERVER_DATA).registerReloadListener(
+                    Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "gem_registry"),
+                    (ResourceManagerReloadListener) GemRegistry::reloadFromResourceManager
             );
         } catch (Throwable t) {
             GemsMod.LOGGER.debug("Skipping gem registry reload listener registration (likely unit-test environment)", t);
@@ -71,7 +71,7 @@ public final class GemRegistry {
                 return;
             }
             var resource = opt.get();
-            try (Reader reader = resource.getReader()) {
+            try (Reader reader = resource.openAsReader()) {
                 EnumMap<GemId, GemDefinition> next = loadFromReader(reader);
                 if (!next.isEmpty()) {
                     DEFINITIONS = next;

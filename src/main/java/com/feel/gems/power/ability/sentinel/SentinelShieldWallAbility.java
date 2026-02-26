@@ -7,14 +7,14 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.phys.Vec3;
 
 public final class SentinelShieldWallAbility implements GemAbility {
     public static final String WALL_ACTIVE_KEY = "sentinel_wall_active";
@@ -41,20 +41,20 @@ public final class SentinelShieldWallAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.SENTINEL, GemsBalance.v().sentinel().shieldWallDurationTicks());
         int width = GemsBalance.v().sentinel().shieldWallWidthBlocks();
         int height = GemsBalance.v().sentinel().shieldWallHeightBlocks();
 
         // Get facing direction
-        Direction facing = player.getHorizontalFacing();
-        Direction perpendicular = facing.rotateYClockwise();
+        Direction facing = player.getDirection();
+        Direction perpendicular = facing.getClockWise();
 
         // Position wall in front of player
-        BlockPos basePos = player.getBlockPos().offset(facing, 2);
+        BlockPos basePos = player.blockPosition().relative(facing, 2);
 
-        long endTime = world.getTime() + durationTicks;
+        long endTime = world.getGameTime() + durationTicks;
         PlayerStateManager.setPersistent(player, WALL_ACTIVE_KEY, "true");
         PlayerStateManager.setPersistent(player, WALL_END_KEY, String.valueOf(endTime));
 
@@ -64,12 +64,12 @@ public final class SentinelShieldWallAbility implements GemAbility {
         // Visual effect - particle wall
         for (int w = -width / 2; w <= width / 2; w++) {
             for (int h = 0; h < height; h++) {
-                BlockPos wallPos = basePos.offset(perpendicular, w).up(h);
-                AbilityFeedback.burstAt(world, Vec3d.ofCenter(wallPos), ParticleTypes.END_ROD, 5, 0.2D);
+                BlockPos wallPos = basePos.relative(perpendicular, w).above(h);
+                AbilityFeedback.burstAt(world, Vec3.atCenterOf(wallPos), ParticleTypes.END_ROD, 5, 0.2D);
             }
         }
 
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_BEACON_ACTIVATE, 1.0F, 1.5F);
+        AbilityFeedback.sound(player, SoundEvents.BEACON_ACTIVATE, 1.0F, 1.5F);
         return true;
     }
 }

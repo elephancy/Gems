@@ -6,16 +6,16 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 
 
@@ -41,7 +41,7 @@ public final class PillagerRavageAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int range = GemsBalance.v().pillager().ravageRangeBlocks();
         if (range <= 0) {
             return false;
@@ -49,45 +49,45 @@ public final class PillagerRavageAbility implements GemAbility {
 
         float damage = GemsBalance.v().pillager().ravageDamage();
         double knockback = GemsBalance.v().pillager().ravageKnockback();
-        Vec3d forward = player.getRotationVec(1.0F).normalize();
+        Vec3 forward = player.getViewVector(1.0F).normalize();
         double cosHalfArc = Math.cos(Math.toRadians(55.0D)); // ~110 degree frontal cone
 
         boolean hit = false;
-        Vec3d origin = player.getEntityPos();
-        Box box = new Box(origin, origin).expand(range, 1.5D, range);
-        DamageSource src = player.getDamageSources().playerAttack(player);
-        ServerWorld world = player.getEntityWorld();
+        Vec3 origin = player.position();
+        AABB box = new AABB(origin, origin).inflate(range, 1.5D, range);
+        DamageSource src = player.damageSources().playerAttack(player);
+        ServerLevel world = player.level();
 
-        for (LivingEntity target : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-            Vec3d to = target.getEntityPos().subtract(origin);
-            double distSq = to.lengthSquared();
+        for (LivingEntity target : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            Vec3 to = target.position().subtract(origin);
+            double distSq = to.lengthSqr();
             if (distSq > (double) (range * range)) {
                 continue;
             }
-            Vec3d dir = to.normalize();
-            if (forward.dotProduct(dir) < cosHalfArc) {
+            Vec3 dir = to.normalize();
+            if (forward.dot(dir) < cosHalfArc) {
                 continue;
             }
-            if (target instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
+            if (target instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
                 continue;
             }
-            if (target instanceof ServerPlayerEntity other && !VoidImmunity.canBeTargeted(player, other)) {
+            if (target instanceof ServerPlayer other && !VoidImmunity.canBeTargeted(player, other)) {
                 continue;
             }
 
-            target.damage(world, src, damage);
-            target.addVelocity(dir.x * knockback, 0.15D, dir.z * knockback);
-            target.velocityDirty = true;
+            target.hurtServer(world, src, damage);
+            target.push(dir.x * knockback, 0.15D, dir.z * knockback);
+            target.needsSync = true;
             hit = true;
         }
 
         if (!hit) {
-            player.sendMessage(Text.translatable("gems.ability.pillager.ravage.no_targets"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.pillager.ravage.no_targets"), true);
             return false;
         }
 
-        AbilityFeedback.burstAt(world, player.getEntityPos().add(0.0D, 0.8D, 0.0D), ParticleTypes.SWEEP_ATTACK, 4, 0.1D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_RAVAGER_ATTACK, 0.9F, 1.0F);
+        AbilityFeedback.burstAt(world, player.position().add(0.0D, 0.8D, 0.0D), ParticleTypes.SWEEP_ATTACK, 4, 0.1D);
+        AbilityFeedback.sound(player, SoundEvents.RAVAGER_ATTACK, 0.9F, 1.0F);
         return true;
     }
 }

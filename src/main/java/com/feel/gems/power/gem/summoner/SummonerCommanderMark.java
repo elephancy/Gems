@@ -4,9 +4,9 @@ import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsNbt;
 import com.feel.gems.util.GemsTime;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 
 
 public final class SummonerCommanderMark {
@@ -16,18 +16,18 @@ public final class SummonerCommanderMark {
     private SummonerCommanderMark() {
     }
 
-    public static void mark(ServerPlayerEntity owner, Entity target, int durationTicks) {
+    public static void mark(ServerPlayer owner, Entity target, int durationTicks) {
         if (durationTicks <= 0) {
             return;
         }
-        NbtCompound root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
+        CompoundTag root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
         root.putLong(KEY_UNTIL, GemsTime.now(owner) + durationTicks);
-        GemsNbt.putUuid(root, KEY_TARGET, target.getUuid());
+        GemsNbt.putUuid(root, KEY_TARGET, target.getUUID());
     }
 
-    public static UUID activeTargetUuid(ServerPlayerEntity owner) {
-        NbtCompound root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
-        long until = root.getLong(KEY_UNTIL, 0L);
+    public static UUID activeTargetUuid(ServerPlayer owner) {
+        CompoundTag root = ((GemsPersistentDataHolder) owner).gems$getPersistentData();
+        long until = root.getLongOr(KEY_UNTIL, 0L);
         if (until <= GemsTime.now(owner)) {
             return null;
         }

@@ -8,11 +8,11 @@ import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTickScheduler;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Runtime for tracking and triggering team synergies.
@@ -46,13 +46,13 @@ public final class SynergyRuntime {
      * Called when a player casts an ability.
      * Tracks the cast for potential synergy combos.
      */
-    public static void onAbilityCast(ServerPlayerEntity player, GemId gem, Identifier abilityId) {
+    public static void onAbilityCast(ServerPlayer player, GemId gem, Identifier abilityId) {
         if (!GemsBalance.v().synergies().enabled()) {
             return;
         }
 
-        long now = player.getEntityWorld().getTime();
-        UUID playerId = player.getUuid();
+        long now = player.level().getGameTime();
+        UUID playerId = player.getUUID();
 
         // Add this cast to recent casts
         RECENT_CASTS.computeIfAbsent(playerId, k -> new ArrayList<>())
@@ -65,8 +65,8 @@ public final class SynergyRuntime {
     /**
      * Check for synergies involving the player and their trusted allies.
      */
-    private static void checkSynergies(ServerPlayerEntity player, long now) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void checkSynergies(ServerPlayer player, long now) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
@@ -76,8 +76,8 @@ public final class SynergyRuntime {
         Set<UUID> checkedPlayers = new HashSet<>();
 
         // Add player's casts
-        collectRecentCasts(player.getUuid(), now, allRecentCasts);
-        checkedPlayers.add(player.getUuid());
+        collectRecentCasts(player.getUUID(), now, allRecentCasts);
+        checkedPlayers.add(player.getUUID());
 
         // Add trusted allies' casts
         for (UUID trustedId : GemTrust.getTrusted(player)) {
@@ -88,10 +88,10 @@ public final class SynergyRuntime {
         }
 
         // Also check other online players who trust this player
-        for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
-            if (!checkedPlayers.contains(other.getUuid()) && GemTrust.isTrusted(other, player)) {
-                collectRecentCasts(other.getUuid(), now, allRecentCasts);
-                checkedPlayers.add(other.getUuid());
+        for (ServerPlayer other : server.getPlayerList().getPlayers()) {
+            if (!checkedPlayers.contains(other.getUUID()) && GemTrust.isTrusted(other, player)) {
+                collectRecentCasts(other.getUUID(), now, allRecentCasts);
+                checkedPlayers.add(other.getUUID());
             }
         }
 
@@ -195,7 +195,7 @@ public final class SynergyRuntime {
                 return;
             }
 
-            ServerPlayerEntity participant = server.getPlayerManager().getPlayer(recentCast.playerId());
+            ServerPlayer participant = server.getPlayerList().getPlayer(recentCast.playerId());
             if (participant == null) {
                 return;
             }
@@ -231,7 +231,7 @@ public final class SynergyRuntime {
 
         // Clear consumed casts
         for (SynergyDefinition.SynergyParticipant p : participants) {
-            List<RecentCast> casts = RECENT_CASTS.get(p.player().getUuid());
+            List<RecentCast> casts = RECENT_CASTS.get(p.player().getUUID());
             if (casts != null) {
                 casts.removeIf(c -> c.gem() == p.gem() && c.castTick() == p.castTick());
             }
@@ -246,25 +246,25 @@ public final class SynergyRuntime {
         synergy.effect().apply(participants);
 
         for (SynergyDefinition.SynergyParticipant p : participants) {
-            GemsStats.recordSynergyTrigger(p.player(), Identifier.of(GemsMod.MOD_ID, synergy.id()));
+            GemsStats.recordSynergyTrigger(p.player(), Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, synergy.id()));
         }
 
         // Notify all participants if notifications are enabled
         if (GemsBalance.v().synergies().showNotifications()) {
-            Text message = Text.translatable("gems.synergy.triggered", Text.translatable(synergy.translationKey()))
-                    .formatted(Formatting.GOLD, Formatting.BOLD);
+            Component message = Component.translatable("gems.synergy.triggered", Component.translatable(synergy.translationKey()))
+                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
 
             for (SynergyDefinition.SynergyParticipant p : participants) {
                 // Action bar HUD feedback for ~3 seconds
                 sendActionBarForDuration(p.player(), message, 60);
                 // Light VFX/SFX feedback
-                var world = p.player().getEntityWorld();
-                world.spawnParticles(net.minecraft.particle.ParticleTypes.END_ROD,
+                var world = p.player().level();
+                world.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
                         p.player().getX(), p.player().getY() + 1.0, p.player().getZ(),
                         18, 0.6, 0.4, 0.6, 0.02);
                 com.feel.gems.power.runtime.AbilityFeedback.sound(
                     p.player(),
-                    net.minecraft.sound.SoundEvents.BLOCK_BEACON_POWER_SELECT,
+                    net.minecraft.sounds.SoundEvents.BEACON_POWER_SELECT,
                     0.7f,
                     1.1f
                 );
@@ -272,9 +272,9 @@ public final class SynergyRuntime {
         }
     }
 
-    private static void sendActionBarForDuration(ServerPlayerEntity player, Text message, int durationTicks) {
-        player.sendMessage(message, true);
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void sendActionBarForDuration(ServerPlayer player, Component message, int durationTicks) {
+        player.sendSystemMessage(message, true);
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
@@ -286,7 +286,7 @@ public final class SynergyRuntime {
                 if (!player.isAlive()) {
                     return;
                 }
-                player.sendMessage(message, true);
+                player.sendSystemMessage(message, true);
             });
         }
     }
@@ -296,10 +296,10 @@ public final class SynergyRuntime {
             return true;
         }
         for (int i = 0; i < participants.size(); i++) {
-            ServerPlayerEntity a = participants.get(i).player();
+            ServerPlayer a = participants.get(i).player();
             for (int j = i + 1; j < participants.size(); j++) {
-                ServerPlayerEntity b = participants.get(j).player();
-                if (a.getUuid().equals(b.getUuid())) {
+                ServerPlayer b = participants.get(j).player();
+                if (a.getUUID().equals(b.getUUID())) {
                     continue;
                 }
                 if (!GemTrust.isTrusted(a, b) || !GemTrust.isTrusted(b, a)) {

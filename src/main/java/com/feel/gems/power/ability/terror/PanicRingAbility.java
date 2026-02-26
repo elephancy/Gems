@@ -4,13 +4,13 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.entity.TntEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.phys.Vec3;
 
 
 public final class PanicRingAbility implements GemAbility {
@@ -35,28 +35,28 @@ public final class PanicRingAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int count = GemsBalance.v().terror().panicRingTntCount();
         if (count <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.terror.panic_ring.no_tnt"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.terror.panic_ring.no_tnt"), true);
             return false;
         }
 
-        var world = player.getEntityWorld();
-        Vec3d center = player.getEntityPos();
+        var world = player.level();
+        Vec3 center = player.position();
         double radius = GemsBalance.v().terror().panicRingRadiusBlocks();
         int fuse = GemsBalance.v().terror().panicRingFuseTicks();
 
         for (int i = 0; i < count; i++) {
             double angle = (Math.PI * 2.0D) * (i / (double) count);
-            Vec3d pos = center.add(Math.cos(angle) * radius, 0.1D, Math.sin(angle) * radius);
-            TntEntity tnt = new TntEntity(world, pos.x, pos.y, pos.z, player);
+            Vec3 pos = center.add(Math.cos(angle) * radius, 0.1D, Math.sin(angle) * radius);
+            PrimedTnt tnt = new PrimedTnt(world, pos.x, pos.y, pos.z, player);
             tnt.setFuse(fuse);
-            world.spawnEntity(tnt);
+            world.addFreshEntity(tnt);
         }
 
         AbilityFeedback.burst(player, ParticleTypes.SMOKE, 18, 0.35D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_TNT_PRIMED, 1.0F, 1.0F);
+        AbilityFeedback.sound(player, SoundEvents.TNT_PRIMED, 1.0F, 1.0F);
         return true;
     }
 }

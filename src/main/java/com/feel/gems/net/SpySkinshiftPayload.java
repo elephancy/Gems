@@ -3,36 +3,36 @@ package com.feel.gems.net;
 import com.feel.gems.GemsMod;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 
-public record SpySkinshiftPayload(UUID player, Optional<UUID> target) implements CustomPayload {
-    public static final Id<SpySkinshiftPayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "spy_skinshift"));
-    public static final PacketCodec<RegistryByteBuf, SpySkinshiftPayload> CODEC = PacketCodec.ofStatic(
+public record SpySkinshiftPayload(UUID player, Optional<UUID> target) implements CustomPacketPayload {
+    public static final Type<SpySkinshiftPayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "spy_skinshift"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, SpySkinshiftPayload> CODEC = StreamCodec.of(
             SpySkinshiftPayload::write,
             SpySkinshiftPayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-    private static void write(RegistryByteBuf buf, SpySkinshiftPayload payload) {
-        buf.writeUuid(payload.player());
+    private static void write(RegistryFriendlyByteBuf buf, SpySkinshiftPayload payload) {
+        buf.writeUUID(payload.player());
         buf.writeBoolean(payload.target().isPresent());
-        payload.target().ifPresent(buf::writeUuid);
+        payload.target().ifPresent(buf::writeUUID);
     }
 
-    private static SpySkinshiftPayload read(RegistryByteBuf buf) {
-        UUID player = buf.readUuid();
+    private static SpySkinshiftPayload read(RegistryFriendlyByteBuf buf) {
+        UUID player = buf.readUUID();
         boolean hasTarget = buf.readBoolean();
         if (!hasTarget) {
             return new SpySkinshiftPayload(player, Optional.empty());
         }
-        return new SpySkinshiftPayload(player, Optional.of(buf.readUuid()));
+        return new SpySkinshiftPayload(player, Optional.of(buf.readUUID()));
     }
 }

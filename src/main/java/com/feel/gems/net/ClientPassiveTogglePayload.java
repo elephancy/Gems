@@ -1,31 +1,31 @@
 package com.feel.gems.net;
 
 import com.feel.gems.GemsMod;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 
 
 
-public record ClientPassiveTogglePayload(boolean enabled) implements CustomPayload {
-    public static final Id<ClientPassiveTogglePayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "client_passive_toggle"));
-    public static final PacketCodec<RegistryByteBuf, ClientPassiveTogglePayload> CODEC = PacketCodec.ofStatic(
+public record ClientPassiveTogglePayload(boolean enabled) implements CustomPacketPayload {
+    public static final Type<ClientPassiveTogglePayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "client_passive_toggle"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, ClientPassiveTogglePayload> CODEC = StreamCodec.of(
             ClientPassiveTogglePayload::write,
             ClientPassiveTogglePayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-    private static void write(RegistryByteBuf buf, ClientPassiveTogglePayload payload) {
+    private static void write(RegistryFriendlyByteBuf buf, ClientPassiveTogglePayload payload) {
         buf.writeBoolean(payload.enabled());
     }
 
-    private static ClientPassiveTogglePayload read(RegistryByteBuf buf) {
+    private static ClientPassiveTogglePayload read(RegistryFriendlyByteBuf buf) {
         return new ClientPassiveTogglePayload(buf.readBoolean());
     }
 }

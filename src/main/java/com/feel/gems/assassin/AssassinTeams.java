@@ -1,15 +1,15 @@
 package com.feel.gems.assassin;
 
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardCriterion;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.Team;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.numbers.StyledFormat;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.scoreboard.ScoreHolder;
-import net.minecraft.scoreboard.number.StyledNumberFormat;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.ScoreHolder;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
 
 
@@ -21,47 +21,47 @@ public final class AssassinTeams {
     private AssassinTeams() {
     }
 
-    public static void sync(MinecraftServer server, ServerPlayerEntity player) {
+    public static void sync(MinecraftServer server, ServerPlayer player) {
         if (server == null) {
             return;
         }
         Scoreboard scoreboard = server.getScoreboard();
-        Team team = scoreboard.getTeam(TEAM_NAME);
+        PlayerTeam team = scoreboard.getPlayerTeam(TEAM_NAME);
         if (team == null) {
-            team = scoreboard.addTeam(TEAM_NAME);
-            team.setColor(Formatting.RED);
-            team.setDisplayName(Text.literal("Assassins").formatted(Formatting.RED));
+            team = scoreboard.addPlayerTeam(TEAM_NAME);
+            team.setColor(java.util.Optional.of(net.minecraft.world.scores.TeamColor.RED));
+            team.setDisplayName(Component.literal("Assassins").withStyle(ChatFormatting.RED));
             // No prefix/suffix: keep it as “names are red in tab”, matching the requested UX.
         }
 
-        String entry = player.getNameForScoreboard();
+        String entry = player.getScoreboardName();
         boolean shouldBeMember = AssassinState.isAssassin(player);
-        boolean isMember = team.getPlayerList().contains(entry);
+        boolean isMember = team.getPlayers().contains(entry);
         if (shouldBeMember && !isMember) {
-            scoreboard.addScoreHolderToTeam(entry, team);
+            scoreboard.addPlayerToTeam(entry, team);
         } else if (!shouldBeMember && isMember) {
-            scoreboard.removeScoreHolderFromTeam(entry, team);
+            scoreboard.removePlayerFromTeam(entry, team);
         }
 
         // Show assassin points in the player list (tab) via a LIST scoreboard objective.
-        var obj = scoreboard.getNullableObjective(POINTS_OBJECTIVE_NAME);
+        var obj = scoreboard.getObjective(POINTS_OBJECTIVE_NAME);
         if (obj == null) {
             obj = scoreboard.addObjective(
                     POINTS_OBJECTIVE_NAME,
-                    ScoreboardCriterion.DUMMY,
-                    Text.translatable("gems.assassin.points_objective").formatted(Formatting.RED),
-                    ScoreboardCriterion.RenderType.INTEGER,
+                    ObjectiveCriteria.DUMMY,
+                    Component.translatable("gems.assassin.points_objective").withStyle(ChatFormatting.RED),
+                    ObjectiveCriteria.RenderType.INTEGER,
                     false,
-                    StyledNumberFormat.RED
+                    StyledFormat.SIDEBAR_DEFAULT
             );
         }
-        scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.LIST, obj);
+        scoreboard.setDisplayObjective(DisplaySlot.LIST, obj);
 
-        ScoreHolder holder = ScoreHolder.fromName(entry);
+        ScoreHolder holder = ScoreHolder.forNameOnly(entry);
         if (shouldBeMember) {
-            scoreboard.getOrCreateScore(holder, obj).setScore(AssassinState.assassinPoints(player));
+            scoreboard.getOrCreatePlayerScore(holder, obj).set(AssassinState.assassinPoints(player));
         } else {
-            scoreboard.removeScore(holder, obj);
+            scoreboard.resetSinglePlayerScore(holder, obj);
         }
     }
 }

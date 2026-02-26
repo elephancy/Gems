@@ -7,14 +7,14 @@ import com.feel.gems.entity.ShadowCloneEntity;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.state.PlayerStateManager;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.phys.Vec3;
 
 public final class TricksterMirageRuntime {
     private static final String MIRAGE_CLONE_UUID_KEY = "trickster_mirage_clone_uuid";
@@ -25,7 +25,7 @@ public final class TricksterMirageRuntime {
 
     private TricksterMirageRuntime() {}
 
-    public static void createMirage(ServerPlayerEntity player, UUID cloneUuid, Vec3d offset, long endTime) {
+    public static void createMirage(ServerPlayer player, UUID cloneUuid, Vec3 offset, long endTime) {
         PlayerStateManager.setPersistent(player, MIRAGE_CLONE_UUID_KEY, cloneUuid.toString());
         PlayerStateManager.setPersistent(player, MIRAGE_END_KEY, String.valueOf(endTime));
         PlayerStateManager.setPersistent(player, MIRAGE_OFFSET_X_KEY, String.valueOf(offset.x));
@@ -33,18 +33,18 @@ public final class TricksterMirageRuntime {
         PlayerStateManager.setPersistent(player, MIRAGE_OFFSET_Z_KEY, String.valueOf(offset.z));
     }
 
-    public static boolean hasMirages(ServerPlayerEntity player) {
+    public static boolean hasMirages(ServerPlayer player) {
         return getCloneUuid(player) != null;
     }
 
-    public static void tickMirage(ServerPlayerEntity player) {
+    public static void tickMirage(ServerPlayer player) {
         UUID cloneUuid = getCloneUuid(player);
         if (cloneUuid == null) {
             return;
         }
-        ServerWorld world = player.getEntityWorld();
+        ServerLevel world = player.level();
         long endTime = getEndTime(player);
-        if (endTime > 0 && world.getTime() > endTime) {
+        if (endTime > 0 && world.getGameTime() > endTime) {
             Entity entity = world.getEntity(cloneUuid);
             if (entity != null) {
                 entity.discard();
@@ -59,26 +59,26 @@ public final class TricksterMirageRuntime {
             clearMirages(player);
             return;
         }
-        Vec3d offset = getOffset(player);
-        Vec3d nextPos = player.getEntityPos().add(offset);
-        clone.refreshPositionAndAngles(nextPos.x, nextPos.y, nextPos.z, player.getYaw(), player.getPitch());
-        clone.setHeadYaw(player.getHeadYaw());
-        boolean sneaking = player.isSneaking();
-        clone.setSneaking(sneaking);
-        clone.setPose(sneaking ? EntityPose.CROUCHING : EntityPose.STANDING);
+        Vec3 offset = getOffset(player);
+        Vec3 nextPos = player.position().add(offset);
+        clone.snapTo(nextPos.x, nextPos.y, nextPos.z, player.getYRot(), player.getXRot());
+        clone.setYHeadRot(player.getYHeadRot());
+        boolean sneaking = player.isShiftKeyDown();
+        clone.setShiftKeyDown(sneaking);
+        clone.setPose(sneaking ? Pose.CROUCHING : Pose.STANDING);
         clone.setSprinting(player.isSprinting());
-        clone.setVelocity(Vec3d.ZERO);
+        clone.setDeltaMovement(Vec3.ZERO);
     }
 
     public static void onMirageCloneHit(ShadowCloneEntity clone) {
-        if (clone == null || !(clone.getEntityWorld() instanceof ServerWorld world)) {
+        if (clone == null || !(clone.level() instanceof ServerLevel world)) {
             return;
         }
         UUID ownerId = clone.getOwnerUuid();
         if (ownerId == null || world.getServer() == null) {
             return;
         }
-        ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(ownerId);
+        ServerPlayer owner = world.getServer().getPlayerList().getPlayer(ownerId);
         if (owner == null) {
             return;
         }
@@ -86,7 +86,7 @@ public final class TricksterMirageRuntime {
         clearMirages(owner);
     }
 
-    public static void clearMirages(ServerPlayerEntity player) {
+    public static void clearMirages(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, MIRAGE_CLONE_UUID_KEY);
         PlayerStateManager.clearPersistent(player, MIRAGE_END_KEY);
         PlayerStateManager.clearPersistent(player, MIRAGE_OFFSET_X_KEY);
@@ -94,22 +94,22 @@ public final class TricksterMirageRuntime {
         PlayerStateManager.clearPersistent(player, MIRAGE_OFFSET_Z_KEY);
     }
 
-    public static Vec3d getMiragePosition(ServerPlayerEntity player) {
+    public static Vec3 getMiragePosition(ServerPlayer player) {
         UUID cloneUuid = getCloneUuid(player);
         if (cloneUuid == null) {
             return null;
         }
-        return player.getEntityPos().add(getOffset(player));
+        return player.position().add(getOffset(player));
     }
 
-    public static void tickMirageParticles(ServerPlayerEntity player) {
-        Vec3d pos = getMiragePosition(player);
+    public static void tickMirageParticles(ServerPlayer player) {
+        Vec3 pos = getMiragePosition(player);
         if (pos == null) {
             return;
         }
-        ServerWorld world = player.getEntityWorld();
-        long time = world.getTime();
-        Vec3d particlePos = pos.add(0, 1.0, 0);
+        ServerLevel world = player.level();
+        long time = world.getGameTime();
+        Vec3 particlePos = pos.add(0, 1.0, 0);
 
         double angle = (time * 0.15) % (2 * Math.PI);
         double ringRadius = 0.9;
@@ -130,7 +130,7 @@ public final class TricksterMirageRuntime {
         }
     }
 
-    private static UUID getCloneUuid(ServerPlayerEntity player) {
+    private static UUID getCloneUuid(ServerPlayer player) {
         String raw = PlayerStateManager.getPersistent(player, MIRAGE_CLONE_UUID_KEY);
         if (raw == null || raw.isBlank()) {
             return null;
@@ -142,7 +142,7 @@ public final class TricksterMirageRuntime {
         }
     }
 
-    private static long getEndTime(ServerPlayerEntity player) {
+    private static long getEndTime(ServerPlayer player) {
         String raw = PlayerStateManager.getPersistent(player, MIRAGE_END_KEY);
         if (raw == null || raw.isBlank()) {
             return 0L;
@@ -154,28 +154,28 @@ public final class TricksterMirageRuntime {
         }
     }
 
-    private static Vec3d getOffset(ServerPlayerEntity player) {
+    private static Vec3 getOffset(ServerPlayer player) {
         String xStr = PlayerStateManager.getPersistent(player, MIRAGE_OFFSET_X_KEY);
         String yStr = PlayerStateManager.getPersistent(player, MIRAGE_OFFSET_Y_KEY);
         String zStr = PlayerStateManager.getPersistent(player, MIRAGE_OFFSET_Z_KEY);
         if (xStr == null || yStr == null || zStr == null) {
-            return Vec3d.ZERO;
+            return Vec3.ZERO;
         }
         try {
-            return new Vec3d(Double.parseDouble(xStr), Double.parseDouble(yStr), Double.parseDouble(zStr));
+            return new Vec3(Double.parseDouble(xStr), Double.parseDouble(yStr), Double.parseDouble(zStr));
         } catch (NumberFormatException e) {
-            return Vec3d.ZERO;
+            return Vec3.ZERO;
         }
     }
 
-    private static void applyBuff(ServerPlayerEntity player) {
+    private static void applyBuff(ServerPlayer player) {
         var cfg = GemsBalance.v().trickster();
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.TRICKSTER, cfg.mirageBuffDurationTicks());
         if (durationTicks <= 0) {
             return;
         }
         int amp = Math.max(0, cfg.mirageBuffAmplifier());
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, durationTicks, amp, true, false, true));
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, durationTicks, 0, true, false, true));
+        player.addEffect(new MobEffectInstance(MobEffects.SPEED, durationTicks, amp, true, false, true));
+        player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, durationTicks, 0, true, false, true));
     }
 }

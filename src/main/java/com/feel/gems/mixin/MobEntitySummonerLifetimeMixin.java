@@ -3,9 +3,9 @@ package com.feel.gems.mixin;
 import com.feel.gems.power.gem.summoner.SummonerSummons;
 import com.feel.gems.util.GemsTime;
 import java.util.UUID;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Mob;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -14,18 +14,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 
 
-@Mixin(MobEntity.class)
+@Mixin(Mob.class)
 public abstract class MobEntitySummonerLifetimeMixin {
     @Inject(method = "tick", at = @At("HEAD"), require = 0)
     private void gems$summonerDespawnIfExpiredOrOwnerOffline(CallbackInfo ci) {
-        MobEntity self = (MobEntity) (Object) this;
-        if (!(self.getEntityWorld() instanceof ServerWorld world)) {
+        Mob self = (Mob) (Object) this;
+        if (!(self.level() instanceof ServerLevel world)) {
             return;
         }
         if (!SummonerSummons.isSummon(self)) {
             return;
         }
-        if (self.getCommandTags().contains("gems_spectral_blade")) {
+        if (self.entityTags().contains("gems_spectral_blade")) {
             return;
         }
 
@@ -34,7 +34,7 @@ public abstract class MobEntitySummonerLifetimeMixin {
             self.discard();
             return;
         }
-        ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(ownerUuid);
+        ServerPlayer owner = world.getServer().getPlayerList().getPlayer(ownerUuid);
         if (owner == null) {
             self.discard();
             return;

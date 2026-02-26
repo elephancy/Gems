@@ -10,22 +10,22 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.datafixer.DataFixTypes;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Uuids;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.PersistentStateType;
-import net.minecraft.world.World;
-import net.minecraft.block.Blocks;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Server-wide duel runtime used by Challenger's Gauntlet.
@@ -45,12 +45,12 @@ public final class LegendaryDuels {
     private LegendaryDuels() {
     }
 
-    private static final PersistentStateType<State> STATE_TYPE =
-            new PersistentStateType<>(STATE_KEY, State::new, State.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<State> STATE_TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(STATE_KEY), State::new, State.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
 
     private static State get(MinecraftServer server) {
-        PersistentStateManager mgr = server.getWorld(World.OVERWORLD).getPersistentStateManager();
-        return mgr.getOrCreate(STATE_TYPE);
+        SavedDataStorage mgr = server.getLevel(Level.OVERWORLD).getDataStorage();
+        return mgr.computeIfAbsent(STATE_TYPE);
     }
 
     public static boolean isInGauntletDuel(MinecraftServer server, UUID player) {
@@ -58,8 +58,8 @@ public final class LegendaryDuels {
         return state.playerToDuelId.containsKey(player);
     }
 
-    public static boolean startGauntletDuel(ServerPlayerEntity challenger, ServerPlayerEntity target) {
-        MinecraftServer server = challenger.getEntityWorld().getServer();
+    public static boolean startGauntletDuel(ServerPlayer challenger, ServerPlayer target) {
+        MinecraftServer server = challenger.level().getServer();
         if (server == null) {
             return false;
         }
@@ -69,31 +69,31 @@ public final class LegendaryDuels {
         if (target.isSpectator() || challenger.isSpectator()) {
             return false;
         }
-        if (challenger.getEntityWorld() != target.getEntityWorld()) {
+        if (challenger.level() != target.level()) {
             return false;
         }
 
         State state = get(server);
-        if (state.playerToDuelId.containsKey(challenger.getUuid()) || state.playerToDuelId.containsKey(target.getUuid())) {
+        if (state.playerToDuelId.containsKey(challenger.getUUID()) || state.playerToDuelId.containsKey(target.getUUID())) {
             return false;
         }
 
-        ServerWorld arenaWorld = server.getOverworld();
+        ServerLevel arenaWorld = server.overworld();
         int arenaIndex = state.nextArenaIndex++;
-        state.markDirty();
+        state.setDirty();
 
         BlockPos center = arenaCenter(arenaWorld, arenaIndex);
         buildArena(arenaWorld, center);
 
         Duel duel = new Duel(
                 UUID.randomUUID(),
-                challenger.getUuid(),
-                target.getUuid(),
+                challenger.getUUID(),
+                target.getUUID(),
                 ReturnLocation.from(challenger),
                 ReturnLocation.from(target),
                 center,
-                arenaWorld.getRegistryKey().getValue(),
-                arenaWorld.getTime() + DUEL_TIMEOUT_TICKS
+                arenaWorld.dimension().identifier(),
+                arenaWorld.getGameTime() + DUEL_TIMEOUT_TICKS
         );
 
         state.addDuel(duel);
@@ -110,14 +110,14 @@ public final class LegendaryDuels {
             return;
         }
 
-        long now = server.getOverworld().getTime();
+        long now = server.overworld().getGameTime();
         for (Duel duel : java.util.List.copyOf(state.duels.values())) {
             if (now < duel.endsAtTick) {
                 continue;
             }
             // Timeout: return anyone still online and clean up.
-            ServerPlayerEntity a = server.getPlayerManager().getPlayer(duel.playerA);
-            ServerPlayerEntity b = server.getPlayerManager().getPlayer(duel.playerB);
+            ServerPlayer a = server.getPlayerList().getPlayer(duel.playerA);
+            ServerPlayer b = server.getPlayerList().getPlayer(duel.playerB);
             if (a != null) {
                 duel.returnA.teleport(server, a);
             }
@@ -129,25 +129,25 @@ public final class LegendaryDuels {
         }
     }
 
-    public static void onDisconnect(MinecraftServer server, ServerPlayerEntity player) {
+    public static void onDisconnect(MinecraftServer server, ServerPlayer player) {
         if (server == null || player == null) {
             return;
         }
         State state = get(server);
-        UUID duelId = state.playerToDuelId.get(player.getUuid());
+        UUID duelId = state.playerToDuelId.get(player.getUUID());
         if (duelId == null) {
             return;
         }
         Duel duel = state.duels.get(duelId);
         if (duel == null) {
-            state.playerToDuelId.remove(player.getUuid());
-            state.markDirty();
+            state.playerToDuelId.remove(player.getUUID());
+            state.setDirty();
             return;
         }
 
         // Cancel duel: return both participants (best-effort) and clean up.
-        ServerPlayerEntity a = server.getPlayerManager().getPlayer(duel.playerA);
-        ServerPlayerEntity b = server.getPlayerManager().getPlayer(duel.playerB);
+        ServerPlayer a = server.getPlayerList().getPlayer(duel.playerA);
+        ServerPlayer b = server.getPlayerList().getPlayer(duel.playerB);
         if (a != null) {
             duel.returnA.teleport(server, a);
         }
@@ -162,33 +162,33 @@ public final class LegendaryDuels {
      * Called from {@code GemsPlayerDeath.onDeathTail} so we can end duels even when the death
      * had no player attacker (environmental death).
      */
-    public static void onDuelParticipantDeathTail(ServerPlayerEntity victim, DamageSource source) {
+    public static void onDuelParticipantDeathTail(ServerPlayer victim, DamageSource source) {
         if (victim == null) {
             return;
         }
-        MinecraftServer server = victim.getEntityWorld().getServer();
+        MinecraftServer server = victim.level().getServer();
         if (server == null) {
             return;
         }
 
         State state = get(server);
-        UUID duelId = state.playerToDuelId.get(victim.getUuid());
+        UUID duelId = state.playerToDuelId.get(victim.getUUID());
         if (duelId == null) {
             return;
         }
         Duel duel = state.duels.get(duelId);
         if (duel == null) {
-            state.playerToDuelId.remove(victim.getUuid());
-            state.markDirty();
+            state.playerToDuelId.remove(victim.getUUID());
+            state.setDirty();
             return;
         }
 
-        UUID opponentId = duel.playerA.equals(victim.getUuid()) ? duel.playerB : duel.playerA;
-        ServerPlayerEntity opponent = server.getPlayerManager().getPlayer(opponentId);
+        UUID opponentId = duel.playerA.equals(victim.getUUID()) ? duel.playerB : duel.playerA;
+        ServerPlayer opponent = server.getPlayerList().getPlayer(opponentId);
 
         // If the duel ended by a non-opponent kill, award the opponent the +1 energy the core death logic won't.
-        Entity attacker = source == null ? null : source.getAttacker();
-        boolean killedByOpponent = attacker instanceof ServerPlayerEntity attackerPlayer && attackerPlayer.getUuid().equals(opponentId);
+        Entity attacker = source == null ? null : source.getEntity();
+        boolean killedByOpponent = attacker instanceof ServerPlayer attackerPlayer && attackerPlayer.getUUID().equals(opponentId);
         if (!killedByOpponent && opponent != null) {
             GemPlayerState.initIfNeeded(opponent);
             GemPlayerState.addEnergy(opponent, 1);
@@ -210,51 +210,51 @@ public final class LegendaryDuels {
         }
 
         // Store pending return for the victim's next respawned player entity.
-        ReturnLocation victimReturn = victim.getUuid().equals(duel.playerA) ? duel.returnA : duel.returnB;
-        state.pendingReturn.put(victim.getUuid(), victimReturn);
-        state.markDirty();
+        ReturnLocation victimReturn = victim.getUUID().equals(duel.playerA) ? duel.returnA : duel.returnB;
+        state.pendingReturn.put(victim.getUUID(), victimReturn);
+        state.setDirty();
 
         cleanupArena(server, duel);
         state.removeDuel(duel.duelId);
     }
 
-    public static void onPlayerCopyFrom(ServerPlayerEntity oldPlayer, ServerPlayerEntity newPlayer, boolean alive) {
+    public static void onPlayerCopyFrom(ServerPlayer oldPlayer, ServerPlayer newPlayer, boolean alive) {
         if (alive) {
             return;
         }
-        MinecraftServer server = newPlayer.getEntityWorld().getServer();
+        MinecraftServer server = newPlayer.level().getServer();
         if (server == null) {
             return;
         }
         State state = get(server);
-        ReturnLocation dest = state.pendingReturn.remove(oldPlayer.getUuid());
+        ReturnLocation dest = state.pendingReturn.remove(oldPlayer.getUUID());
         if (dest == null) {
             return;
         }
-        state.markDirty();
+        state.setDirty();
         dest.teleport(server, newPlayer);
     }
 
-    private static BlockPos arenaCenter(ServerWorld world, int index) {
-        BlockPos spawn = world.getSpawnPoint().getPos();
+    private static BlockPos arenaCenter(ServerLevel world, int index) {
+        BlockPos spawn = world.getRespawnData().pos();
         int gridWidth = 16;
         int gx = index % gridWidth;
         int gz = index / gridWidth;
         int x = spawn.getX() + (gx * ARENA_SPACING);
         int z = spawn.getZ() + (gz * ARENA_SPACING);
-        int maxY = world.getBottomY() + world.getDimension().height() - 1;
-        int y = Math.max(world.getBottomY() + 20, maxY - 20);
+        int maxY = world.getMinY() + world.dimensionType().height() - 1;
+        int y = Math.max(world.getMinY() + 20, maxY - 20);
         return new BlockPos(x, y, z);
     }
 
-    private static void teleportIntoArena(ServerPlayerEntity player, ServerWorld arena, BlockPos center, int dx, int dz, float yaw) {
+    private static void teleportIntoArena(ServerPlayer player, ServerLevel arena, BlockPos center, int dx, int dz, float yaw) {
         double x = center.getX() + 0.5D + dx;
         double y = center.getY() + 1.1D;
         double z = center.getZ() + 0.5D + dz;
         GemsTeleport.teleport(player, arena, x, y, z, yaw, 0.0F);
     }
 
-    private static void buildArena(ServerWorld world, BlockPos center) {
+    private static void buildArena(ServerLevel world, BlockPos center) {
         // Ensure chunk is loaded.
         world.getChunk(center);
 
@@ -267,18 +267,18 @@ public final class LegendaryDuels {
 
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
-                world.setBlockState(new BlockPos(x, floorY, z), Blocks.BARRIER.getDefaultState());
-                world.setBlockState(new BlockPos(x, ceilingY, z), Blocks.BARRIER.getDefaultState());
+                world.setBlockAndUpdate(new BlockPos(x, floorY, z), Blocks.BARRIER.defaultBlockState());
+                world.setBlockAndUpdate(new BlockPos(x, ceilingY, z), Blocks.BARRIER.defaultBlockState());
             }
         }
         for (int y = floorY + 1; y <= floorY + ARENA_HEIGHT; y++) {
             for (int x = minX; x <= maxX; x++) {
-                world.setBlockState(new BlockPos(x, y, minZ), Blocks.BARRIER.getDefaultState());
-                world.setBlockState(new BlockPos(x, y, maxZ), Blocks.BARRIER.getDefaultState());
+                world.setBlockAndUpdate(new BlockPos(x, y, minZ), Blocks.BARRIER.defaultBlockState());
+                world.setBlockAndUpdate(new BlockPos(x, y, maxZ), Blocks.BARRIER.defaultBlockState());
             }
             for (int z = minZ; z <= maxZ; z++) {
-                world.setBlockState(new BlockPos(minX, y, z), Blocks.BARRIER.getDefaultState());
-                world.setBlockState(new BlockPos(maxX, y, z), Blocks.BARRIER.getDefaultState());
+                world.setBlockAndUpdate(new BlockPos(minX, y, z), Blocks.BARRIER.defaultBlockState());
+                world.setBlockAndUpdate(new BlockPos(maxX, y, z), Blocks.BARRIER.defaultBlockState());
             }
         }
 
@@ -286,33 +286,33 @@ public final class LegendaryDuels {
         for (int x = minX + 1; x <= maxX - 1; x++) {
             for (int z = minZ + 1; z <= maxZ - 1; z++) {
                 for (int y = floorY + 1; y <= ceilingY - 1; y++) {
-                    world.setBlockState(new BlockPos(x, y, z), Blocks.AIR.getDefaultState());
+                    world.setBlockAndUpdate(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState());
                 }
             }
         }
     }
 
-    private static Box arenaBox(BlockPos center) {
+    private static AABB arenaBox(BlockPos center) {
         int minX = center.getX() - ARENA_HALF_SIZE;
         int maxX = center.getX() + ARENA_HALF_SIZE;
         int minZ = center.getZ() - ARENA_HALF_SIZE;
         int maxZ = center.getZ() + ARENA_HALF_SIZE;
         int minY = center.getY();
         int maxY = center.getY() + ARENA_HEIGHT + 2;
-        return new Box(minX, minY, minZ, maxX + 1, maxY + 1, maxZ + 1);
+        return new AABB(minX, minY, minZ, maxX + 1, maxY + 1, maxZ + 1);
     }
 
     private static void moveArenaDrops(MinecraftServer server, Duel duel, ReturnLocation destination) {
         if (destination == null) {
             return;
         }
-        ServerWorld arenaWorld = server.getWorld(World.OVERWORLD);
+        ServerLevel arenaWorld = server.getLevel(Level.OVERWORLD);
         if (arenaWorld == null) {
             return;
         }
-        Box box = arenaBox(duel.arenaCenter);
+        AABB box = arenaBox(duel.arenaCenter);
 
-        ServerWorld destWorld = destination.world(server);
+        ServerLevel destWorld = destination.world(server);
         if (destWorld == null) {
             return;
         }
@@ -320,21 +320,21 @@ public final class LegendaryDuels {
         double y = destination.pos.getY() + 1.0D;
         double z = destination.pos.getZ() + 0.5D;
 
-        for (ItemEntity item : arenaWorld.getEntitiesByClass(ItemEntity.class, box, e -> true)) {
-            var stack = item.getStack().copy();
+        for (ItemEntity item : arenaWorld.getEntitiesOfClass(ItemEntity.class, box, e -> true)) {
+            var stack = item.getItem().copy();
             if (stack.isEmpty()) {
                 item.discard();
                 continue;
             }
             ItemEntity moved = new ItemEntity(destWorld, x, y, z, stack);
-            moved.setPickupDelay(10);
-            destWorld.spawnEntity(moved);
+            moved.setPickUpDelay(10);
+            destWorld.addFreshEntity(moved);
             item.discard();
         }
     }
 
     private static void cleanupArena(MinecraftServer server, Duel duel) {
-        ServerWorld world = server.getWorld(World.OVERWORLD);
+        ServerLevel world = server.getLevel(Level.OVERWORLD);
         if (world == null) {
             return;
         }
@@ -349,17 +349,17 @@ public final class LegendaryDuels {
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 for (int y = minY; y <= maxY; y++) {
-                    world.setBlockState(new BlockPos(x, y, z), Blocks.AIR.getDefaultState());
+                    world.setBlockAndUpdate(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState());
                 }
             }
         }
     }
 
-    private static final class State extends PersistentState {
+    private static final class State extends SavedData {
         static final Codec<State> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.INT.optionalFieldOf("nextArenaIndex", 0).forGetter(s -> s.nextArenaIndex),
-                Codec.unboundedMap(Uuids.CODEC, Duel.CODEC).optionalFieldOf("duels", Map.of()).forGetter(s -> s.duels),
-                Codec.unboundedMap(Uuids.CODEC, ReturnLocation.CODEC).optionalFieldOf("pendingReturn", Map.of()).forGetter(s -> s.pendingReturn)
+                Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, Duel.CODEC).optionalFieldOf("duels", Map.of()).forGetter(s -> s.duels),
+                Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, ReturnLocation.CODEC).optionalFieldOf("pendingReturn", Map.of()).forGetter(s -> s.pendingReturn)
         ).apply(instance, State::new));
 
         private int nextArenaIndex;
@@ -392,7 +392,7 @@ public final class LegendaryDuels {
             this.duels.put(duel.duelId, duel);
             this.playerToDuelId.put(duel.playerA, duel.duelId);
             this.playerToDuelId.put(duel.playerB, duel.duelId);
-            markDirty();
+            setDirty();
         }
 
         void removeDuel(UUID duelId) {
@@ -401,7 +401,7 @@ public final class LegendaryDuels {
                 this.playerToDuelId.remove(duel.playerA);
                 this.playerToDuelId.remove(duel.playerB);
             }
-            markDirty();
+            setDirty();
         }
     }
 
@@ -413,32 +413,32 @@ public final class LegendaryDuels {
                 Codec.FLOAT.fieldOf("pitch").forGetter(ReturnLocation::pitch)
         ).apply(instance, ReturnLocation::new));
 
-        static ReturnLocation from(ServerPlayerEntity player) {
+        static ReturnLocation from(ServerPlayer player) {
             return new ReturnLocation(
-                    player.getEntityWorld().getRegistryKey().getValue(),
-                    player.getBlockPos(),
-                    player.getYaw(),
-                    player.getPitch()
+                    player.level().dimension().identifier(),
+                    player.blockPosition(),
+                    player.getYRot(),
+                    player.getXRot()
             );
         }
 
-        static ReturnLocation from(ServerPlayerEntity player, ReturnLocation fallback) {
+        static ReturnLocation from(ServerPlayer player, ReturnLocation fallback) {
             if (player == null) {
                 return fallback;
             }
             return from(player);
         }
 
-        ServerWorld world(MinecraftServer server) {
+        ServerLevel world(MinecraftServer server) {
             if (server == null) {
                 return null;
             }
-            var key = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, dimension);
-            return server.getWorld(key);
+            var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimension);
+            return server.getLevel(key);
         }
 
-        void teleport(MinecraftServer server, ServerPlayerEntity player) {
-            ServerWorld world = world(server);
+        void teleport(MinecraftServer server, ServerPlayer player) {
+            ServerLevel world = world(server);
             if (world == null) {
                 return;
             }
@@ -457,9 +457,9 @@ public final class LegendaryDuels {
             long endsAtTick
     ) {
         static final Codec<Duel> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                Uuids.CODEC.fieldOf("duelId").forGetter(Duel::duelId),
-                Uuids.CODEC.fieldOf("playerA").forGetter(Duel::playerA),
-                Uuids.CODEC.fieldOf("playerB").forGetter(Duel::playerB),
+                UUIDUtil.AUTHLIB_CODEC.fieldOf("duelId").forGetter(Duel::duelId),
+                UUIDUtil.AUTHLIB_CODEC.fieldOf("playerA").forGetter(Duel::playerA),
+                UUIDUtil.AUTHLIB_CODEC.fieldOf("playerB").forGetter(Duel::playerB),
                 ReturnLocation.CODEC.fieldOf("returnA").forGetter(Duel::returnA),
                 ReturnLocation.CODEC.fieldOf("returnB").forGetter(Duel::returnB),
                 BlockPos.CODEC.fieldOf("arenaCenter").forGetter(Duel::arenaCenter),

@@ -6,10 +6,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import com.feel.gems.util.GemsNbt;
 
 
@@ -24,23 +24,23 @@ public final class GemTrust {
     private GemTrust() {
     }
 
-    public static boolean isTrusted(ServerPlayerEntity owner, ServerPlayerEntity other) {
+    public static boolean isTrusted(ServerPlayer owner, ServerPlayer other) {
         if (owner == other) {
             return true;
         }
-        return getTrusted(owner).contains(other.getUuid());
+        return getTrusted(owner).contains(other.getUUID());
     }
 
-    public static Set<UUID> getTrusted(PlayerEntity owner) {
-        NbtCompound root = root(owner);
-        int version = root.getInt(KEY_TRUST_VERSION, 0);
-        UUID ownerId = owner.getUuid();
+    public static Set<UUID> getTrusted(Player owner) {
+        CompoundTag root = root(owner);
+        int version = root.getIntOr(KEY_TRUST_VERSION, 0);
+        UUID ownerId = owner.getUUID();
         CacheEntry cached = CACHE.get(ownerId);
         if (cached != null && cached.version == version) {
             return cached.trusted;
         }
 
-        NbtList list = root.getList(KEY_TRUSTED).orElse(null);
+        ListTag list = root.getList(KEY_TRUSTED).orElse(null);
         if (list == null) {
             Set<UUID> empty = Set.of();
             CACHE.put(ownerId, new CacheEntry(version, empty));
@@ -58,7 +58,7 @@ public final class GemTrust {
         return frozen;
     }
 
-    public static boolean trust(PlayerEntity owner, UUID uuid) {
+    public static boolean trust(Player owner, UUID uuid) {
         Set<UUID> current = new HashSet<>(getTrusted(owner));
         boolean changed = current.add(uuid);
         if (changed) {
@@ -67,7 +67,7 @@ public final class GemTrust {
         return changed;
     }
 
-    public static boolean untrust(PlayerEntity owner, UUID uuid) {
+    public static boolean untrust(Player owner, UUID uuid) {
         Set<UUID> current = new HashSet<>(getTrusted(owner));
         boolean changed = current.remove(uuid);
         if (changed) {
@@ -76,19 +76,19 @@ public final class GemTrust {
         return changed;
     }
 
-    private static void writeTrusted(PlayerEntity owner, Set<UUID> uuids) {
-        NbtList list = new NbtList();
+    private static void writeTrusted(Player owner, Set<UUID> uuids) {
+        ListTag list = new ListTag();
         for (UUID uuid : uuids) {
             list.add(GemsNbt.fromUuid(uuid));
         }
-        NbtCompound root = root(owner);
+        CompoundTag root = root(owner);
         root.put(KEY_TRUSTED, list);
-        int nextVersion = root.getInt(KEY_TRUST_VERSION, 0) + 1;
+        int nextVersion = root.getIntOr(KEY_TRUST_VERSION, 0) + 1;
         root.putInt(KEY_TRUST_VERSION, nextVersion);
-        CACHE.put(owner.getUuid(), new CacheEntry(nextVersion, Set.copyOf(uuids)));
+        CACHE.put(owner.getUUID(), new CacheEntry(nextVersion, Set.copyOf(uuids)));
     }
 
-    private static NbtCompound root(PlayerEntity player) {
+    private static CompoundTag root(Player player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 

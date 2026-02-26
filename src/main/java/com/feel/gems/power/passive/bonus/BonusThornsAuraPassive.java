@@ -2,8 +2,8 @@ package com.feel.gems.power.passive.bonus;
 
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Thorns Aura - Reflects damage back to attackers.
@@ -26,12 +26,12 @@ public final class BonusThornsAuraPassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         // Marker passive - implemented via event hooks
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
+    public void remove(ServerPlayer player) {
         // Marker passive
     }
 }

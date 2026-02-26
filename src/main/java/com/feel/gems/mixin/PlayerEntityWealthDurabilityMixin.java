@@ -2,11 +2,11 @@ package com.feel.gems.mixin;
 
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,12 +15,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 
 
-@Mixin(PlayerEntity.class)
+@Mixin(Player.class)
 public abstract class PlayerEntityWealthDurabilityMixin {
     @Inject(method = "attack", at = @At("TAIL"))
     private void gems$durabilityPassives(Entity target, CallbackInfo ci) {
-        PlayerEntity self = (PlayerEntity) (Object) this;
-        if (!(self instanceof ServerPlayerEntity attacker)) {
+        Player self = (Player) (Object) this;
+        if (!(self instanceof ServerPlayer attacker)) {
             return;
         }
 
@@ -30,7 +30,7 @@ public abstract class PlayerEntityWealthDurabilityMixin {
             return;
         }
 
-        if (chip && target instanceof ServerPlayerEntity victim) {
+        if (chip && target instanceof ServerPlayer victim) {
             damageArmor(victim, 1);
         }
         if (mend) {
@@ -38,29 +38,29 @@ public abstract class PlayerEntityWealthDurabilityMixin {
         }
     }
 
-    private static void damageArmor(ServerPlayerEntity player, int amount) {
+    private static void damageArmor(ServerPlayer player, int amount) {
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) {
                 continue;
             }
-            ItemStack stack = player.getEquippedStack(slot);
-            if (stack.isEmpty() || !stack.isDamageable()) {
+            ItemStack stack = player.getItemBySlot(slot);
+            if (stack.isEmpty() || !stack.isDamageableItem()) {
                 continue;
             }
-            stack.damage(amount, player, slot);
+            stack.hurtAndBreak(amount, player, slot);
         }
     }
 
-    private static void mendArmor(ServerPlayerEntity player, int amount) {
+    private static void mendArmor(ServerPlayer player, int amount) {
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) {
                 continue;
             }
-            ItemStack stack = player.getEquippedStack(slot);
-            if (stack.isEmpty() || !stack.isDamageable() || !stack.isDamaged()) {
+            ItemStack stack = player.getItemBySlot(slot);
+            if (stack.isEmpty() || !stack.isDamageableItem() || !stack.isDamaged()) {
                 continue;
             }
-            stack.setDamage(Math.max(0, stack.getDamage() - amount));
+            stack.setDamageValue(Math.max(0, stack.getDamageValue() - amount));
         }
     }
 }

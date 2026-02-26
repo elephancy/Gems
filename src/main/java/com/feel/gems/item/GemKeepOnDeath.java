@@ -5,10 +5,10 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.state.GemPlayerState;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.rule.GameRules;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.gamerules.GameRules;
 
 
 
@@ -22,11 +22,11 @@ public final class GemKeepOnDeath {
     private GemKeepOnDeath() {
     }
 
-    public static void stash(ServerPlayerEntity player) {
-        if (player.getEntityWorld().getGameRules().getValue(GameRules.KEEP_INVENTORY)) {
+    public static void stash(ServerPlayer player) {
+        if (player.level().getGameRules().get(GameRules.KEEP_INVENTORY)) {
             return;
         }
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         root.remove(KEY_KEPT_GEMS);
 
         GemPlayerState.initIfNeeded(player);
@@ -35,7 +35,7 @@ public final class GemKeepOnDeath {
         List<ItemStack> kept = new ArrayList<>();
         boolean found = false;
 
-        var mainStacks = player.getInventory().getMainStacks();
+        var mainStacks = player.getInventory().getNonEquipmentItems();
         for (int i = 0; i < mainStacks.size(); i++) {
             ItemStack stack = mainStacks.get(i);
             if (!found && stack.getItem() instanceof GemItem gem && gem.gemId() == active) {
@@ -45,25 +45,25 @@ public final class GemKeepOnDeath {
             }
         }
         if (!found) {
-            ItemStack offhand = player.getOffHandStack();
+            ItemStack offhand = player.getOffhandItem();
             if (offhand.getItem() instanceof GemItem gem && gem.gemId() == active) {
                 kept.add(offhand.copy());
-                player.equipStack(net.minecraft.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+                player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
                 found = true;
             }
         }
         if (!found) {
-            net.minecraft.entity.EquipmentSlot[] armorSlots = {
-                    net.minecraft.entity.EquipmentSlot.HEAD,
-                    net.minecraft.entity.EquipmentSlot.CHEST,
-                    net.minecraft.entity.EquipmentSlot.LEGS,
-                    net.minecraft.entity.EquipmentSlot.FEET
+            net.minecraft.world.entity.EquipmentSlot[] armorSlots = {
+                    net.minecraft.world.entity.EquipmentSlot.HEAD,
+                    net.minecraft.world.entity.EquipmentSlot.CHEST,
+                    net.minecraft.world.entity.EquipmentSlot.LEGS,
+                    net.minecraft.world.entity.EquipmentSlot.FEET
             };
             for (var slot : armorSlots) {
-                ItemStack stack = player.getEquippedStack(slot);
+                ItemStack stack = player.getItemBySlot(slot);
                 if (stack.getItem() instanceof GemItem gem && gem.gemId() == active) {
                     kept.add(stack.copy());
-                    player.equipStack(slot, ItemStack.EMPTY);
+                    player.setItemSlot(slot, ItemStack.EMPTY);
                     found = true;
                     break;
                 }
@@ -73,12 +73,12 @@ public final class GemKeepOnDeath {
         if (kept.isEmpty()) {
             return;
         }
-        root.put(KEY_KEPT_GEMS, ItemStack.CODEC.listOf(), kept);
+        root.store(KEY_KEPT_GEMS, ItemStack.CODEC.listOf(), kept);
     }
 
-    public static void restore(ServerPlayerEntity player) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        List<ItemStack> kept = root.get(KEY_KEPT_GEMS, ItemStack.CODEC.listOf()).orElse(List.of());
+    public static void restore(ServerPlayer player) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        List<ItemStack> kept = root.read(KEY_KEPT_GEMS, ItemStack.CODEC.listOf()).orElse(List.of());
         if (kept.isEmpty()) {
             return;
         }
@@ -86,7 +86,7 @@ public final class GemKeepOnDeath {
         for (ItemStack stack : kept) {
             if (!stack.isEmpty()) {
                 GemOwnership.tagOwned(stack, player);
-                player.giveItemStack(stack);
+                player.addItem(stack);
             }
         }
     }

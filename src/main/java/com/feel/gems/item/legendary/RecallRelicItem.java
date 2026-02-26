@@ -6,23 +6,23 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.legendary.LegendaryItem;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTooltipFormat;
-import net.minecraft.entity.player.PlayerEntity;
 import java.util.function.Consumer;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import com.feel.gems.util.GemsTeleport;
 
 
@@ -32,26 +32,26 @@ public final class RecallRelicItem extends Item implements LegendaryItem {
     private static final String KEY_MARK_DIM = "legendaryRecallDim";
     private static final String KEY_MARK_POS = "legendaryRecallPos";
 
-    public RecallRelicItem(Settings settings) {
+    public RecallRelicItem(Properties settings) {
         super(settings);
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "recall_relic").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "recall_relic").toString();
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        if (!(user instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+        if (!(user instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
-        ItemStack held = player.getStackInHand(hand);
-        if (player.getItemCooldownManager().isCoolingDown(held) && !GemsAdmin.noLegendaryCooldowns(player)) {
-            return ActionResult.SUCCESS;
+        ItemStack held = player.getItemInHand(hand);
+        if (player.getCooldowns().isOnCooldown(held) && !GemsAdmin.noLegendaryCooldowns(player)) {
+            return InteractionResult.SUCCESS;
         }
         if (hasMark(player)) {
             teleportToMark(player);
@@ -60,17 +60,17 @@ public final class RecallRelicItem extends Item implements LegendaryItem {
         }
         int cooldown = GemsBalance.v().legendary().recallCooldownTicks();
         if (cooldown > 0 && !GemsAdmin.noLegendaryCooldowns(player)) {
-            player.getItemCooldownManager().set(held, cooldown);
+            player.getCooldowns().addCooldown(held, cooldown);
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
-        GemsTooltipFormat.appendDescription(tooltip, Text.translatable("item.gems.recall_relic.desc"));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
+        GemsTooltipFormat.appendDescription(tooltip, Component.translatable("item.gems.recall_relic.desc"));
     }
 
-    public static void ensureForceload(ServerPlayerEntity player) {
+    public static void ensureForceload(ServerPlayer player) {
         if (!hasMark(player)) {
             return;
         }
@@ -78,15 +78,15 @@ public final class RecallRelicItem extends Item implements LegendaryItem {
         if (mark == null) {
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
-        ServerWorld world = server == null ? null : server.getWorld(mark.dimension());
+        MinecraftServer server = player.level().getServer();
+        ServerLevel world = server == null ? null : server.getLevel(mark.dimension());
         if (world == null) {
             return;
         }
         forceChunk(world, mark.pos(), true);
     }
 
-    public static void clearIfMissingItem(ServerPlayerEntity player) {
+    public static void clearIfMissingItem(ServerPlayer player) {
         if (!hasMark(player)) {
             return;
         }
@@ -96,60 +96,60 @@ public final class RecallRelicItem extends Item implements LegendaryItem {
         clearMark(player);
     }
 
-    private static boolean hasRelic(ServerPlayerEntity player) {
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
+    private static boolean hasRelic(ServerPlayer player) {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
             if (stack.getItem() instanceof RecallRelicItem) {
                 return true;
             }
         }
-        if (player.getOffHandStack().getItem() instanceof RecallRelicItem) {
+        if (player.getOffhandItem().getItem() instanceof RecallRelicItem) {
             return true;
         }
-        return player.getEquippedStack(net.minecraft.entity.EquipmentSlot.HEAD).getItem() instanceof RecallRelicItem
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.CHEST).getItem() instanceof RecallRelicItem
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.LEGS).getItem() instanceof RecallRelicItem
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.FEET).getItem() instanceof RecallRelicItem;
+        return player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem() instanceof RecallRelicItem
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem() instanceof RecallRelicItem
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).getItem() instanceof RecallRelicItem
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).getItem() instanceof RecallRelicItem;
     }
 
-    private static void setMark(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        ServerWorld world = player.getEntityWorld();
-        data.putString(KEY_MARK_DIM, world.getRegistryKey().getValue().toString());
-        writeBlockPos(data, KEY_MARK_POS, player.getBlockPos());
-        forceChunk(world, player.getBlockPos(), true);
-        player.sendMessage(Text.translatable("gems.item.recall_relic.mark_set"), true);
+    private static void setMark(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        ServerLevel world = player.level();
+        data.putString(KEY_MARK_DIM, world.dimension().identifier().toString());
+        writeBlockPos(data, KEY_MARK_POS, player.blockPosition());
+        forceChunk(world, player.blockPosition(), true);
+        player.sendSystemMessage(Component.translatable("gems.item.recall_relic.mark_set"), true);
     }
 
-    private static void teleportToMark(ServerPlayerEntity player) {
+    private static void teleportToMark(ServerPlayer player) {
         Mark mark = readMark(player);
         if (mark == null) {
             clearMark(player);
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
-        ServerWorld targetWorld = server.getWorld(mark.dimension());
+        ServerLevel targetWorld = server.getLevel(mark.dimension());
         if (targetWorld == null) {
-            player.sendMessage(Text.translatable("gems.item.recall_relic.failed"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.recall_relic.failed"), true);
             clearMark(player);
             return;
         }
         BlockPos pos = mark.pos();
-        GemsTeleport.teleport(player, targetWorld, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, player.getYaw(), player.getPitch());
+        GemsTeleport.teleport(player, targetWorld, pos.getX() + 0.5D, pos.getY() + 1.0D, pos.getZ() + 0.5D, player.getYRot(), player.getXRot());
         clearMark(player);
-        player.sendMessage(Text.translatable("gems.item.recall_relic.recalled"), true);
+        player.sendSystemMessage(Component.translatable("gems.item.recall_relic.recalled"), true);
     }
 
-    private static boolean hasMark(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    private static boolean hasMark(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         return data.getString(KEY_MARK_DIM).isPresent() && data.getIntArray(KEY_MARK_POS).isPresent();
     }
 
-    private static Mark readMark(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        String dimRaw = data.getString(KEY_MARK_DIM, "");
+    private static Mark readMark(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        String dimRaw = data.getStringOr(KEY_MARK_DIM, "");
         if (dimRaw.isEmpty()) {
             return null;
         }
@@ -158,33 +158,33 @@ public final class RecallRelicItem extends Item implements LegendaryItem {
         if (dim == null || pos == null) {
             return null;
         }
-        return new Mark(net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, dim), pos);
+        return new Mark(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dim), pos);
     }
 
-    private static void clearMark(ServerPlayerEntity player) {
+    private static void clearMark(ServerPlayer player) {
         Mark mark = readMark(player);
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (mark != null && server != null) {
-            ServerWorld world = server.getWorld(mark.dimension());
+            ServerLevel world = server.getLevel(mark.dimension());
             if (world != null) {
                 forceChunk(world, mark.pos(), false);
             }
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         data.remove(KEY_MARK_DIM);
         data.remove(KEY_MARK_POS);
     }
 
-    private static void forceChunk(ServerWorld world, BlockPos pos, boolean forced) {
-        ChunkPos chunk = new ChunkPos(pos);
-        world.setChunkForced(chunk.x, chunk.z, forced);
+    private static void forceChunk(ServerLevel world, BlockPos pos, boolean forced) {
+        ChunkPos chunk = new ChunkPos(pos.getX() >> 4, pos.getZ() >> 4);
+        world.setChunkForced(chunk.x(), chunk.z(), forced);
     }
 
-    private static void writeBlockPos(NbtCompound nbt, String key, BlockPos pos) {
-        nbt.put(key, new net.minecraft.nbt.NbtIntArray(new int[]{pos.getX(), pos.getY(), pos.getZ()}));
+    private static void writeBlockPos(CompoundTag nbt, String key, BlockPos pos) {
+        nbt.put(key, new net.minecraft.nbt.IntArrayTag(new int[]{pos.getX(), pos.getY(), pos.getZ()}));
     }
 
-    private static BlockPos readBlockPos(NbtCompound nbt, String key) {
+    private static BlockPos readBlockPos(CompoundTag nbt, String key) {
         int[] values = nbt.getIntArray(key).orElse(null);
         if (values == null) {
             return null;
@@ -195,6 +195,6 @@ public final class RecallRelicItem extends Item implements LegendaryItem {
         return new BlockPos(values[0], values[1], values[2]);
     }
 
-    private record Mark(net.minecraft.registry.RegistryKey<World> dimension, BlockPos pos) {
+    private record Mark(net.minecraft.resources.ResourceKey<Level> dimension, BlockPos pos) {
     }
 }

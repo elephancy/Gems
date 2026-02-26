@@ -13,10 +13,9 @@ import com.feel.gems.power.runtime.GemAbilityCooldowns;
 import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.util.GemsTime;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.server.level.ServerPlayer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -28,7 +27,7 @@ public final class GemStateSync {
     private GemStateSync() {
     }
 
-    public static void send(ServerPlayerEntity player) {
+    public static void send(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
 
         GemId active = GemPlayerState.getActiveGem(player);
@@ -51,12 +50,12 @@ public final class GemStateSync {
         }
     }
 
-    private static void sendAbilityOrderSync(ServerPlayerEntity player, GemId active) {
+    private static void sendAbilityOrderSync(ServerPlayer player, GemId active) {
         List<Identifier> order = LoadoutManager.getAbilityOrder(player, active);
         ServerPlayNetworking.send(player, new AbilityOrderSyncPayload(active.ordinal(), order));
     }
 
-    private static void sendHudLayoutSync(ServerPlayerEntity player) {
+    private static void sendHudLayoutSync(ServerPlayer player) {
         GemLoadout.HudLayout layout = LoadoutManager.getHudLayout(player);
         ServerPlayNetworking.send(player, new HudLayoutPayload(
                 layout.position(),
@@ -66,14 +65,14 @@ public final class GemStateSync {
         ));
     }
 
-    public static void sendBonusAbilitiesSync(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void sendBonusAbilitiesSync(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
         
         BonusClaimsState claims = BonusClaimsState.get(server);
-        List<Identifier> orderedAbilities = claims.getPlayerAbilityOrder(player.getUuid());
+        List<Identifier> orderedAbilities = claims.getPlayerAbilityOrder(player.getUUID());
         
         if (orderedAbilities.isEmpty()) {
             ServerPlayNetworking.send(player, new BonusAbilitiesSyncPayload(List.of()));
@@ -99,14 +98,14 @@ public final class GemStateSync {
     /**
      * Send Prism ability sync to client for HUD display.
      */
-    public static void sendPrismAbilitiesSync(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void sendPrismAbilitiesSync(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
         
         PrismSelectionsState prismState = PrismSelectionsState.get(server);
-        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUuid());
+        PrismSelectionsState.PrismSelection selection = prismState.getSelection(player.getUUID());
         List<Identifier> selectedAbilities = selection.gemAbilities();
         
         List<Identifier> selectedPassives = selection.allPassives();

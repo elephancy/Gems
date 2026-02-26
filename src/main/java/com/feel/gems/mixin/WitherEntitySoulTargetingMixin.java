@@ -4,10 +4,10 @@ import com.feel.gems.power.gem.astra.SoulSummons;
 import com.feel.gems.power.gem.summoner.SummonerSummons;
 import com.feel.gems.trust.GemTrust;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.boss.WitherEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.wither.WitherBoss;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -15,16 +15,16 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 
 
-@Mixin(WitherEntity.class)
+@Mixin(WitherBoss.class)
 public abstract class WitherEntitySoulTargetingMixin {
-    @ModifyVariable(method = "setTrackedEntityId", at = @At("HEAD"), argsOnly = true, ordinal = 1, require = 0)
+    @ModifyVariable(method = "setAlternativeTarget", at = @At("HEAD"), argsOnly = true, ordinal = 1, require = 0)
     private int gems$soulPreventHeadTargetingTrusted(int entityId) {
         if (entityId <= 0) {
             return entityId;
         }
 
-        WitherEntity self = (WitherEntity) (Object) this;
-        if (!(self.getEntityWorld() instanceof ServerWorld world)) {
+        WitherBoss self = (WitherBoss) (Object) this;
+        if (!(self.level() instanceof ServerLevel world)) {
             return entityId;
         }
         boolean soul = SoulSummons.isSoul(self);
@@ -33,8 +33,8 @@ public abstract class WitherEntitySoulTargetingMixin {
             return entityId;
         }
 
-        Entity candidate = world.getEntityById(entityId);
-        if (!(candidate instanceof ServerPlayerEntity player)) {
+        Entity candidate = world.getEntity(entityId);
+        if (!(candidate instanceof ServerPlayer player)) {
             return entityId;
         }
 
@@ -42,10 +42,10 @@ public abstract class WitherEntitySoulTargetingMixin {
         if (ownerUuid == null) {
             return 0;
         }
-        if (player.getUuid().equals(ownerUuid)) {
+        if (player.getUUID().equals(ownerUuid)) {
             return 0;
         }
-        ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(ownerUuid);
+        ServerPlayer owner = world.getServer().getPlayerList().getPlayer(ownerUuid);
         if (owner != null && GemTrust.isTrusted(owner, player)) {
             return 0;
         }

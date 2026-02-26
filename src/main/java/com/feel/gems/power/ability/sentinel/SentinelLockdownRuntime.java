@@ -3,17 +3,16 @@ package com.feel.gems.power.ability.sentinel;
 import com.feel.gems.power.runtime.AbilityRestrictions;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
 import java.util.*;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class SentinelLockdownRuntime {
     private static final Map<UUID, ZoneData> ACTIVE_ZONES = new HashMap<>();
@@ -25,32 +24,32 @@ public final class SentinelLockdownRuntime {
 
     private SentinelLockdownRuntime() {}
 
-    public static void createZone(UUID ownerId, Vec3d center, int radius, long endTime, String worldId) {
+    public static void createZone(UUID ownerId, Vec3 center, int radius, long endTime, String worldId) {
         ACTIVE_ZONES.put(ownerId, new ZoneData(ownerId, center, radius, endTime, worldId));
     }
 
-    public static boolean isInLockdownZone(Vec3d position, UUID playerId, String worldId) {
+    public static boolean isInLockdownZone(Vec3 position, UUID playerId, String worldId) {
         for (ZoneData zone : ACTIVE_ZONES.values()) {
             if (!zone.worldId.equals(worldId)) continue;
             if (zone.ownerId.equals(playerId)) continue; // Owner is immune
 
-            double distSq = position.squaredDistanceTo(zone.center);
+            double distSq = position.distanceToSqr(zone.center);
             if (distSq <= zone.radius * zone.radius) {
                 return true;
             }
         }
         return false;
     }
-    
+
     /**
      * Get the zone a position is in, or null if not in any zone.
      */
-    public static ZoneData getZoneAt(Vec3d position, UUID excludeOwner, String worldId) {
+    public static ZoneData getZoneAt(Vec3 position, UUID excludeOwner, String worldId) {
         for (ZoneData zone : ACTIVE_ZONES.values()) {
             if (!zone.worldId.equals(worldId)) continue;
             if (excludeOwner != null && zone.ownerId.equals(excludeOwner)) continue;
 
-            double distSq = position.squaredDistanceTo(zone.center);
+            double distSq = position.distanceToSqr(zone.center);
             if (distSq <= zone.radius * zone.radius) {
                 return zone;
             }
@@ -61,62 +60,62 @@ public final class SentinelLockdownRuntime {
     /**
      * Tick the lockdown zones - removes expired zones and roots hostile mobs.
      */
-    public static void tick(long currentTime, String worldId, ServerWorld world) {
+    public static void tick(long currentTime, String worldId, ServerLevel world) {
         if (ACTIVE_ZONES.isEmpty()) {
             return;
         }
         // Remove expired zones
-        ACTIVE_ZONES.entrySet().removeIf(entry -> 
+        ACTIVE_ZONES.entrySet().removeIf(entry ->
             entry.getValue().worldId.equals(worldId) && currentTime > entry.getValue().endTime
         );
-        
+
         // Apply rooting effects to hostile mobs in active zones
         for (ZoneData zone : ACTIVE_ZONES.values()) {
             if (!zone.worldId.equals(worldId)) continue;
-            
-            ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(zone.ownerId);
-            
+
+            ServerPlayer owner = world.getServer().getPlayerList().getPlayer(zone.ownerId);
+
             // Create box around zone center
-            Box zoneBox = new Box(
+            AABB zoneBox = new AABB(
                     zone.center.x - zone.radius, zone.center.y - zone.radius, zone.center.z - zone.radius,
                     zone.center.x + zone.radius, zone.center.y + zone.radius, zone.center.z + zone.radius
             );
-            
+
             // Find entities in the zone
-            for (Entity entity : world.getOtherEntities(null, zoneBox)) {
+            for (Entity entity : world.getEntities(null, zoneBox)) {
                 // Check if actually within radius (box is larger than sphere)
-                if (entity.getEntityPos().squaredDistanceTo(zone.center) > zone.radius * zone.radius) {
+                if (entity.position().distanceToSqr(zone.center) > zone.radius * zone.radius) {
                     continue;
                 }
-                
+
                 // Root hostile mobs
-                if (entity instanceof HostileEntity hostile) {
+                if (entity instanceof Monster hostile) {
                     // Apply maximum slowness to root the mob in place
-                    hostile.addStatusEffect(new StatusEffectInstance(
-                            StatusEffects.SLOWNESS, 
-                            ROOT_DURATION_TICKS, 
-                            ROOT_SLOWNESS_AMPLIFIER, 
+                    hostile.addEffect(new MobEffectInstance(
+                            MobEffects.SLOWNESS,
+                            ROOT_DURATION_TICKS,
+                            ROOT_SLOWNESS_AMPLIFIER,
                             true, false, false));
-                    
+
                     // Spawn root particles occasionally
-                    if (world.random.nextInt(20) == 0) {
-                        world.spawnParticles(ParticleTypes.ENCHANTED_HIT, 
-                                hostile.getX(), hostile.getY() + 0.2, hostile.getZ(), 
+                    if (world.getRandom().nextInt(20) == 0) {
+                        world.sendParticles(ParticleTypes.ENCHANTED_HIT,
+                                hostile.getX(), hostile.getY() + 0.2, hostile.getZ(),
                                 3, 0.3, 0.1, 0.3, 0.01);
                     }
                 }
-                
+
                 // Apply ability restriction to enemy players (already handled elsewhere for ability blocking)
                 // Just add visual feedback here
-                if (entity instanceof ServerPlayerEntity targetPlayer) {
+                if (entity instanceof ServerPlayer targetPlayer) {
                     if (owner != null && VoidImmunity.shouldBlockEffect(owner, targetPlayer)) {
                         continue;
                     }
-                    if (owner != null && !GemTrust.isTrusted(owner, targetPlayer) && !targetPlayer.getUuid().equals(zone.ownerId)) {
+                    if (owner != null && !GemTrust.isTrusted(owner, targetPlayer) && !targetPlayer.getUUID().equals(zone.ownerId)) {
                         AbilityRestrictions.suppress(targetPlayer, SUPPRESS_DURATION_TICKS);
                         // Spawn subtle particles to show they're in lockdown
-                        if (world.random.nextInt(40) == 0) {
-                            world.spawnParticles(ParticleTypes.ENCHANTED_HIT,
+                        if (world.getRandom().nextInt(40) == 0) {
+                            world.sendParticles(ParticleTypes.ENCHANTED_HIT,
                                     targetPlayer.getX(), targetPlayer.getY() + 1, targetPlayer.getZ(),
                                     2, 0.2, 0.3, 0.2, 0.01);
                         }
@@ -126,18 +125,6 @@ public final class SentinelLockdownRuntime {
         }
     }
 
-    /**
-     * Backwards-compatible tick method for callers that don't pass ServerWorld.
-     */
-    public static void tick(long currentTime, String worldId) {
-        if (ACTIVE_ZONES.isEmpty()) {
-            return;
-        }
-        ACTIVE_ZONES.entrySet().removeIf(entry -> 
-            entry.getValue().worldId.equals(worldId) && currentTime > entry.getValue().endTime
-        );
-    }
-
     public static boolean hasAnyZones() {
         return !ACTIVE_ZONES.isEmpty();
     }
@@ -145,10 +132,10 @@ public final class SentinelLockdownRuntime {
     public static void clearZone(UUID ownerId) {
         ACTIVE_ZONES.remove(ownerId);
     }
-    
+
     public static Collection<ZoneData> getActiveZones() {
         return Collections.unmodifiableCollection(ACTIVE_ZONES.values());
     }
 
-    public record ZoneData(UUID ownerId, Vec3d center, int radius, long endTime, String worldId) {}
+    public record ZoneData(UUID ownerId, Vec3 center, int radius, long endTime, String worldId) {}
 }

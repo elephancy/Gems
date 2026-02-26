@@ -11,15 +11,15 @@ import com.feel.gems.net.GemExtraStateSync;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 
 
 
@@ -48,53 +48,53 @@ public final class StaticBurstAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        NbtCompound nbt = persistent(player);
-        float stored = nbt.getFloat(KEY_STORED_DAMAGE, 0.0F);
+    public boolean activate(ServerPlayer player) {
+        CompoundTag nbt = persistent(player);
+        float stored = nbt.getFloatOr(KEY_STORED_DAMAGE, 0.0F);
         if (stored <= 0.0F) {
-            player.sendMessage(Text.translatable("gems.ability.flux.static_burst.no_stored"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.flux.static_burst.no_stored"), true);
             return false;
         }
 
-        ServerWorld world = player.getEntityWorld();
+        ServerLevel world = player.level();
         int hits = 0;
         float damage = Math.min(GemsBalance.v().flux().staticBurstMaxDamage(), stored);
         int radius = GemsBalance.v().flux().staticBurstRadiusBlocks();
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-            if (other instanceof ServerPlayerEntity otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            if (other instanceof ServerPlayer otherPlayer && GemTrust.isTrusted(player, otherPlayer)) {
                 continue;
             }
-            if (other instanceof ServerPlayerEntity otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
+            if (other instanceof ServerPlayer otherPlayer && !VoidImmunity.canBeTargeted(player, otherPlayer)) {
                 continue;
             }
-            other.damage(world, player.getDamageSources().indirectMagic(player, player), damage);
-            AbilityFeedback.burstAt(world, other.getEntityPos().add(0.0D, 1.0D, 0.0D), ParticleTypes.ELECTRIC_SPARK, 14, 0.35D);
+            other.hurtServer(world, player.damageSources().indirectMagic(player, player), damage);
+            AbilityFeedback.burstAt(world, other.position().add(0.0D, 1.0D, 0.0D), ParticleTypes.ELECTRIC_SPARK, 14, 0.35D);
             hits++;
         }
         nbt.putFloat(KEY_STORED_DAMAGE, 0.0F);
         nbt.putLong(KEY_STORED_AT, GemsTime.now(world));
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5F, 1.4F);
+        AbilityFeedback.sound(player, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.5F, 1.4F);
         AbilityFeedback.burst(player, ParticleTypes.ELECTRIC_SPARK, 24, 0.5D);
-        player.sendMessage(Text.translatable("gems.ability.flux.static_burst.hit", hits), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.flux.static_burst.hit", hits), true);
         return true;
     }
 
-    public static void onDamaged(ServerPlayerEntity player, float amount) {
+    public static void onDamaged(ServerPlayer player, float amount) {
         if (amount <= 0.0F) {
             return;
         }
         if (!GemPowers.isPassiveActive(player, PowerIds.FLUX_CHARGE_STORAGE)) {
             return;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         long now = GemsTime.now(player);
-        long storedAt = nbt.getLong(KEY_STORED_AT, 0L);
+        long storedAt = nbt.getLongOr(KEY_STORED_AT, 0L);
         if (storedAt <= 0 || now - storedAt > GemsBalance.v().flux().staticBurstStoreWindowTicks()) {
             nbt.putFloat(KEY_STORED_DAMAGE, 0.0F);
             nbt.putLong(KEY_STORED_AT, now);
         }
-        nbt.putFloat(KEY_STORED_DAMAGE, nbt.getFloat(KEY_STORED_DAMAGE, 0.0F) + amount);
+        nbt.putFloat(KEY_STORED_DAMAGE, nbt.getFloatOr(KEY_STORED_DAMAGE, 0.0F) + amount);
 
         if (GemPowers.isPassiveActive(player, PowerIds.FLUX_CONDUCTIVITY)) {
             int perDamage = GemsBalance.v().flux().fluxConductivityChargePerDamage();
@@ -112,7 +112,7 @@ public final class StaticBurstAbility implements GemAbility {
         }
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 }

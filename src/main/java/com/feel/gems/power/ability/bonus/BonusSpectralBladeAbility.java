@@ -9,20 +9,21 @@ import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTime;
 import com.feel.gems.legendary.HypnoControl;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.VexEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Vex;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Spectral Blade - Summon a ghostly sword (vex) that attacks nearby enemies.
@@ -52,57 +53,57 @@ public final class BonusSpectralBladeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+
         // Spawn a vex as the spectral blade
-        VexEntity blade = EntityType.VEX.create(world, SpawnReason.MOB_SUMMONED);
+        Vex blade = EntityTypes.VEX.create(world, EntitySpawnReason.MOB_SUMMONED);
         if (blade == null) {
             return false;
         }
 
-        blade.setPosition(player.getX(), player.getY() + 1, player.getZ());
+        blade.setPos(player.getX(), player.getY() + 1, player.getZ());
         blade.setOwner(null); // No evoker owner
-        blade.setLifeTicks(BLADE_LIFETIME);
-        blade.addCommandTag("gems_spectral_blade");
-        blade.addCommandTag("owner:" + player.getUuidAsString());
+        blade.setLimitedLife(BLADE_LIFETIME);
+        blade.addTag("gems_spectral_blade");
+        blade.addTag("owner:" + player.getStringUUID());
         SummonerSummons.tuneControlledMob(blade);
-        SummonerSummons.mark(blade, player.getUuid(), GemsTime.now(player) + BLADE_LIFETIME);
-        
+        SummonerSummons.mark(blade, player.getUUID(), GemsTime.now(player) + BLADE_LIFETIME);
+
         // Find a valid target - hostile mob or enemy player
         LivingEntity target = findTarget(player, world);
         if (target != null) {
             blade.setTarget(target);
         }
-        
-        world.spawnEntity(blade);
 
-        world.spawnParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1, player.getZ(), 
+        world.addFreshEntity(blade);
+
+        world.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1, player.getZ(),
                 20, 0.5, 0.5, 0.5, 0.1);
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.ENTITY_VEX_CHARGE, SoundCategory.PLAYERS, 1.0f, 1.5f);
+                SoundEvents.VEX_CHARGE, SoundSource.PLAYERS, 1.0f, 1.5f);
         return true;
     }
-    
+
     /**
      * Find a valid target for the spectral blade - prioritize players, then hostile mobs.
      */
-    private static LivingEntity findTarget(ServerPlayerEntity owner, ServerWorld world) {
-        Box searchBox = owner.getBoundingBox().expand(TARGET_RANGE);
+    private static LivingEntity findTarget(ServerPlayer owner, ServerLevel world) {
+        AABB searchBox = owner.getBoundingBox().inflate(TARGET_RANGE);
 
-        LivingEntity threat = normalizeTarget(owner, owner.getAttacker());
+        LivingEntity threat = normalizeTarget(owner, owner.getLastHurtByMob());
         if (threat != null) {
             return threat;
         }
         LivingEntity nearest = null;
         double nearestSq = Double.MAX_VALUE;
-        for (MobEntity mob : world.getEntitiesByClass(MobEntity.class, searchBox, m -> m.getTarget() == owner)) {
+        for (Mob mob : world.getEntitiesOfClass(Mob.class, searchBox, m -> m.getTarget() == owner)) {
             LivingEntity candidate = normalizeTarget(owner, mob);
             if (candidate == null) {
                 continue;
             }
-            double distSq = owner.squaredDistanceTo(candidate);
+            double distSq = owner.distanceToSqr(candidate);
             if (distSq < nearestSq) {
                 nearestSq = distSq;
                 nearest = candidate;
@@ -113,63 +114,63 @@ public final class BonusSpectralBladeAbility implements GemAbility {
         }
 
         // Then look for enemy players
-        for (Entity e : world.getOtherEntities(owner, searchBox)) {
-            if (e instanceof ServerPlayerEntity target) {
+        for (Entity e : world.getEntities(owner, searchBox)) {
+            if (e instanceof ServerPlayer target) {
                 LivingEntity candidate = normalizeTarget(owner, target);
                 if (candidate != null) {
                     return candidate;
                 }
             }
         }
-        
+
         // Then look for hostile mobs
-        for (Entity e : world.getOtherEntities(owner, searchBox)) {
-            if (e instanceof HostileEntity hostile) {
+        for (Entity e : world.getEntities(owner, searchBox)) {
+            if (e instanceof Monster hostile) {
                 LivingEntity candidate = normalizeTarget(owner, hostile);
                 if (candidate != null) {
                     return candidate;
                 }
             }
         }
-        
+
         return null;
     }
 
-    private static LivingEntity normalizeTarget(ServerPlayerEntity owner, LivingEntity target) {
-        if (target == null || !target.isAlive() || target.getEntityWorld() != owner.getEntityWorld()) {
+    private static LivingEntity normalizeTarget(ServerPlayer owner, LivingEntity target) {
+        if (target == null || !target.isAlive() || target.level() != owner.level()) {
             return null;
         }
         double maxSq = TARGET_RANGE * TARGET_RANGE;
-        if (owner.squaredDistanceTo(target) > maxSq) {
+        if (owner.distanceToSqr(target) > maxSq) {
             return null;
         }
-        if (target instanceof ServerPlayerEntity player) {
+        if (target instanceof ServerPlayer player) {
             if (player == owner || GemTrust.isTrusted(owner, player) || !VoidImmunity.canBeTargeted(owner, player)) {
                 return null;
             }
         }
-        if (target instanceof MobEntity mob) {
+        if (target instanceof Mob mob) {
             UUID summonOwner = SummonerSummons.ownerUuid(mob);
-            if (summonOwner != null && summonOwner.equals(owner.getUuid()) && SummonerSummons.isSummon(mob)) {
+            if (summonOwner != null && summonOwner.equals(owner.getUUID()) && SummonerSummons.isSummon(mob)) {
                 return null;
             }
             UUID soulOwner = SoulSummons.ownerUuid(mob);
-            if (soulOwner != null && soulOwner.equals(owner.getUuid()) && SoulSummons.isSoul(mob)) {
+            if (soulOwner != null && soulOwner.equals(owner.getUUID()) && SoulSummons.isSoul(mob)) {
                 return null;
             }
             UUID hypnoOwner = HypnoControl.ownerUuid(mob);
-            if (hypnoOwner != null && hypnoOwner.equals(owner.getUuid()) && HypnoControl.isHypno(mob)) {
+            if (hypnoOwner != null && hypnoOwner.equals(owner.getUUID()) && HypnoControl.isHypno(mob)) {
                 return null;
             }
         }
         return target;
     }
-    
+
     /**
      * Check if an entity is a spectral blade owned by a specific player.
      */
-    public static boolean isOwnedBy(VexEntity vex, ServerPlayerEntity player) {
-        return vex.getCommandTags().contains("gems_spectral_blade") 
-                && vex.getCommandTags().contains("owner:" + player.getUuidAsString());
+    public static boolean isOwnedBy(Vex vex, ServerPlayer player) {
+        return vex.entityTags().contains("gems_spectral_blade")
+                && vex.entityTags().contains("owner:" + player.getStringUUID());
     }
 }

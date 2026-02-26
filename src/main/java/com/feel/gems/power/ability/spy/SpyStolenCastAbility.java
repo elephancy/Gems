@@ -5,10 +5,10 @@ import com.feel.gems.config.GemsDisables;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.ModAbilities;
 import com.feel.gems.power.registry.PowerIds;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 import com.feel.gems.power.gem.spy.SpySystem;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 
 public final class SpyStolenCastAbility implements GemAbility {
@@ -33,32 +33,32 @@ public final class SpyStolenCastAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (player.isSneaking()) {
+    public boolean activate(ServerPlayer player) {
+        if (player.isShiftKeyDown()) {
             boolean ok = SpySystem.cycleStolen(player);
             if (!ok) {
-                player.sendMessage(Text.translatable("gems.ability.spy.stolen_cast.no_stolen"), true);
+                player.sendSystemMessage(Component.translatable("gems.ability.spy.stolen_cast.no_stolen"), true);
             }
             return ok;
         }
 
         Identifier id = SpySystem.selectedStolenCastAbility(player);
         if (id == null) {
-            player.sendMessage(Text.translatable("gems.ability.spy.stolen_cast.no_stolen"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.spy.stolen_cast.no_stolen"), true);
             return false;
         }
         if (GemsDisables.isAbilityDisabled(id)) {
-            player.sendMessage(Text.translatable("gems.message.ability_disabled_server"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.ability_disabled_server"), true);
             return false;
         }
         GemAbility ability = ModAbilities.get(id);
         if (ability == null) {
-            player.sendMessage(Text.translatable("gems.ability.spy.stolen_cast.not_found", id.toString()), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.spy.stolen_cast.not_found", id.toString()), true);
             return false;
         }
         boolean ok = ability.activate(player);
         if (!ok) {
-            player.sendMessage(Text.translatable("gems.ability.spy.stolen_cast.failed"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.spy.stolen_cast.failed"), true);
         }
         return ok;
     }

@@ -1,27 +1,27 @@
 package com.feel.gems.net;
 
 import com.feel.gems.GemsMod;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * C2S: remove an augment from a gem item by index.
  */
-public record AugmentRemovePayload(boolean mainHand, int index) implements CustomPayload {
-    public static final Id<AugmentRemovePayload> ID =
-            new Id<>(Identifier.of(GemsMod.MOD_ID, "augment_remove"));
+public record AugmentRemovePayload(boolean mainHand, int index) implements CustomPacketPayload {
+    public static final Type<AugmentRemovePayload> ID =
+            new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "augment_remove"));
 
-    public static final PacketCodec<RegistryByteBuf, AugmentRemovePayload> CODEC = PacketCodec.tuple(
-            PacketCodecs.BOOLEAN.cast(), AugmentRemovePayload::mainHand,
-            PacketCodecs.VAR_INT, AugmentRemovePayload::index,
+    public static final StreamCodec<RegistryFriendlyByteBuf, AugmentRemovePayload> CODEC = StreamCodec.composite(
+            ByteBufCodecs.BOOL.cast(), AugmentRemovePayload::mainHand,
+            ByteBufCodecs.VAR_INT, AugmentRemovePayload::index,
             AugmentRemovePayload::new
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

@@ -5,13 +5,13 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 
 public final class BonusTimewarpAbility implements GemAbility {
     @Override
@@ -35,20 +35,20 @@ public final class BonusTimewarpAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         var cfg = GemsBalance.v().bonusPool();
         int duration = cfg.timewarpDurationSeconds * 20;
         int radius = cfg.timewarpRadiusBlocks;
         int amp = cfg.timewarpSlownessAmplifier;
-        Box box = player.getBoundingBox().expand(radius);
-        for (LivingEntity other : world.getEntitiesByClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
-            if (other instanceof ServerPlayerEntity otherPlayer) {
+        AABB box = player.getBoundingBox().inflate(radius);
+        for (LivingEntity other : world.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && e != player)) {
+            if (other instanceof ServerPlayer otherPlayer) {
                 if (GemTrust.isTrusted(player, otherPlayer) || VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                     continue;
                 }
             }
-            other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, duration, amp, false, false));
+            other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, duration, amp, false, false));
         }
         return true;
     }

@@ -5,8 +5,8 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.power.gem.summoner.SummonerLoadouts;
 import com.feel.gems.state.GemPlayerState;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -17,15 +17,15 @@ public final class ServerSummonerNetworking {
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(SummonerLoadoutSavePayload.ID, (payload, context) ->
-                context.player().getEntityWorld().getServer().execute(() -> handleSave(context.player(), payload)));
+                context.player().level().getServer().execute(() -> handleSave(context.player(), payload)));
         ServerPlayNetworking.registerGlobalReceiver(SummonerLoadoutOpenRequestPayload.ID, (payload, context) ->
-            context.player().getEntityWorld().getServer().execute(() -> openEditor(context.player())));
+            context.player().level().getServer().execute(() -> openEditor(context.player())));
     }
 
-    public static void openEditor(ServerPlayerEntity player) {
+    public static void openEditor(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         if (GemPlayerState.getActiveGem(player) != GemId.SUMMONER) {
-            player.sendMessage(Text.translatable("gems.summoner.switch_to_edit"), true);
+            player.sendSystemMessage(Component.translatable("gems.summoner.switch_to_edit"), true);
             return;
         }
 
@@ -44,10 +44,10 @@ public final class ServerSummonerNetworking {
         ));
     }
 
-    private static void handleSave(ServerPlayerEntity player, SummonerLoadoutSavePayload payload) {
+    private static void handleSave(ServerPlayer player, SummonerLoadoutSavePayload payload) {
         GemPlayerState.initIfNeeded(player);
         if (GemPlayerState.getActiveGem(player) != GemId.SUMMONER) {
-            player.sendMessage(Text.translatable("gems.summoner.must_use_summoner"), true);
+            player.sendSystemMessage(Component.translatable("gems.summoner.must_use_summoner"), true);
             return;
         }
 
@@ -61,6 +61,6 @@ public final class ServerSummonerNetworking {
         );
         SummonerLoadouts.Loadout sanitized = SummonerLoadouts.sanitize(requested, cfg);
         SummonerLoadouts.save(player, sanitized);
-        player.sendMessage(Text.translatable("gems.summoner.loadout_saved"), true);
+        player.sendSystemMessage(Component.translatable("gems.summoner.loadout_saved"), true);
     }
 }

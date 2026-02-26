@@ -8,15 +8,15 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 
 public final class SentinelRallyCryAbility implements GemAbility {
     @Override
@@ -40,32 +40,32 @@ public final class SentinelRallyCryAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int radius = GemsBalance.v().sentinel().rallyCryRadiusBlocks();
         float healAmount = GemsBalance.v().sentinel().rallyCryHealHearts() * 2.0F; // Convert to half-hearts
         int resistanceTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.SENTINEL, GemsBalance.v().sentinel().rallyCryResistanceDurationTicks());
 
-        Box box = player.getBoundingBox().expand(radius);
+        AABB box = player.getBoundingBox().inflate(radius);
         int alliesHealed = 0;
 
-        for (Entity e : world.getOtherEntities(player, box, ent -> ent instanceof ServerPlayerEntity)) {
-            ServerPlayerEntity ally = (ServerPlayerEntity) e;
+        for (Entity e : world.getEntities(player, box, ent -> ent instanceof ServerPlayer)) {
+            ServerPlayer ally = (ServerPlayer) e;
             if (!GemTrust.isTrusted(player, ally)) continue;
             if (VoidImmunity.shouldBlockEffect(player, ally)) continue;
 
             ally.heal(healAmount);
-            ally.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, resistanceTicks, 0, false, true));
-            AbilityFeedback.burstAt(world, ally.getEntityPos().add(0, 1, 0), ParticleTypes.HEART, 10, 0.5D);
+            ally.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, resistanceTicks, 0, false, true));
+            AbilityFeedback.burstAt(world, ally.position().add(0, 1, 0), ParticleTypes.HEART, 10, 0.5D);
             alliesHealed++;
         }
 
         // Also affect self
         player.heal(healAmount);
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, resistanceTicks, 0, false, true));
+        player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, resistanceTicks, 0, false, true));
 
-        AbilityFeedback.ring(world, player.getEntityPos().add(0, 1, 0), radius, ParticleTypes.HEART, 20);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_GOAT_HORN_BREAK, 1.0F, 1.0F);
+        AbilityFeedback.ring(world, player.position().add(0, 1, 0), radius, ParticleTypes.HEART, 20);
+        AbilityFeedback.sound(player, SoundEvents.GOAT_HORN_BREAK, 1.0F, 1.0F);
         return true;
     }
 }

@@ -9,10 +9,10 @@ import com.feel.gems.state.GemPlayerState;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import com.feel.gems.item.GemItem;
 
 /**
@@ -30,17 +30,17 @@ public final class ServerAugmentNetworking {
                 context.server().execute(() -> handleRemove(context.player(), payload)));
     }
 
-    private static void handleRemove(ServerPlayerEntity player, AugmentRemovePayload payload) {
+    private static void handleRemove(ServerPlayer player, AugmentRemovePayload payload) {
         GemPlayerState.initIfNeeded(player);
-        ItemStack stack = payload.mainHand() ? player.getMainHandStack() : player.getOffHandStack();
+        ItemStack stack = payload.mainHand() ? player.getMainHandItem() : player.getOffhandItem();
         if (!(stack.getItem() instanceof GemItem)) {
-            player.sendMessage(Text.translatable("gems.augment.need_gem").formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.augment.need_gem").withStyle(ChatFormatting.RED), true);
             return;
         }
         GemItem gemItem = (GemItem) stack.getItem();
         boolean removed = AugmentRuntime.removeGemAugment(stack, payload.index());
         if (removed) {
-            player.sendMessage(Text.translatable("gems.augment.removed").formatted(Formatting.GREEN), true);
+            player.sendSystemMessage(Component.translatable("gems.augment.removed").withStyle(ChatFormatting.GREEN), true);
             if (GemPlayerState.getActiveGem(player) == gemItem.gemId()) {
                 AugmentRuntime.captureActiveGemAugments(player, gemItem.gemId(), stack);
                 GemCooldownSync.send(player);
@@ -49,19 +49,19 @@ public final class ServerAugmentNetworking {
         openScreen(player, payload.mainHand());
     }
 
-    private static void openScreen(ServerPlayerEntity player, boolean mainHand) {
+    private static void openScreen(ServerPlayer player, boolean mainHand) {
         GemPlayerState.initIfNeeded(player);
-        ItemStack stack = mainHand ? player.getMainHandStack() : player.getOffHandStack();
+        ItemStack stack = mainHand ? player.getMainHandItem() : player.getOffhandItem();
         if (!(stack.getItem() instanceof GemItem gemItem)) {
-            player.sendMessage(Text.translatable("gems.augment.need_gem").formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.augment.need_gem").withStyle(ChatFormatting.RED), true);
             return;
         }
         List<AugmentInstance> augments = AugmentRuntime.getGemAugments(stack);
         List<AugmentScreenPayload.AugmentEntry> entries = new ArrayList<>(augments.size());
         for (AugmentInstance instance : augments) {
             AugmentDefinition def = AugmentRegistry.get(instance.augmentId());
-            String name = def != null ? Text.translatable(def.nameKey()).getString() : instance.augmentId();
-            String desc = def != null ? Text.translatable(def.descriptionKey()).getString() : "";
+            String name = def != null ? Component.translatable(def.nameKey()).getString() : instance.augmentId();
+            String desc = def != null ? Component.translatable(def.descriptionKey()).getString() : "";
             String rarity = instance.rarity().name();
             entries.add(new AugmentScreenPayload.AugmentEntry(
                     instance.augmentId(),

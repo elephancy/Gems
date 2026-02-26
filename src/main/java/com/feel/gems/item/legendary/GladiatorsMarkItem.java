@@ -8,20 +8,20 @@ import com.feel.gems.power.util.Targeting;
 import com.feel.gems.state.PlayerStateManager;
 import com.feel.gems.util.GemsTooltipFormat;
 import java.util.function.Consumer;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.ActionResult;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
 
 /**
  * Gladiator's Mark - brand a player; both you and the marked player deal 50% more damage 
@@ -31,69 +31,69 @@ public final class GladiatorsMarkItem extends Item implements LegendaryItem {
     private static final String MARK_TARGET_KEY = "gladiators_mark_target";
     private static final String MARK_END_KEY = "gladiators_mark_end";
 
-    public GladiatorsMarkItem(Settings settings) {
+    public GladiatorsMarkItem(Properties settings) {
         super(settings);
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "gladiators_mark").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "gladiators_mark").toString();
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (world.isClient() || !(user instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+        if (world.isClientSide() || !(user instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
 
-        ItemStack stack = player.getStackInHand(hand);
+        ItemStack stack = player.getItemInHand(hand);
 
         // Check cooldown
-        if (player.getItemCooldownManager().isCoolingDown(stack) && !GemsAdmin.noLegendaryCooldowns(player)) {
-            return ActionResult.FAIL;
+        if (player.getCooldowns().isOnCooldown(stack) && !GemsAdmin.noLegendaryCooldowns(player)) {
+            return InteractionResult.FAIL;
         }
 
         // Raycast to find target
         int rangeBlocks = GemsBalance.v().legendary().gladiatorsMarkRangeBlocks();
-        ServerPlayerEntity target = Targeting.raycastPlayer(player, rangeBlocks);
+        ServerPlayer target = Targeting.raycastPlayer(player, rangeBlocks);
         if (target == null) {
-            player.sendMessage(Text.translatable("gems.message.no_player_target").formatted(Formatting.RED), true);
-            return ActionResult.FAIL;
+            player.sendSystemMessage(Component.translatable("gems.message.no_player_target").withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
         }
 
         if (target == player) {
-            return ActionResult.FAIL;
+            return InteractionResult.FAIL;
         }
 
         int durationTicks = GemsBalance.v().legendary().gladiatorsMarkDurationTicks();
-        long endTime = world.getTime() + Math.max(0, durationTicks);
+        long endTime = world.getGameTime() + Math.max(0, durationTicks);
 
         // Mark both players as linked
-        PlayerStateManager.setPersistent(player, MARK_TARGET_KEY, target.getUuidAsString());
+        PlayerStateManager.setPersistent(player, MARK_TARGET_KEY, target.getStringUUID());
         PlayerStateManager.setPersistent(player, MARK_END_KEY, String.valueOf(endTime));
 
-        PlayerStateManager.setPersistent(target, MARK_TARGET_KEY, player.getUuidAsString());
+        PlayerStateManager.setPersistent(target, MARK_TARGET_KEY, player.getStringUUID());
         PlayerStateManager.setPersistent(target, MARK_END_KEY, String.valueOf(endTime));
 
         int cooldownTicks = GemsBalance.v().legendary().gladiatorsMarkCooldownTicks();
         if (cooldownTicks > 0 && !GemsAdmin.noLegendaryCooldowns(player)) {
-            player.getItemCooldownManager().set(stack, cooldownTicks);
+            player.getCooldowns().addCooldown(stack, cooldownTicks);
         }
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.ENTITY_WITHER_SPAWN, SoundCategory.PLAYERS, 0.5F, 1.5F);
+                SoundEvents.WITHER_SPAWN, SoundSource.PLAYERS, 0.5F, 1.5F);
         world.playSound(null, target.getX(), target.getY(), target.getZ(),
-                SoundEvents.ENTITY_WITHER_SPAWN, SoundCategory.PLAYERS, 0.5F, 1.5F);
+                SoundEvents.WITHER_SPAWN, SoundSource.PLAYERS, 0.5F, 1.5F);
 
-        player.sendMessage(Text.translatable("gems.item.gladiators_mark.marked", target.getName().getString()).formatted(Formatting.RED), true);
-        target.sendMessage(Text.translatable("gems.item.gladiators_mark.marked_victim", player.getName().getString()).formatted(Formatting.RED), true);
+        player.sendSystemMessage(Component.translatable("gems.item.gladiators_mark.marked", target.getName().getString()).withStyle(ChatFormatting.RED), true);
+        target.sendSystemMessage(Component.translatable("gems.item.gladiators_mark.marked_victim", player.getName().getString()).withStyle(ChatFormatting.RED), true);
 
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
-    public static boolean isMarkedAgainst(ServerPlayerEntity attacker, ServerPlayerEntity target) {
+    public static boolean isMarkedAgainst(ServerPlayer attacker, ServerPlayer target) {
         String markedTarget = PlayerStateManager.getPersistent(attacker, MARK_TARGET_KEY);
-        if (markedTarget == null || !markedTarget.equals(target.getUuidAsString())) {
+        if (markedTarget == null || !markedTarget.equals(target.getStringUUID())) {
             return false;
         }
 
@@ -101,7 +101,7 @@ public final class GladiatorsMarkItem extends Item implements LegendaryItem {
         if (endStr == null) return false;
 
         long endTime = Long.parseLong(endStr);
-        if (attacker.getEntityWorld().getTime() > endTime) {
+        if (attacker.level().getGameTime() > endTime) {
             clearMark(attacker);
             return false;
         }
@@ -113,18 +113,18 @@ public final class GladiatorsMarkItem extends Item implements LegendaryItem {
         return GemsBalance.v().legendary().gladiatorsMarkDamageMultiplier();
     }
 
-    public static void clearMark(ServerPlayerEntity player) {
+    public static void clearMark(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, MARK_TARGET_KEY);
         PlayerStateManager.clearPersistent(player, MARK_END_KEY);
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
         GemsTooltipFormat.appendDescription(
                 tooltip,
-                Text.translatable("gems.item.gladiators_mark.tooltip.1"),
-                Text.translatable("gems.item.gladiators_mark.tooltip.2"),
-                Text.translatable("gems.item.gladiators_mark.tooltip.3")
+                Component.translatable("gems.item.gladiators_mark.tooltip.1"),
+                Component.translatable("gems.item.gladiators_mark.tooltip.2"),
+                Component.translatable("gems.item.gladiators_mark.tooltip.3")
         );
     }
 }

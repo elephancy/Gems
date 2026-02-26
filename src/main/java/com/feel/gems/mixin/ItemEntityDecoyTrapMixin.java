@@ -1,12 +1,12 @@
 package com.feel.gems.mixin;
 
 import com.feel.gems.power.ability.bonus.BonusDecoyTrapAbility;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,9 +22,9 @@ public abstract class ItemEntityDecoyTrapMixin {
     @Shadow
     private int pickupDelay;
 
-    @Inject(method = "onPlayerCollision", at = @At("HEAD"), cancellable = true)
-    private void gems$checkDecoyTrap(PlayerEntity player, CallbackInfo ci) {
-        if (!(player instanceof ServerPlayerEntity serverPlayer)) {
+    @Inject(method = "playerTouch", at = @At("HEAD"), cancellable = true)
+    private void gems$checkDecoyTrap(Player player, CallbackInfo ci) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
         
@@ -43,7 +43,7 @@ public abstract class ItemEntityDecoyTrapMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void gems$checkMobPickupTrap(CallbackInfo ci) {
         ItemEntity self = (ItemEntity) (Object) this;
-        if (!(self.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(self.level() instanceof ServerLevel world)) {
             return;
         }
         BonusDecoyTrapAbility.tickTrapItem(self);
@@ -53,8 +53,8 @@ public abstract class ItemEntityDecoyTrapMixin {
         if (BonusDecoyTrapAbility.getTrapOwner(self) == null) {
             return;
         }
-        Box box = self.getBoundingBox().expand(0.35);
-        for (LivingEntity living : world.getEntitiesByClass(LivingEntity.class, box, e -> !(e instanceof PlayerEntity))) {
+        AABB box = self.getBoundingBox().inflate(0.35);
+        for (LivingEntity living : world.getEntitiesOfClass(LivingEntity.class, box, e -> !(e instanceof Player))) {
             if (BonusDecoyTrapAbility.triggerTrap(self, living)) {
                 break;
             }

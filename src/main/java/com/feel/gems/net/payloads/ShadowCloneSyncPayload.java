@@ -2,29 +2,29 @@ package com.feel.gems.net.payloads;
 
 import com.feel.gems.GemsMod;
 import java.util.UUID;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Uuids;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * S2C payload to sync shadow clone owner information for skin rendering.
  */
-public record ShadowCloneSyncPayload(int entityId, UUID ownerUuid, String ownerName) implements CustomPayload {
+public record ShadowCloneSyncPayload(int entityId, UUID ownerUuid, String ownerName) implements CustomPacketPayload {
     
-    public static final Id<ShadowCloneSyncPayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "shadow_clone_sync"));
+    public static final Type<ShadowCloneSyncPayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "shadow_clone_sync"));
     
-    public static final PacketCodec<RegistryByteBuf, ShadowCloneSyncPayload> CODEC = PacketCodec.tuple(
-            PacketCodecs.INTEGER, ShadowCloneSyncPayload::entityId,
-            Uuids.PACKET_CODEC, ShadowCloneSyncPayload::ownerUuid,
-            PacketCodecs.STRING, ShadowCloneSyncPayload::ownerName,
+    public static final StreamCodec<RegistryFriendlyByteBuf, ShadowCloneSyncPayload> CODEC = StreamCodec.composite(
+            ByteBufCodecs.INT, ShadowCloneSyncPayload::entityId,
+            UUIDUtil.STREAM_CODEC, ShadowCloneSyncPayload::ownerUuid,
+            ByteBufCodecs.STRING_UTF8, ShadowCloneSyncPayload::ownerName,
             ShadowCloneSyncPayload::new
     );
     
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

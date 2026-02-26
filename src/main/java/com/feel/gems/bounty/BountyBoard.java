@@ -9,10 +9,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.item.ItemStack;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 
 public final class BountyBoard {
     public enum PlaceResult {
@@ -29,19 +29,19 @@ public final class BountyBoard {
     private BountyBoard() {
     }
 
-    public static int maxAdditionalHearts(ServerPlayerEntity player) {
+    public static int maxAdditionalHearts(ServerPlayer player) {
         int current = GemPlayerState.getMaxHearts(player);
         int min = GemPlayerState.MIN_MAX_HEARTS;
         return Math.max(0, current - min);
     }
 
-    public static int maxAdditionalEnergy(ServerPlayerEntity player) {
+    public static int maxAdditionalEnergy(ServerPlayer player) {
         int current = GemPlayerState.getEnergy(player);
         return Math.max(0, Math.min(GemPlayerState.MAX_ENERGY, current));
     }
 
-    public static PlaceResult placeBounty(ServerPlayerEntity placer, ServerPlayerEntity target, int hearts, int energy) {
-        if (placer == null || target == null || placer.getUuid().equals(target.getUuid())) {
+    public static PlaceResult placeBounty(ServerPlayer placer, ServerPlayer target, int hearts, int energy) {
+        if (placer == null || target == null || placer.getUUID().equals(target.getUUID())) {
             return PlaceResult.INVALID_TARGET;
         }
         if (AssassinState.isAssassin(placer)) {
@@ -50,12 +50,12 @@ public final class BountyBoard {
         if (hearts < 0 || energy < 0 || (hearts == 0 && energy == 0)) {
             return PlaceResult.INVALID_AMOUNT;
         }
-        MinecraftServer server = placer.getEntityWorld().getServer();
+        MinecraftServer server = placer.level().getServer();
         if (server == null) {
             return PlaceResult.INVALID_TARGET;
         }
         BountyState state = BountyState.get(server);
-        BountyState.BountyEntry existing = state.getEntry(target.getUuid(), placer.getUuid());
+        BountyState.BountyEntry existing = state.getEntry(target.getUUID(), placer.getUUID());
         int existingHearts = existing == null ? 0 : existing.hearts();
         int existingEnergy = existing == null ? 0 : existing.energy();
 
@@ -91,9 +91,9 @@ public final class BountyBoard {
         }
 
         state.putEntry(
-                target.getUuid(),
+                target.getUUID(),
                 target.getName().getString(),
-                placer.getUuid(),
+                placer.getUUID(),
                 placer.getName().getString(),
                 hearts,
                 energy
@@ -102,17 +102,17 @@ public final class BountyBoard {
         return PlaceResult.SUCCESS;
     }
 
-    public static boolean handleKill(ServerPlayerEntity victim, ServerPlayerEntity killer, int bonusHearts, int bonusEnergy) {
+    public static boolean handleKill(ServerPlayer victim, ServerPlayer killer, int bonusHearts, int bonusEnergy) {
         if (victim == null || killer == null || killer == victim) {
             return false;
         }
-        MinecraftServer server = victim.getEntityWorld().getServer();
+        MinecraftServer server = victim.level().getServer();
         if (server == null) {
             return false;
         }
         BountyState state = BountyState.get(server);
-        UUID victimId = victim.getUuid();
-        UUID killerId = killer.getUuid();
+        UUID victimId = victim.getUUID();
+        UUID killerId = killer.getUUID();
         int bonusHeartsRemaining = Math.max(0, bonusHearts);
         int bonusEnergyRemaining = Math.max(0, bonusEnergy);
         boolean claimed = false;
@@ -130,24 +130,24 @@ public final class BountyBoard {
             bonusHeartsRemaining = 0;
             bonusEnergyRemaining = 0;
             claimed = true;
-            killer.sendMessage(Text.translatable("gems.bounty.claimed", victim.getName().getString(), heartsTotal, energyTotal), true);
+            killer.sendSystemMessage(Component.translatable("gems.bounty.claimed", victim.getName().getString(), heartsTotal, energyTotal), true);
         }
 
         BountyState.BountyEntry revenge = state.removeEntry(killerId, victimId);
         if (revenge != null) {
             reward(killer, revenge.hearts() + bonusHeartsRemaining, revenge.energy() + bonusEnergyRemaining);
             claimed = true;
-            killer.sendMessage(Text.translatable("gems.bounty.claimed_revenge", victim.getName().getString(), revenge.hearts(), revenge.energy()), true);
+            killer.sendSystemMessage(Component.translatable("gems.bounty.claimed_revenge", victim.getName().getString(), revenge.hearts(), revenge.energy()), true);
         }
         return claimed;
     }
 
-    public static void notifyOnLogin(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void notifyOnLogin(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
-        BountyState.TargetBounty bounty = BountyState.get(server).getTarget(player.getUuid());
+        BountyState.TargetBounty bounty = BountyState.get(server).getTarget(player.getUUID());
         if (bounty == null || bounty.placers().isEmpty()) {
             return;
         }
@@ -158,22 +158,22 @@ public final class BountyBoard {
             energyTotal += Math.max(0, entry.energy());
         }
         int count = bounty.placers().size();
-        player.sendMessage(Text.translatable("gems.bounty.login_notice", count, heartsTotal, energyTotal), false);
+        player.sendSystemMessage(Component.translatable("gems.bounty.login_notice", count, heartsTotal, energyTotal), false);
     }
 
-    public static void voidBountiesForAssassin(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void voidBountiesForAssassin(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
         BountyState state = BountyState.get(server);
-        BountyState.TargetBounty removed = state.removeTarget(player.getUuid());
+        BountyState.TargetBounty removed = state.removeTarget(player.getUUID());
         if (removed == null) {
             return;
         }
-        Text message = Text.translatable("gems.bounty.voided", player.getName().getString());
-        for (ServerPlayerEntity online : server.getPlayerManager().getPlayerList()) {
-            online.sendMessage(message, false);
+        Component message = Component.translatable("gems.bounty.voided", player.getName().getString());
+        for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+            online.sendSystemMessage(message, false);
         }
     }
 
@@ -212,7 +212,7 @@ public final class BountyBoard {
         }
     }
 
-    private static void reward(ServerPlayerEntity player, int hearts, int energy) {
+    private static void reward(ServerPlayer player, int hearts, int energy) {
         if (hearts > 0) {
             giveHearts(player, hearts);
         }
@@ -221,27 +221,27 @@ public final class BountyBoard {
         }
     }
 
-    private static void giveHearts(ServerPlayerEntity player, int hearts) {
+    private static void giveHearts(ServerPlayer player, int hearts) {
         int remaining = hearts;
         while (remaining > 0) {
             ItemStack stack = new ItemStack(ModItems.HEART);
-            int count = Math.min(stack.getMaxCount(), remaining);
+            int count = Math.min(stack.getMaxStackSize(), remaining);
             stack.setCount(count);
-            if (!player.getInventory().insertStack(stack)) {
-                player.dropStack(player.getEntityWorld(), stack);
+            if (!player.getInventory().add(stack)) {
+                player.spawnAtLocation(player.level(), stack);
             }
             remaining -= count;
         }
     }
 
-    private static void giveEnergyUpgrades(ServerPlayerEntity player, int upgrades) {
+    private static void giveEnergyUpgrades(ServerPlayer player, int upgrades) {
         int remaining = upgrades;
         while (remaining > 0) {
             ItemStack stack = new ItemStack(ModItems.ENERGY_UPGRADE);
-            int count = Math.min(stack.getMaxCount(), remaining);
+            int count = Math.min(stack.getMaxStackSize(), remaining);
             stack.setCount(count);
-            if (!player.getInventory().insertStack(stack)) {
-                player.dropStack(player.getEntityWorld(), stack);
+            if (!player.getInventory().add(stack)) {
+                player.spawnAtLocation(player.level(), stack);
             }
             remaining -= count;
         }

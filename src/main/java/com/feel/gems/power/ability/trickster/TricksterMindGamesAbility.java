@@ -8,18 +8,17 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.util.Targeting;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Mind Games - confuse enemies for 5s.
@@ -48,27 +47,27 @@ public final class TricksterMindGamesAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int range = GemsBalance.v().trickster().mindGamesRangeBlocks();
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.TRICKSTER, GemsBalance.v().trickster().mindGamesDurationTicks());
 
         // Raycast to find target (any living entity)
         LivingEntity target = Targeting.raycastLiving(player, range);
         if (target == null) {
-            AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+            AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
             return false;
         }
 
         // Handle mob targets - confuse them with status effects and random targeting
-        if (target instanceof MobEntity mob) {
+        if (target instanceof Mob mob) {
             // Apply confusion effects
-            mob.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, durationTicks, 1, false, true));
-            mob.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA, durationTicks, 0, false, true));
+            mob.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, durationTicks, 1, false, true));
+            mob.addEffect(new MobEffectInstance(MobEffects.NAUSEA, durationTicks, 0, false, true));
 
             // Find a random target nearby (could be ally, enemy, or even the caster)
-            Box searchBox = mob.getBoundingBox().expand(16);
-            List<LivingEntity> nearbyEntities = world.getEntitiesByClass(
+            AABB searchBox = mob.getBoundingBox().inflate(16);
+            List<LivingEntity> nearbyEntities = world.getEntitiesOfClass(
                 LivingEntity.class,
                 searchBox,
                 e -> e != mob && e.isAlive()
@@ -83,26 +82,26 @@ public final class TricksterMindGamesAbility implements GemAbility {
             // Store confused state for ongoing random targeting
             TricksterMindGamesRuntime.applyMindGamesMob(mob, durationTicks);
 
-            AbilityFeedback.burstAt(world, mob.getEntityPos().add(0, 2, 0), ParticleTypes.WITCH, 30, 0.8D);
-            AbilityFeedback.sound(player, SoundEvents.ENTITY_ILLUSIONER_PREPARE_BLINDNESS, 1.0F, 1.2F);
+            AbilityFeedback.burstAt(world, mob.position().add(0, 2, 0), ParticleTypes.WITCH, 30, 0.8D);
+            AbilityFeedback.sound(player, SoundEvents.ILLUSIONER_PREPARE_BLINDNESS, 1.0F, 1.2F);
             return true;
         }
 
         // Handle player targets - reverse movement controls
-        if (target instanceof ServerPlayerEntity targetPlayer) {
+        if (target instanceof ServerPlayer targetPlayer) {
             if (!VoidImmunity.canBeTargeted(player, targetPlayer)) {
-                AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+                AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
                 return false;
             }
             TricksterMindGamesRuntime.applyMindGames(targetPlayer, durationTicks);
 
-            AbilityFeedback.burstAt(world, targetPlayer.getEntityPos().add(0, 2, 0), ParticleTypes.WITCH, 30, 0.8D);
-            AbilityFeedback.sound(player, SoundEvents.ENTITY_ILLUSIONER_PREPARE_BLINDNESS, 1.0F, 1.2F);
-            AbilityFeedback.sound(targetPlayer, SoundEvents.ENTITY_ILLUSIONER_PREPARE_BLINDNESS, 1.0F, 1.2F);
+            AbilityFeedback.burstAt(world, targetPlayer.position().add(0, 2, 0), ParticleTypes.WITCH, 30, 0.8D);
+            AbilityFeedback.sound(player, SoundEvents.ILLUSIONER_PREPARE_BLINDNESS, 1.0F, 1.2F);
+            AbilityFeedback.sound(targetPlayer, SoundEvents.ILLUSIONER_PREPARE_BLINDNESS, 1.0F, 1.2F);
             return true;
         }
 
-        AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+        AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
         return false;
     }
 }

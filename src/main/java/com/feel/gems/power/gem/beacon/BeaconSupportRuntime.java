@@ -7,13 +7,13 @@ import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.entity.effect.StatusEffectCategory;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.AABB;
 
 
 public final class BeaconSupportRuntime {
@@ -22,12 +22,12 @@ public final class BeaconSupportRuntime {
     private BeaconSupportRuntime() {
     }
 
-    public static void tickEverySecond(ServerPlayerEntity player) {
+    public static void tickEverySecond(ServerPlayer player) {
         tickCore(player);
         tickStabilize(player);
     }
 
-    public static void applyRally(ServerPlayerEntity player) {
+    public static void applyRally(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BEACON_RALLY)) {
             return;
         }
@@ -39,28 +39,28 @@ public final class BeaconSupportRuntime {
         }
 
         int amplifier = Math.max(0, (hearts / 2) - 1);
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (ServerPlayerEntity other : world.getEntitiesByClass(ServerPlayerEntity.class, box, p -> true)) {
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (ServerPlayer other : world.getEntitiesOfClass(ServerPlayer.class, box, p -> true)) {
             if (other != player && VoidImmunity.shouldBlockEffect(player, other)) {
                 continue;
             }
             if (other == player) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, duration, amplifier, true, true, false));
+                other.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, amplifier, true, true, false));
                 continue;
             }
 
             if (GemTrust.isTrusted(player, other)) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, duration, amplifier, true, true, false));
+                other.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, amplifier, true, true, false));
             } else {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, duration, 0, true, true, false));
+                other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0, true, true, false));
             }
         }
     }
 
-    private static void tickCore(ServerPlayerEntity player) {
+    private static void tickCore(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BEACON_CORE)) {
             return;
         }
@@ -72,31 +72,31 @@ public final class BeaconSupportRuntime {
             return;
         }
 
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         long now = GemsTime.now(player);
-        long next = nbt.getLong(KEY_CORE_NEXT, 0L);
+        long next = nbt.getLongOr(KEY_CORE_NEXT, 0L);
         if (next > now) {
             return;
         }
         nbt.putLong(KEY_CORE_NEXT, now + pulse);
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (ServerPlayerEntity other : world.getEntitiesByClass(ServerPlayerEntity.class, box, p -> true)) {
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (ServerPlayer other : world.getEntitiesOfClass(ServerPlayer.class, box, p -> true)) {
             if (other != player && VoidImmunity.shouldBlockEffect(player, other)) {
                 continue;
             }
             if (GemTrust.isTrusted(player, other) || other == player) {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, duration, amp, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.REGENERATION, duration, amp, true, false, false));
             } else {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, duration, 0, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, duration, 0, true, false, false));
             }
         }
     }
 
-    private static void tickStabilize(ServerPlayerEntity player) {
+    private static void tickStabilize(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BEACON_STABILIZE)) {
             return;
         }
@@ -106,38 +106,38 @@ public final class BeaconSupportRuntime {
             return;
         }
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (ServerPlayerEntity other : world.getEntitiesByClass(ServerPlayerEntity.class, box, p -> true)) {
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (ServerPlayer other : world.getEntitiesOfClass(ServerPlayer.class, box, p -> true)) {
             if (other != player && VoidImmunity.shouldBlockEffect(player, other)) {
                 continue;
             }
             if (GemTrust.isTrusted(player, other) || other == player) {
-                for (StatusEffectInstance effect : java.util.List.copyOf(other.getStatusEffects())) {
-                    if (effect.getEffectType().value().getCategory() != StatusEffectCategory.HARMFUL) {
+                for (MobEffectInstance effect : java.util.List.copyOf(other.getActiveEffects())) {
+                    if (effect.getEffect().value().getCategory() != MobEffectCategory.HARMFUL) {
                         continue;
                     }
                     int remaining = effect.getDuration() - reduceTicks;
                     if (remaining <= 0) {
-                        other.removeStatusEffect(effect.getEffectType());
+                        other.removeEffect(effect.getEffect());
                         continue;
                     }
                     // Vanilla refuses to replace a longer-duration effect with a shorter one, so explicitly
                     // remove then re-add to ensure the duration is reduced.
-                    other.removeStatusEffect(effect.getEffectType());
-                    other.addStatusEffect(new StatusEffectInstance(
-                            effect.getEffectType(),
+                    other.removeEffect(effect.getEffect());
+                    other.addEffect(new MobEffectInstance(
+                            effect.getEffect(),
                             remaining,
                             effect.getAmplifier(),
                             effect.isAmbient(),
-                            effect.shouldShowParticles(),
-                            effect.shouldShowIcon()
+                            effect.isVisible(),
+                            effect.showIcon()
                     ));
                 }
             } else {
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.MINING_FATIGUE, reduceTicks + 10, 0, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.MINING_FATIGUE, reduceTicks + 10, 0, true, false, false));
             }
         }
     }

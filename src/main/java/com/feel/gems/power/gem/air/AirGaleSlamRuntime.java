@@ -6,14 +6,14 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.trust.GemTrust;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 
 public final class AirGaleSlamRuntime {
@@ -22,13 +22,13 @@ public final class AirGaleSlamRuntime {
     private AirGaleSlamRuntime() {
     }
 
-    public static void start(ServerPlayerEntity player, int windowTicks) {
+    public static void start(ServerPlayer player, int windowTicks) {
         ((GemsPersistentDataHolder) player).gems$getPersistentData().putLong(KEY_GALE_SLAM_UNTIL, GemsTime.now(player) + windowTicks);
     }
 
-    public static boolean consumeIfActive(ServerPlayerEntity player) {
+    public static boolean consumeIfActive(ServerPlayer player) {
         var nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        long until = nbt.getLong(KEY_GALE_SLAM_UNTIL, 0L);
+        long until = nbt.getLongOr(KEY_GALE_SLAM_UNTIL, 0L);
         if (until <= 0) {
             return false;
         }
@@ -37,7 +37,7 @@ public final class AirGaleSlamRuntime {
         return now <= until;
     }
 
-    public static void trigger(ServerPlayerEntity player, Entity target) {
+    public static void trigger(ServerPlayer player, Entity target) {
         int radius = GemsBalance.v().air().galeSlamRadiusBlocks();
         float bonusDamage = GemsBalance.v().air().galeSlamBonusDamage();
         double knockback = GemsBalance.v().air().galeSlamKnockback();
@@ -45,29 +45,29 @@ public final class AirGaleSlamRuntime {
             return;
         }
 
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
-        Vec3d center = (target != null) ? target.getEntityPos() : player.getEntityPos();
-        Box box = new Box(center, center).expand(radius);
+        Vec3 center = (target != null) ? target.position() : player.position();
+        AABB box = new AABB(center, center).inflate(radius);
 
-        for (Entity entity : world.getOtherEntities(player, box, e -> e instanceof LivingEntity living && living.isAlive())) {
-            if (entity instanceof ServerPlayerEntity other && GemTrust.isTrusted(player, other)) {
+        for (Entity entity : world.getEntities(player, box, e -> e instanceof LivingEntity living && living.isAlive())) {
+            if (entity instanceof ServerPlayer other && GemTrust.isTrusted(player, other)) {
                 continue;
             }
-            if (entity instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
+            if (entity instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                 continue;
             }
             LivingEntity living = (LivingEntity) entity;
-            living.damage(world, player.getDamageSources().playerAttack(player), bonusDamage);
+            living.hurtServer(world, player.damageSources().playerAttack(player), bonusDamage);
             if (knockback > 0.0D) {
-                Vec3d away = living.getEntityPos().subtract(center).normalize();
-                living.addVelocity(away.x * knockback, 0.2D, away.z * knockback);
-                living.velocityDirty = true;
+                Vec3 away = living.position().subtract(center).normalize();
+                living.push(away.x * knockback, 0.2D, away.z * knockback);
+                living.needsSync = true;
             }
         }
 
         AbilityFeedback.burstAt(world, center.add(0.0D, 0.6D, 0.0D), ParticleTypes.GUST, 18, 0.3D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_BREEZE_WIND_BURST, 1.0F, 1.0F);
+        AbilityFeedback.sound(player, SoundEvents.BREEZE_WIND_CHARGE_BURST, 1.0F, 1.0F);
     }
 }

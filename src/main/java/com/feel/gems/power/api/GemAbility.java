@@ -1,7 +1,7 @@
 package com.feel.gems.power.api;
 
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -15,6 +15,6 @@ public interface GemAbility {
 
     int cooldownTicks();
 
-    boolean activate(ServerPlayerEntity player);
+    boolean activate(ServerPlayer player);
 }
 

@@ -5,10 +5,10 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 public final class DuelistParryAbility implements GemAbility {
     private static final String PARRY_KEY = "duelist_parry_window";
@@ -34,21 +34,21 @@ public final class DuelistParryAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int windowTicks = GemsBalance.v().duelist().parryWindowTicks();
         PlayerStateManager.setTemporary(player, PARRY_KEY, windowTicks);
 
-        AbilityFeedback.burstAt(player.getEntityWorld(), player.getEntityPos().add(0.0D, 1.0D, 0.0D),
+        AbilityFeedback.burstAt(player.level(), player.position().add(0.0D, 1.0D, 0.0D),
                 ParticleTypes.ENCHANT, 20, 0.5D);
-        AbilityFeedback.sound(player, SoundEvents.ITEM_SHIELD_BLOCK, 1.0F, 1.5F);
+        AbilityFeedback.sound(player, SoundEvents.SHIELD_BLOCK, 1.0F, 1.5F);
         return true;
     }
 
-    public static boolean isParrying(ServerPlayerEntity player) {
+    public static boolean isParrying(ServerPlayer player) {
         return PlayerStateManager.getTemporary(player, PARRY_KEY) > 0;
     }
 
-    public static void consumeParry(ServerPlayerEntity player) {
+    public static void consumeParry(ServerPlayer player) {
         PlayerStateManager.clearTemporary(player, PARRY_KEY);
     }
 }

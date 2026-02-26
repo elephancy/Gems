@@ -3,10 +3,10 @@ package com.feel.gems.mixin;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,17 +20,17 @@ public abstract class LivingEntityTreasureHunterLootMixin {
     private static final ThreadLocal<Boolean> gems$treasureLoot = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     @Shadow
-    protected abstract void dropLoot(ServerWorld world, DamageSource damageSource, boolean causedByPlayer);
+    protected abstract void dropFromLootTable(ServerLevel world, DamageSource damageSource, boolean causedByPlayer);
 
-    @Inject(method = "dropLoot(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/damage/DamageSource;Z)V", at = @At("TAIL"))
-    private void gems$treasureHunterLoot(ServerWorld world, DamageSource source, boolean causedByPlayer, CallbackInfo ci) {
+    @Inject(method = "dropFromLootTable(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;Z)V", at = @At("TAIL"))
+    private void gems$treasureHunterLoot(ServerLevel world, DamageSource source, boolean causedByPlayer, CallbackInfo ci) {
         if (!causedByPlayer) {
             return;
         }
         if (Boolean.TRUE.equals(gems$treasureLoot.get())) {
             return;
         }
-        if (!(source.getAttacker() instanceof ServerPlayerEntity player)) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
             return;
         }
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_TREASURE_HUNTER)) {
@@ -42,7 +42,7 @@ public abstract class LivingEntityTreasureHunterLootMixin {
         }
         try {
             gems$treasureLoot.set(Boolean.TRUE);
-            dropLoot(world, source, true);
+            dropFromLootTable(world, source, true);
         } finally {
             gems$treasureLoot.set(Boolean.FALSE);
         }

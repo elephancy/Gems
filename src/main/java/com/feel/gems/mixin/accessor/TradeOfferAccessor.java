@@ -1,13 +1,13 @@
 package com.feel.gems.mixin.accessor;
 
 import java.util.Optional;
-import net.minecraft.village.TradeOffer;
-import net.minecraft.village.TradedItem;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.item.trading.MerchantOffer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(TradeOffer.class)
+@Mixin(MerchantOffer.class)
 public interface TradeOfferAccessor {
     @Accessor("uses")
     int gems$getUses();
@@ -23,10 +23,10 @@ public interface TradeOfferAccessor {
     @Mutable
     void gems$setMaxUses(int maxUses);
 
-    @Accessor("secondBuyItem")
-    Optional<TradedItem> gems$getSecondBuyItem();
+    @Accessor("costB")
+    Optional<ItemCost> gems$getSecondBuyItem();
 
-    @Accessor("secondBuyItem")
+    @Accessor("costB")
     @Mutable
-    void gems$setSecondBuyItem(Optional<TradedItem> secondBuyItem);
+    void gems$setSecondBuyItem(Optional<ItemCost> secondBuyItem);
 }

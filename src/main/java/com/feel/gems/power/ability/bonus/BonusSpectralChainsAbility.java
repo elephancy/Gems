@@ -4,19 +4,17 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
-
 import java.util.List;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Spectral Chains - Root enemies in place with ghostly chains.
@@ -46,18 +44,18 @@ public final class BonusSpectralChainsAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Box box = player.getBoundingBox().expand(RANGE);
-        List<LivingEntity> entities = world.getEntitiesByClass(LivingEntity.class, box,
-                e -> e != player && e.isAlive() && !(e instanceof ServerPlayerEntity p && p.isCreative()));
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        AABB box = player.getBoundingBox().inflate(RANGE);
+        List<LivingEntity> entities = world.getEntitiesOfClass(LivingEntity.class, box,
+                e -> e != player && e.isAlive() && !(e instanceof ServerPlayer p && p.isCreative()));
 
         if (entities.isEmpty()) {
             return false;
         }
 
         for (LivingEntity entity : entities) {
-            if (entity instanceof ServerPlayerEntity otherPlayer) {
+            if (entity instanceof ServerPlayer otherPlayer) {
                 if (VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
                     continue;
                 }
@@ -65,15 +63,15 @@ public final class BonusSpectralChainsAbility implements GemAbility {
                     continue;
                 }
             }
-            entity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, ROOT_DURATION, 127, false, false, true));
-            entity.addStatusEffect(new StatusEffectInstance(StatusEffects.JUMP_BOOST, ROOT_DURATION, 128, false, false, false));
+            entity.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, ROOT_DURATION, 127, false, false, true));
+            entity.addEffect(new MobEffectInstance(MobEffects.JUMP_BOOST, ROOT_DURATION, 128, false, false, false));
             
             // Visual effect
-            world.spawnParticles(ParticleTypes.SOUL, entity.getX(), entity.getY() + 1, entity.getZ(), 15, 0.3, 0.5, 0.3, 0.02);
+            world.sendParticles(ParticleTypes.SOUL, entity.getX(), entity.getY() + 1, entity.getZ(), 15, 0.3, 0.5, 0.3, 0.02);
         }
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.PARTICLE_SOUL_ESCAPE, SoundCategory.PLAYERS, 1.0f, 0.5f);
+                SoundEvents.SOUL_ESCAPE, SoundSource.PLAYERS, 1.0f, 0.5f);
         return true;
     }
 }

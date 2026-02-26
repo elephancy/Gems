@@ -9,13 +9,13 @@ import com.feel.gems.power.gem.hunter.HunterPreyMarkRuntime;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.Entity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 
 public final class HunterPackTacticsAbility implements GemAbility {
     @Override
@@ -39,38 +39,38 @@ public final class HunterPackTacticsAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int radius = GemsBalance.v().hunter().packTacticsRadiusBlocks();
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.HUNTER, GemsBalance.v().hunter().packTacticsDurationTicks());
 
         // Need a marked target
         var markedTarget = HunterPreyMarkRuntime.getMarkedTarget(player);
         if (markedTarget == null) {
-            AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+            AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
             return false;
         }
 
         // Find trusted allies in range
-        Box box = player.getBoundingBox().expand(radius);
+        AABB box = player.getBoundingBox().inflate(radius);
         int alliesBuffed = 0;
 
-        for (Entity e : world.getOtherEntities(player, box, ent -> ent instanceof ServerPlayerEntity)) {
-            ServerPlayerEntity ally = (ServerPlayerEntity) e;
+        for (Entity e : world.getEntities(player, box, ent -> ent instanceof ServerPlayer)) {
+            ServerPlayer ally = (ServerPlayer) e;
             if (!GemTrust.isTrusted(player, ally)) continue;
             if (VoidImmunity.shouldBlockEffect(player, ally)) continue;
 
             // Grant pack tactics buff to ally against the marked target
-            HunterPackTacticsRuntime.grantBuff(ally, markedTarget.getUuid(), durationTicks);
-            AbilityFeedback.burstAt(world, ally.getEntityPos().add(0, 1, 0), ParticleTypes.ENCHANT, 15, 0.5D);
+            HunterPackTacticsRuntime.grantBuff(ally, markedTarget.getUUID(), durationTicks);
+            AbilityFeedback.burstAt(world, ally.position().add(0, 1, 0), ParticleTypes.ENCHANT, 15, 0.5D);
             alliesBuffed++;
         }
 
         // Also grant to self
-        HunterPackTacticsRuntime.grantBuff(player, markedTarget.getUuid(), durationTicks);
+        HunterPackTacticsRuntime.grantBuff(player, markedTarget.getUUID(), durationTicks);
 
-        AbilityFeedback.burstAt(world, player.getEntityPos().add(0, 1.5, 0), ParticleTypes.ENCHANT, 25, 0.8D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_RAVAGER_ROAR, 1.0F, 1.0F);
+        AbilityFeedback.burstAt(world, player.position().add(0, 1.5, 0), ParticleTypes.ENCHANT, 25, 0.8D);
+        AbilityFeedback.sound(player, SoundEvents.RAVAGER_ROAR, 1.0F, 1.0F);
         return true;
     }
 }

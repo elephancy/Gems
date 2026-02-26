@@ -7,10 +7,10 @@ import com.feel.gems.power.runtime.AbilityRestrictions;
 import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.trust.GemTrust;
 import java.util.UUID;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,12 +19,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 
 
-@Mixin(MobEntity.class)
+@Mixin(Mob.class)
 public abstract class MobEntitySoulTargetingMixin {
     @Inject(method = "setTarget", at = @At("TAIL"))
     private void gems$preventTargetingTrusted(LivingEntity target, CallbackInfo ci) {
-        MobEntity self = (MobEntity) (Object) this;
-        if (!(self.getEntityWorld() instanceof ServerWorld world)) {
+        Mob self = (Mob) (Object) this;
+        if (!(self.level() instanceof ServerLevel world)) {
             return;
         }
         if (target == null) {
@@ -43,7 +43,7 @@ public abstract class MobEntitySoulTargetingMixin {
             self.setTarget(null);
             return;
         }
-        ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(ownerUuid);
+        ServerPlayer owner = world.getServer().getPlayerList().getPlayer(ownerUuid);
         if (owner == null) {
             return;
         }
@@ -58,8 +58,8 @@ public abstract class MobEntitySoulTargetingMixin {
             return;
         }
 
-        if (target instanceof ServerPlayerEntity candidate) {
-            if (candidate.getUuid().equals(ownerUuid)) {
+        if (target instanceof ServerPlayer candidate) {
+            if (candidate.getUUID().equals(ownerUuid)) {
                 self.setTarget(null);
                 return;
             }
@@ -70,7 +70,7 @@ public abstract class MobEntitySoulTargetingMixin {
             return;
         }
 
-        if (target instanceof MobEntity mobTarget) {
+        if (target instanceof Mob mobTarget) {
             if (SoulSummons.isSoul(mobTarget) && ownerUuid.equals(SoulSummons.ownerUuid(mobTarget))) {
                 self.setTarget(null);
                 return;

@@ -5,10 +5,10 @@ import com.feel.gems.augment.AugmentRuntime;
 import com.feel.gems.core.GemId;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 import com.feel.gems.power.gem.spy.SpySystem;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 
 public final class SpyMimicFormAbility implements GemAbility {
@@ -33,9 +33,9 @@ public final class SpyMimicFormAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         if (SpySystem.lastKilledType(player) == null) {
-            player.sendMessage(Text.translatable("gems.ability.spy.mimic_form.no_mob"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.spy.mimic_form.no_mob"), true);
             return false;
         }
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.SPY, GemsBalance.v().spy().mimicFormDurationTicks());

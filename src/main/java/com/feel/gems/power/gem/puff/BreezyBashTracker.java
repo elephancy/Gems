@@ -7,9 +7,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 
 
 public final class BreezyBashTracker {
@@ -18,12 +18,12 @@ public final class BreezyBashTracker {
     private BreezyBashTracker() {
     }
 
-    public static void track(ServerPlayerEntity caster, LivingEntity target, int windowTicks) {
+    public static void track(ServerPlayer caster, LivingEntity target, int windowTicks) {
         if (windowTicks <= 0) {
             return;
         }
         long until = GemsTime.now(caster) + windowTicks;
-        ACTIVE.put(target.getUuid(), new Bash(caster.getUuid(), until, false));
+        ACTIVE.put(target.getUUID(), new Bash(caster.getUUID(), until, false));
     }
 
     public static void tick(MinecraftServer server) {
@@ -49,12 +49,12 @@ public final class BreezyBashTracker {
                 continue;
             }
 
-            boolean onGround = target.isOnGround();
+            boolean onGround = target.onGround();
             if (onGround && !bash.wasOnGround) {
-                ServerPlayerEntity caster = server.getPlayerManager().getPlayer(bash.caster);
-                var source = caster != null ? caster.getDamageSources().playerAttack(caster) : target.getDamageSources().magic();
-                if (target.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld world) {
-                    target.damage(world, source, GemsBalance.v().puff().breezyBashImpactDamage());
+                ServerPlayer caster = server.getPlayerList().getPlayer(bash.caster);
+                var source = caster != null ? caster.damageSources().playerAttack(caster) : target.damageSources().magic();
+                if (target.level() instanceof net.minecraft.server.level.ServerLevel world) {
+                    target.hurtServer(world, source, GemsBalance.v().puff().breezyBashImpactDamage());
                 }
                 it.remove();
                 continue;

@@ -9,33 +9,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.datafixer.DataFixTypes;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Uuids;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.PersistentStateType;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
 
 
 
 
 public final class LegendaryCrafting {
     private static final String STATE_KEY = "gems_legendary_crafts";
-    private static final PersistentStateType<State> STATE_TYPE =
-            new PersistentStateType<>(STATE_KEY, State::new, State.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<State> STATE_TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(STATE_KEY), State::new, State.CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
 
     private static final String KEY_CRAFTED = "crafted";
     private static final String KEY_ACTIVE = "active";
@@ -51,16 +51,16 @@ public final class LegendaryCrafting {
 
     private static final String KEY_BLOCKED_NOTIFY = "gemsLegendaryCraftBlockedUntil";
 
-    private static final Map<String, net.minecraft.entity.boss.ServerBossBar> ACTIVE_BARS = new HashMap<>();
+    private static final Map<String, net.minecraft.server.level.ServerBossEvent> ACTIVE_BARS = new HashMap<>();
 
     private LegendaryCrafting() {
     }
 
-    public static boolean canStartCraft(ServerPlayerEntity player, ItemStack stack) {
+    public static boolean canStartCraft(ServerPlayer player, ItemStack stack) {
         if (!(stack.getItem() instanceof LegendaryItem legendary)) {
             return true;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return false;
         }
@@ -73,11 +73,11 @@ public final class LegendaryCrafting {
         return true;
     }
 
-    public static void onCrafted(ServerPlayerEntity player, ItemStack stack) {
+    public static void onCrafted(ServerPlayer player, ItemStack stack) {
         if (!(stack.getItem() instanceof LegendaryItem legendary)) {
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
@@ -93,12 +93,12 @@ public final class LegendaryCrafting {
         int craftTicks = GemsBalance.v().legendary().craftTicks();
         long finish = now + craftTicks;
         CraftLocation location = resolveCraftLocation(player);
-        state.start(id, player.getUuid(), now, finish, location);
-        state.markDirty();
+        state.start(id, player.getUUID(), now, finish, location);
+        state.setDirty();
 
         removeCraftResult(player, stack.getItem());
         announceCraftStart(server, player, stack.getItem(), craftTicks);
-        player.sendMessage(Text.translatable("gems.legendary.craft_started", seconds(craftTicks)), true);
+        player.sendSystemMessage(Component.translatable("gems.legendary.craft_started", seconds(craftTicks)), true);
     }
 
     public static void tick(MinecraftServer server) {
@@ -123,40 +123,40 @@ public final class LegendaryCrafting {
             dropAtLocation(server, craft);
             removeBossBar(craft.key);
         }
-        state.markDirty();
+        state.setDirty();
     }
 
-    public static void deliverPending(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void deliverPending(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
         State state = state(server);
-        List<String> pending = state.pending.remove(player.getUuid());
+        List<String> pending = state.pending.remove(player.getUUID());
         if (pending == null || pending.isEmpty()) {
             return;
         }
         for (String id : pending) {
             deliver(player, id);
         }
-        state.markDirty();
+        state.setDirty();
     }
 
-    private static void deliver(ServerPlayerEntity player, String id) {
+    private static void deliver(ServerPlayer player, String id) {
         Identifier itemId = Identifier.tryParse(id);
         if (itemId == null) {
             return;
         }
-        Item item = Registries.ITEM.get(itemId);
+        Item item = BuiltInRegistries.ITEM.getValue(itemId);
         if (item == null) {
             return;
         }
         ItemStack stack = new ItemStack(item);
-        applyDefaultEnchants(player.getEntityWorld().getServer(), stack);
-        if (!player.giveItemStack(stack)) {
-            player.dropItem(stack, false);
+        applyDefaultEnchants(player.level().getServer(), stack);
+        if (!player.addItem(stack)) {
+            player.drop(stack, false, net.minecraft.util.Prediction.SERVER_ONLY);
         }
-        player.sendMessage(Text.translatable("gems.legendary.craft_complete", stack.getName().getString()), false);
+        player.sendSystemMessage(Component.translatable("gems.legendary.craft_complete", stack.getHoverName().getString()), false);
     }
 
     private static void dropAtLocation(MinecraftServer server, ActiveCraft craft) {
@@ -164,58 +164,58 @@ public final class LegendaryCrafting {
         if (itemId == null) {
             return;
         }
-        Item item = Registries.ITEM.get(itemId);
+        Item item = BuiltInRegistries.ITEM.getValue(itemId);
         if (item == null) {
             return;
         }
-        net.minecraft.registry.RegistryKey<World> worldKey = net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, craft.dimension);
-        net.minecraft.server.world.ServerWorld world = server.getWorld(worldKey);
+        net.minecraft.resources.ResourceKey<Level> worldKey = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, craft.dimension);
+        net.minecraft.server.level.ServerLevel world = server.getLevel(worldKey);
         if (world == null) {
-            world = server.getOverworld();
+            world = server.overworld();
         }
         ItemStack stack = new ItemStack(item);
         applyDefaultEnchants(server, stack);
         BlockPos pos = craft.pos;
         world.getChunk(pos);
-        net.minecraft.entity.ItemEntity entity = new net.minecraft.entity.ItemEntity(world, pos.getX() + 0.5D, pos.getY() + 1.1D, pos.getZ() + 0.5D, stack);
-        world.spawnEntity(entity);
-        String itemName = stack.getName().getString();
-        Text text = Text.translatable("gems.legendary.craft_dropped", itemName,
+        net.minecraft.world.entity.item.ItemEntity entity = new net.minecraft.world.entity.item.ItemEntity(world, pos.getX() + 0.5D, pos.getY() + 1.1D, pos.getZ() + 0.5D, stack);
+        world.addFreshEntity(entity);
+        String itemName = stack.getHoverName().getString();
+        Component text = Component.translatable("gems.legendary.craft_dropped", itemName,
                 pos.getX(), pos.getY(), pos.getZ(), craft.dimension.toString());
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            player.sendMessage(text, false);
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.sendSystemMessage(text, false);
         }
     }
 
-    private static void removeCraftResult(ServerPlayerEntity player, Item item) {
-        if (player.currentScreenHandler != null) {
-            ItemStack cursor = player.currentScreenHandler.getCursorStack();
-            if (cursor.isOf(item)) {
-                player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+    private static void removeCraftResult(ServerPlayer player, Item item) {
+        if (player.containerMenu != null) {
+            ItemStack cursor = player.containerMenu.getCarried();
+            if (cursor.is(item)) {
+                player.containerMenu.setCarried(ItemStack.EMPTY);
                 return;
             }
         }
-        var mainStacks = player.getInventory().getMainStacks();
+        var mainStacks = player.getInventory().getNonEquipmentItems();
         for (int i = 0; i < mainStacks.size(); i++) {
             ItemStack stack = mainStacks.get(i);
-            if (stack.isOf(item)) {
+            if (stack.is(item)) {
                 mainStacks.set(i, ItemStack.EMPTY);
                 return;
             }
         }
-        if (player.getOffHandStack().isOf(item)) {
-            player.equipStack(net.minecraft.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+        if (player.getOffhandItem().is(item)) {
+            player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
             return;
         }
-        net.minecraft.entity.EquipmentSlot[] armorSlots = {
-                net.minecraft.entity.EquipmentSlot.HEAD,
-                net.minecraft.entity.EquipmentSlot.CHEST,
-                net.minecraft.entity.EquipmentSlot.LEGS,
-                net.minecraft.entity.EquipmentSlot.FEET
+        net.minecraft.world.entity.EquipmentSlot[] armorSlots = {
+                net.minecraft.world.entity.EquipmentSlot.HEAD,
+                net.minecraft.world.entity.EquipmentSlot.CHEST,
+                net.minecraft.world.entity.EquipmentSlot.LEGS,
+                net.minecraft.world.entity.EquipmentSlot.FEET
         };
         for (var slot : armorSlots) {
-            if (player.getEquippedStack(slot).isOf(item)) {
-                player.equipStack(slot, ItemStack.EMPTY);
+            if (player.getItemBySlot(slot).is(item)) {
+                player.setItemSlot(slot, ItemStack.EMPTY);
                 return;
             }
         }
@@ -225,40 +225,40 @@ public final class LegendaryCrafting {
         if (server == null) {
             return;
         }
-        if (stack.isOf(com.feel.gems.item.ModItems.EARTHSPLITTER_PICK)) {
-            RegistryEntry<Enchantment> silk = resolveEnchantment(server, Enchantments.SILK_TOUCH);
+        if (stack.is(com.feel.gems.item.ModItems.EARTHSPLITTER_PICK)) {
+            Holder<Enchantment> silk = resolveEnchantment(server, Enchantments.SILK_TOUCH);
             if (silk != null) {
-                EnchantmentHelper.apply(stack, builder -> builder.set(silk, 1));
+                EnchantmentHelper.updateEnchantments(stack, builder -> builder.set(silk, 1));
             }
         }
     }
 
-    private static RegistryEntry<Enchantment> resolveEnchantment(MinecraftServer server, net.minecraft.registry.RegistryKey<Enchantment> key) {
-        return server.getRegistryManager().getOptionalEntry(key).orElse(null);
+    private static Holder<Enchantment> resolveEnchantment(MinecraftServer server, net.minecraft.resources.ResourceKey<Enchantment> key) {
+        return server.registryAccess().get(key).orElse(null);
     }
 
-    private static void announceCraftStart(MinecraftServer server, ServerPlayerEntity player, Item item, int craftTicks) {
+    private static void announceCraftStart(MinecraftServer server, ServerPlayer player, Item item, int craftTicks) {
         CraftLocation location = resolveCraftLocation(player);
         BlockPos pos = location.pos;
         String dim = location.dimension.toString();
-        String itemName = new ItemStack(item).getName().getString();
-        Text text = Text.translatable("gems.legendary.craft_announce",
+        String itemName = new ItemStack(item).getHoverName().getString();
+        Component text = Component.translatable("gems.legendary.craft_announce",
                 player.getName().getString(), itemName,
                 pos.getX(), pos.getY(), pos.getZ(), dim);
-        for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
-            other.sendMessage(text, false);
+        for (ServerPlayer other : server.getPlayerList().getPlayers()) {
+            other.sendSystemMessage(text, false);
         }
     }
 
-    private static void notifyBlocked(ServerPlayerEntity player, String id) {
+    private static void notifyBlocked(ServerPlayer player, String id) {
         long now = GemsTime.now(player);
-        NbtCompound data = ((com.feel.gems.state.GemsPersistentDataHolder) player).gems$getPersistentData();
-        long next = data.getLong(KEY_BLOCKED_NOTIFY, 0L);
+        CompoundTag data = ((com.feel.gems.state.GemsPersistentDataHolder) player).gems$getPersistentData();
+        long next = data.getLongOr(KEY_BLOCKED_NOTIFY, 0L);
         if (next > now) {
             return;
         }
         data.putLong(KEY_BLOCKED_NOTIFY, now + 40);
-        player.sendMessage(Text.translatable("gems.legendary.crafting_limit"), true);
+        player.sendSystemMessage(Component.translatable("gems.legendary.crafting_limit"), true);
     }
 
     private static int seconds(int ticks) {
@@ -266,14 +266,14 @@ public final class LegendaryCrafting {
     }
 
     private static State state(MinecraftServer server) {
-        PersistentStateManager mgr = server.getOverworld().getPersistentStateManager();
-        return mgr.getOrCreate(STATE_TYPE);
+        SavedDataStorage mgr = server.overworld().getDataStorage();
+        return mgr.computeIfAbsent(STATE_TYPE);
     }
 
     private record ActiveCraft(String key, String id, UUID owner, long startTick, long finishTick, Identifier dimension, BlockPos pos) {
         static final Codec<ActiveCraft> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.STRING.fieldOf(KEY_ID).forGetter(ActiveCraft::id),
-                Uuids.CODEC.fieldOf(KEY_OWNER).forGetter(ActiveCraft::owner),
+                UUIDUtil.AUTHLIB_CODEC.fieldOf(KEY_OWNER).forGetter(ActiveCraft::owner),
                 Codec.LONG.fieldOf(KEY_START).forGetter(ActiveCraft::startTick),
                 Codec.LONG.fieldOf(KEY_FINISH).forGetter(ActiveCraft::finishTick),
                 Identifier.CODEC.fieldOf(KEY_DIM).forGetter(ActiveCraft::dimension),
@@ -281,11 +281,11 @@ public final class LegendaryCrafting {
         ).apply(instance, (id, owner, start, finish, dim, pos) -> new ActiveCraft(craftKey(id, owner, start), id, owner, start, finish, dim, pos)));
     }
 
-    private static final class State extends PersistentState {
+    private static final class State extends SavedData {
         static final Codec<State> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf(KEY_CRAFTED, Map.of()).forGetter(state -> state.crafted),
                 Codec.unboundedMap(Codec.STRING, ActiveCraft.CODEC).optionalFieldOf(KEY_ACTIVE, Map.of()).forGetter(state -> state.active),
-                Codec.unboundedMap(Uuids.CODEC, Codec.STRING.listOf()).optionalFieldOf(KEY_PENDING, Map.of()).forGetter(state -> state.pending)
+                Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, Codec.STRING.listOf()).optionalFieldOf(KEY_PENDING, Map.of()).forGetter(state -> state.pending)
         ).apply(instance, State::new));
 
         private final Map<String, Integer> crafted;
@@ -360,22 +360,22 @@ public final class LegendaryCrafting {
     private record CraftLocation(Identifier dimension, BlockPos pos) {
     }
 
-    private static CraftLocation resolveCraftLocation(ServerPlayerEntity player) {
-        if (player.currentScreenHandler instanceof net.minecraft.screen.CraftingScreenHandler handler) {
+    private static CraftLocation resolveCraftLocation(ServerPlayer player) {
+        if (player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu handler) {
             var context = ((com.feel.gems.mixin.accessor.CraftingScreenHandlerAccessor) handler).gems$getContext();
             if (context != null) {
                 final BlockPos[] pos = new BlockPos[1];
                 final Identifier[] dim = new Identifier[1];
-                context.run((world, blockPos) -> {
-                    pos[0] = blockPos.toImmutable();
-                    dim[0] = world.getRegistryKey().getValue();
+                context.execute((world, blockPos) -> {
+                    pos[0] = blockPos.immutable();
+                    dim[0] = world.dimension().identifier();
                 });
                 if (pos[0] != null && dim[0] != null) {
                     return new CraftLocation(dim[0], pos[0]);
                 }
             }
         }
-        return new CraftLocation(player.getEntityWorld().getRegistryKey().getValue(), player.getBlockPos());
+        return new CraftLocation(player.level().dimension().identifier(), player.blockPosition());
     }
 
     private static void updateBossBars(MinecraftServer server, State state, long now) {
@@ -384,22 +384,23 @@ public final class LegendaryCrafting {
             return;
         }
         for (ActiveCraft craft : state.active.values()) {
-            net.minecraft.entity.boss.ServerBossBar bar = ACTIVE_BARS.computeIfAbsent(craft.key, key -> new net.minecraft.entity.boss.ServerBossBar(
-                    Text.translatable("gems.legendary.craft_bossbar_title"),
-                    net.minecraft.entity.boss.BossBar.Color.PURPLE,
-                    net.minecraft.entity.boss.BossBar.Style.PROGRESS
+            net.minecraft.server.level.ServerBossEvent bar = ACTIVE_BARS.computeIfAbsent(craft.key, key -> new net.minecraft.server.level.ServerBossEvent(
+                    java.util.UUID.randomUUID(),
+                    Component.translatable("gems.legendary.craft_bossbar_title"),
+                    net.minecraft.world.BossEvent.BossBarColor.PURPLE,
+                    net.minecraft.world.BossEvent.BossBarOverlay.PROGRESS
             ));
             long total = Math.max(1L, craft.finishTick - craft.startTick);
             float progress = Math.min(1.0F, Math.max(0.0F, (now - craft.startTick) / (float) total));
-            bar.setPercent(progress);
+            bar.setProgress(progress);
 
-            Item item = Registries.ITEM.get(Identifier.of(craft.id));
-            String itemName = item != null ? new ItemStack(item).getName().getString() : craft.id;
-            bar.setName(Text.translatable("gems.legendary.craft_bossbar", itemName,
+            Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(craft.id));
+            String itemName = item != null ? new ItemStack(item).getHoverName().getString() : craft.id;
+            bar.setName(Component.translatable("gems.legendary.craft_bossbar", itemName,
                     craft.pos.getX(), craft.pos.getY(), craft.pos.getZ(), craft.dimension.toString()));
 
-            bar.clearPlayers();
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            bar.removeAllPlayers();
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 bar.addPlayer(player);
             }
         }
@@ -421,11 +422,11 @@ public final class LegendaryCrafting {
     }
 
     private static void removeBossBar(String key) {
-        net.minecraft.entity.boss.ServerBossBar bar = ACTIVE_BARS.remove(key);
+        net.minecraft.server.level.ServerBossEvent bar = ACTIVE_BARS.remove(key);
         if (bar == null) {
             return;
         }
-        bar.clearPlayers();
+        bar.removeAllPlayers();
     }
 
     private static String craftKey(String id, UUID owner, long startTick) {

@@ -7,10 +7,10 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.AbilityRuntime;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 
 public final class DuelistRapidStrikeAbility implements GemAbility {
     @Override
@@ -34,13 +34,13 @@ public final class DuelistRapidStrikeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.DUELIST, GemsBalance.v().duelist().rapidStrikeDurationTicks());
         if (duration <= 0) {
             return false;
         }
         AbilityRuntime.startDuelistRapidStrike(player, duration);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, 0.9F, 1.2F);
+        AbilityFeedback.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.9F, 1.2F);
         AbilityFeedback.burst(player, ParticleTypes.CRIT, 18, 0.35D);
         return true;
     }

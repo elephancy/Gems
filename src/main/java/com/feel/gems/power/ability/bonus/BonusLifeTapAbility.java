@@ -2,7 +2,6 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemAbility;
-import com.feel.gems.power.gem.chaos.ChaosRotationRuntime;
 import com.feel.gems.power.gem.chaos.ChaosSlotRuntime;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.net.GemCooldownSync;
@@ -11,11 +10,11 @@ import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.core.GemId;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class BonusLifeTapAbility implements GemAbility {
     private static final String KEY_COOLDOWNS = "cooldowns";
@@ -41,8 +40,8 @@ public final class BonusLifeTapAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
 
         float cost = Math.max(0.0F, GemsBalance.v().bonusPool().lifeTapHealthCost);
         if (player.getHealth() <= cost) {
@@ -62,13 +61,13 @@ public final class BonusLifeTapAbility implements GemAbility {
             }
         }
 
-        world.spawnParticles(ParticleTypes.DAMAGE_INDICATOR, player.getX(), player.getY() + 1, player.getZ(), 18, 0.5, 1, 0.5, 0.1);
+        world.sendParticles(ParticleTypes.DAMAGE_INDICATOR, player.getX(), player.getY() + 1, player.getZ(), 18, 0.5, 1, 0.5, 0.1);
         return true;
     }
 
-    private static boolean reduceCooldowns(ServerPlayerEntity player, float reductionPercent) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound cooldowns = root.getCompound(KEY_COOLDOWNS).orElse(null);
+    private static boolean reduceCooldowns(ServerPlayer player, float reductionPercent) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag cooldowns = root.getCompound(KEY_COOLDOWNS).orElse(null);
         float clamped = Math.min(100.0F, Math.max(0.0F, reductionPercent));
         if (clamped <= 0.0F) {
             return false;
@@ -79,12 +78,12 @@ public final class BonusLifeTapAbility implements GemAbility {
         String selfKey = PowerIds.BONUS_LIFE_TAP.toString();
         boolean changed = false;
 
-        if (cooldowns != null && !cooldowns.getKeys().isEmpty()) {
-            for (String key : java.util.List.copyOf(cooldowns.getKeys())) {
+        if (cooldowns != null && !cooldowns.keySet().isEmpty()) {
+            for (String key : java.util.List.copyOf(cooldowns.keySet())) {
                 if (selfKey.equals(key)) {
                     continue;
                 }
-                long nextAllowed = cooldowns.getLong(key, 0L);
+                long nextAllowed = cooldowns.getLongOr(key, 0L);
                 if (nextAllowed <= now) {
                     continue;
                 }
@@ -102,7 +101,6 @@ public final class BonusLifeTapAbility implements GemAbility {
         }
 
         boolean chaosChanged = ChaosSlotRuntime.reduceCooldowns(player, factor);
-        boolean rotationChanged = ChaosRotationRuntime.reduceAbilityCooldown(player, factor);
-        return changed || chaosChanged || rotationChanged;
+        return changed || chaosChanged;
     }
 }

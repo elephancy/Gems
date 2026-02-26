@@ -3,15 +3,15 @@ package com.feel.gems.net;
 import com.feel.gems.GemsMod;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * S2C: opens the title selection screen with progress data.
  */
-public record TitleSelectionScreenPayload(List<Entry> entries) implements CustomPayload {
+public record TitleSelectionScreenPayload(List<Entry> entries) implements CustomPacketPayload {
     public record Entry(
             String id,
             int gemOrdinal,
@@ -24,26 +24,26 @@ public record TitleSelectionScreenPayload(List<Entry> entries) implements Custom
     ) {
     }
 
-    public static final Id<TitleSelectionScreenPayload> ID =
-            new Id<>(Identifier.of(GemsMod.MOD_ID, "title_selection_screen"));
+    public static final Type<TitleSelectionScreenPayload> ID =
+            new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "title_selection_screen"));
 
-    public static final PacketCodec<RegistryByteBuf, TitleSelectionScreenPayload> CODEC = PacketCodec.ofStatic(
+    public static final StreamCodec<RegistryFriendlyByteBuf, TitleSelectionScreenPayload> CODEC = StreamCodec.of(
             TitleSelectionScreenPayload::write,
             TitleSelectionScreenPayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-    private static void write(RegistryByteBuf buf, TitleSelectionScreenPayload payload) {
+    private static void write(RegistryFriendlyByteBuf buf, TitleSelectionScreenPayload payload) {
         List<Entry> entries = payload.entries();
         buf.writeVarInt(entries.size());
         for (Entry entry : entries) {
-            buf.writeString(entry.id(), 128);
+            buf.writeUtf(entry.id(), 128);
             buf.writeVarInt(entry.gemOrdinal());
-            buf.writeString(entry.displayKey(), 128);
+            buf.writeUtf(entry.displayKey(), 128);
             buf.writeVarInt(entry.usage());
             buf.writeVarInt(entry.threshold());
             buf.writeBoolean(entry.unlocked());
@@ -52,13 +52,13 @@ public record TitleSelectionScreenPayload(List<Entry> entries) implements Custom
         }
     }
 
-    private static TitleSelectionScreenPayload read(RegistryByteBuf buf) {
+    private static TitleSelectionScreenPayload read(RegistryFriendlyByteBuf buf) {
         int size = buf.readVarInt();
         List<Entry> entries = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            String id = buf.readString(128);
+            String id = buf.readUtf(128);
             int gemOrdinal = buf.readVarInt();
-            String displayKey = buf.readString(128);
+            String displayKey = buf.readUtf(128);
             int usage = buf.readVarInt();
             int threshold = buf.readVarInt();
             boolean unlocked = buf.readBoolean();

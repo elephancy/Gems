@@ -5,59 +5,59 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.legendary.LegendaryItem;
 import com.feel.gems.util.GemsTooltipFormat;
 import java.util.function.Consumer;
-import net.minecraft.block.BlockState;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ToolMaterial;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
-import net.minecraft.text.Text;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ToolMaterial;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 
 
 
 
 public final class EarthsplitterPickItem extends Item implements LegendaryItem {
-    private static final TagKey<net.minecraft.block.Block> BLACKLIST = TagKey.of(
-            RegistryKeys.BLOCK,
-            Identifier.of(GemsMod.MOD_ID, "earthsplitter_blacklist")
+    private static final TagKey<net.minecraft.world.level.block.Block> BLACKLIST = TagKey.create(
+            Registries.BLOCK,
+            Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "earthsplitter_blacklist")
     );
     private static final String KEY_MINING = "legendaryEarthsplitterMining";
     private static final String KEY_TUNNEL = "legendaryEarthsplitterTunnel";
 
-    public EarthsplitterPickItem(ToolMaterial material, Settings settings) {
+    public EarthsplitterPickItem(ToolMaterial material, Properties settings) {
         super(settings.pickaxe(material, 1.0F, -2.8F).enchantable(15));
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "earthsplitter_pick").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "earthsplitter_pick").toString();
     }
 
     @Override
-    public boolean postMine(ItemStack stack, World world, BlockState state, BlockPos pos, LivingEntity miner) {
-        boolean result = super.postMine(stack, world, state, pos, miner);
-        if (world.isClient()) {
+    public boolean mineBlock(ItemStack stack, Level world, BlockState state, BlockPos pos, LivingEntity miner) {
+        boolean result = super.mineBlock(stack, world, state, pos, miner);
+        if (world.isClientSide()) {
             return result;
         }
-        if (!(miner instanceof ServerPlayerEntity player)) {
+        if (!(miner instanceof ServerPlayer player)) {
             return result;
         }
         if (isRecursiveBreak(stack)) {
@@ -79,14 +79,14 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
     }
 
     @Override
-    public ActionResult use(World world, net.minecraft.entity.player.PlayerEntity user, net.minecraft.util.Hand hand) {
-        ItemStack stack = user.getStackInHand(hand);
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    public InteractionResult use(Level world, net.minecraft.world.entity.player.Player user, net.minecraft.world.InteractionHand hand) {
+        ItemStack stack = user.getItemInHand(hand);
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         boolean tunnel = !isTunnelMode(stack);
         setTunnelMode(stack, tunnel);
-        if (user instanceof ServerPlayerEntity player) {
+        if (user instanceof ServerPlayer player) {
                 int horizontalRadius = 4;
                 int verticalRadius = 1;
                 int cubeSize = horizontalRadius * 2 + 1;
@@ -96,45 +96,45 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
             String mode = tunnel
                     ? "Tunnel " + tunnelLength + "x" + tunnelWidth + "x" + height
                     : "Volume " + cubeSize + "x" + cubeSize + "x" + height;
-            player.sendMessage(Text.translatable("gems.item.earthsplitter_pick.mode", mode), true);
+            player.sendSystemMessage(Component.translatable("gems.item.earthsplitter_pick.mode", mode), true);
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
-    public void inventoryTick(ItemStack stack, ServerWorld world, Entity entity, EquipmentSlot slot) {
-        if (!(entity instanceof ServerPlayerEntity player)) {
+    public void inventoryTick(ItemStack stack, ServerLevel world, Entity entity, EquipmentSlot slot) {
+        if (!(entity instanceof ServerPlayer player)) {
             return;
         }
-        RegistryEntry<Enchantment> silk = resolveSilkTouch(player);
+        Holder<Enchantment> silk = resolveSilkTouch(player);
         if (silk == null) {
             return;
         }
-        int current = EnchantmentHelper.getLevel(silk, stack);
+        int current = EnchantmentHelper.getItemEnchantmentLevel(silk, stack);
         if (current < 1) {
-            EnchantmentHelper.apply(stack, builder -> builder.set(silk, 1));
+            EnchantmentHelper.updateEnchantments(stack, builder -> builder.set(silk, 1));
         }
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
-        GemsTooltipFormat.appendDescription(tooltip, Text.translatable("item.gems.earthsplitter_pick.desc"));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
+        GemsTooltipFormat.appendDescription(tooltip, Component.translatable("item.gems.earthsplitter_pick.desc"));
     }
 
-    private static RegistryEntry<Enchantment> resolveSilkTouch(ServerPlayerEntity player) {
-        return player.getEntityWorld().getRegistryManager().getOptionalEntry(Enchantments.SILK_TOUCH).orElse(null);
+    private static Holder<Enchantment> resolveSilkTouch(ServerPlayer player) {
+        return player.level().registryAccess().get(Enchantments.SILK_TOUCH).orElse(null);
     }
 
     private static boolean isRecursiveBreak(ItemStack stack) {
-        NbtComponent data = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) {
             return false;
         }
-        return data.copyNbt().getBoolean(KEY_MINING, false);
+        return data.copyTag().getBooleanOr(KEY_MINING, false);
     }
 
     private static void markRecursiveBreak(ItemStack stack, boolean value) {
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             if (value) {
                 nbt.putBoolean(KEY_MINING, true);
             } else {
@@ -144,15 +144,15 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
     }
 
     private static boolean isTunnelMode(ItemStack stack) {
-        NbtComponent data = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) {
             return false;
         }
-        return data.copyNbt().getBoolean(KEY_TUNNEL, false);
+        return data.copyTag().getBooleanOr(KEY_TUNNEL, false);
     }
 
     private static void setTunnelMode(ItemStack stack, boolean value) {
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             if (value) {
                 nbt.putBoolean(KEY_TUNNEL, true);
             } else {
@@ -161,8 +161,8 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
         });
     }
 
-    private static void breakCube(ItemStack stack, ServerPlayerEntity player, BlockPos pos, int horizontalRadius, int verticalRadius) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    private static void breakCube(ItemStack stack, ServerPlayer player, BlockPos pos, int horizontalRadius, int verticalRadius) {
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         boolean stop = false;
         for (int dx = -horizontalRadius; dx <= horizontalRadius; dx++) {
             for (int dy = -verticalRadius; dy <= verticalRadius; dy++) {
@@ -178,7 +178,7 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
                     if (!canBreak(player, stack, mutable)) {
                         continue;
                     }
-                    tryBreakBlockNoDurability(player, stack, mutable.toImmutable());
+                    tryBreakBlockNoDurability(player, stack, mutable.immutable());
                 }
                 if (stop) {
                     break;
@@ -190,19 +190,19 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
         }
     }
 
-    private static void breakTunnel(ItemStack stack, ServerPlayerEntity player, BlockPos pos, int verticalRadius) {
+    private static void breakTunnel(ItemStack stack, ServerPlayer player, BlockPos pos, int verticalRadius) {
         int length = 20;
-        Direction facing = player.getHorizontalFacing();
-        Direction right = facing.rotateYClockwise();
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        Direction facing = player.getDirection();
+        Direction right = facing.getClockWise();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         boolean stop = false;
         int width = 2;
         int widthMin = -(width - 1);
         int widthMax = 0;
         for (int step = 0; step < length; step++) {
-            int baseX = pos.getX() + facing.getOffsetX() * step;
+            int baseX = pos.getX() + facing.getStepX() * step;
             int baseY = pos.getY();
-            int baseZ = pos.getZ() + facing.getOffsetZ() * step;
+            int baseZ = pos.getZ() + facing.getStepZ() * step;
             for (int dx = widthMin; dx <= widthMax; dx++) {
                 for (int dy = -verticalRadius; dy <= verticalRadius; dy++) {
                     if (stack.isEmpty()) {
@@ -213,14 +213,14 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
                         continue;
                     }
                     mutable.set(
-                            baseX + right.getOffsetX() * dx,
+                            baseX + right.getStepX() * dx,
                             baseY + dy,
-                            baseZ + right.getOffsetZ() * dx
+                            baseZ + right.getStepZ() * dx
                     );
                     if (!canBreak(player, stack, mutable)) {
                         continue;
                     }
-                    tryBreakBlockNoDurability(player, stack, mutable.toImmutable());
+                    tryBreakBlockNoDurability(player, stack, mutable.immutable());
                 }
                 if (stop) {
                     break;
@@ -232,37 +232,37 @@ public final class EarthsplitterPickItem extends Item implements LegendaryItem {
         }
     }
 
-    private static boolean canBreak(ServerPlayerEntity player, ItemStack stack, BlockPos.Mutable pos) {
-        BlockState target = player.getEntityWorld().getBlockState(pos);
-        if (target.isAir() || target.isIn(BLACKLIST)) {
+    private static boolean canBreak(ServerPlayer player, ItemStack stack, BlockPos.MutableBlockPos pos) {
+        BlockState target = player.level().getBlockState(pos);
+        if (target.isAir() || target.is(BLACKLIST)) {
             return false;
         }
-        if (target.getHardness(player.getEntityWorld(), pos) < 0.0F) {
+        if (target.getDestroySpeed(player.level(), pos) < 0.0F) {
             return false;
         }
-        if (target.isToolRequired() && !stack.isSuitableFor(target)) {
+        if (target.requiresCorrectToolForDrops() && !stack.isCorrectToolForDrops(target)) {
             return false;
         }
         return true;
     }
 
-    private static void tryBreakBlockNoDurability(ServerPlayerEntity player, ItemStack stack, BlockPos pos) {
-        int desiredDamage = stack.isDamageable() ? stack.getDamage() : 0;
+    private static void tryBreakBlockNoDurability(ServerPlayer player, ItemStack stack, BlockPos pos) {
+        int desiredDamage = stack.isDamageableItem() ? stack.getDamageValue() : 0;
         int maxDamage = stack.getMaxDamage();
-        if (stack.isDamageable() && maxDamage > 0) {
+        if (stack.isDamageableItem() && maxDamage > 0) {
             int safeDamage = desiredDamage;
             if (maxDamage > 1 && desiredDamage >= maxDamage - 1) {
                 safeDamage = Math.max(0, maxDamage - 2);
             }
             if (safeDamage != desiredDamage) {
-                stack.setDamage(safeDamage);
+                stack.setDamageValue(safeDamage);
             }
         }
 
-        player.interactionManager.tryBreakBlock(pos);
+        player.gameMode.destroyBlock(pos);
 
-        if (!stack.isEmpty() && stack.isDamageable()) {
-            stack.setDamage(desiredDamage);
+        if (!stack.isEmpty() && stack.isDamageableItem()) {
+            stack.setDamageValue(desiredDamage);
         }
     }
 }

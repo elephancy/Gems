@@ -4,13 +4,13 @@ import com.feel.gems.GemsMod;
 import com.mojang.authlib.GameProfile;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.inventory.RecipeInputInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ResolvableProfile;
 
 public final class LegendaryHeadRules {
     private static final Set<Identifier> PLAYER_HEAD_RECIPES = Set.of(
@@ -23,21 +23,21 @@ public final class LegendaryHeadRules {
     private LegendaryHeadRules() {
     }
 
-    public static boolean canCraft(ServerPlayerEntity player, RecipeInputInventory input, Identifier recipeId) {
+    public static boolean canCraft(ServerPlayer player, CraftingContainer input, Identifier recipeId) {
         if (!PLAYER_HEAD_RECIPES.contains(recipeId)) {
             return true;
         }
-        UUID playerId = player.getUuid();
-        for (int slot = 0; slot < input.size(); slot++) {
-            ItemStack stack = input.getStack(slot);
-            if (stack.isEmpty() || !stack.isOf(Items.PLAYER_HEAD)) {
+        UUID playerId = player.getUUID();
+        for (int slot = 0; slot < input.getContainerSize(); slot++) {
+            ItemStack stack = input.getItem(slot);
+            if (stack.isEmpty() || !stack.is(Items.PLAYER_HEAD)) {
                 continue;
             }
-            ProfileComponent profile = stack.get(DataComponentTypes.PROFILE);
+            ResolvableProfile profile = stack.get(DataComponents.PROFILE);
             if (profile == null) {
                 return false;
             }
-            GameProfile gameProfile = profile.getGameProfile();
+            GameProfile gameProfile = profile.partialProfile();
             if (gameProfile == null || gameProfile.id() == null) {
                 return false;
             }
@@ -49,6 +49,6 @@ public final class LegendaryHeadRules {
     }
 
     private static Identifier id(String path) {
-        return Identifier.of(GemsMod.MOD_ID, path);
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, path);
     }
 }

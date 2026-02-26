@@ -8,23 +8,24 @@ import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.MobBlacklist;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.goal.ActiveTargetGoal;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.ErrorReporter;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.level.storage.TagValueOutput;
+import net.minecraft.world.phys.Vec3;
 
 
 public final class SoulSystem {
@@ -34,8 +35,8 @@ public final class SoulSystem {
     private SoulSystem() {
     }
 
-    public static void onKilledMob(ServerPlayerEntity player, LivingEntity killed) {
-        if (killed instanceof ServerPlayerEntity) {
+    public static void onKilledMob(ServerPlayer player, LivingEntity killed) {
+        if (killed instanceof ServerPlayer) {
             return;
         }
         if (SoulSummons.isSoul(killed)) {
@@ -48,15 +49,15 @@ public final class SoulSystem {
             return;
         }
 
-        Identifier typeId = Registries.ENTITY_TYPE.getId(killed.getType());
+        Identifier typeId = BuiltInRegistries.ENTITY_TYPE.getKey(killed.getType());
         if (typeId == null) {
             return;
         }
-        NbtCompound root = persistent(player);
+        CompoundTag root = persistent(player);
         root.putString(KEY_SOUL_TYPE, typeId.toString());
-        var view = NbtWriteView.create(ErrorReporter.EMPTY, player.getEntityWorld().getRegistryManager());
-        killed.writeData(view);
-        NbtCompound data = view.getNbt();
+        var view = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, player.level().registryAccess());
+        killed.saveWithoutId(view);
+        CompoundTag data = view.buildResult();
         data.remove("UUID");
         data.remove("UUIDMost");
         data.remove("UUIDLeast");
@@ -69,86 +70,86 @@ public final class SoulSystem {
         }
     }
 
-    public static boolean hasSoul(ServerPlayerEntity player) {
+    public static boolean hasSoul(ServerPlayer player) {
         return persistent(player).contains(KEY_SOUL_TYPE);
     }
 
-    public static String soulType(ServerPlayerEntity player) {
-        return persistent(player).getString(KEY_SOUL_TYPE, "");
+    public static String soulType(ServerPlayer player) {
+        return persistent(player).getStringOr(KEY_SOUL_TYPE, "");
     }
 
-    public static boolean release(ServerPlayerEntity player) {
+    public static boolean release(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.SOUL_CAPTURE)) {
-            player.sendMessage(Text.translatable("gems.astra.soul_capture_not_active"), true);
+            player.sendSystemMessage(Component.translatable("gems.astra.soul_capture_not_active"), true);
             return false;
         }
-        NbtCompound nbt = persistent(player);
+        CompoundTag nbt = persistent(player);
         if (!nbt.contains(KEY_SOUL_TYPE)) {
-            player.sendMessage(Text.translatable("gems.astra.no_captured_soul"), true);
+            player.sendSystemMessage(Component.translatable("gems.astra.no_captured_soul"), true);
             return false;
         }
-        Identifier id = Identifier.tryParse(nbt.getString(KEY_SOUL_TYPE, ""));
+        Identifier id = Identifier.tryParse(nbt.getStringOr(KEY_SOUL_TYPE, ""));
         if (id == null) {
             nbt.remove(KEY_SOUL_TYPE);
-            player.sendMessage(Text.translatable("gems.astra.soul_invalid"), true);
+            player.sendSystemMessage(Component.translatable("gems.astra.soul_invalid"), true);
             return false;
         }
         if (MobBlacklist.isBlacklisted(id)) {
             nbt.remove(KEY_SOUL_TYPE);
-            player.sendMessage(Text.translatable("gems.astra.soul_blacklisted"), true);
+            player.sendSystemMessage(Component.translatable("gems.astra.soul_blacklisted"), true);
             return false;
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             nbt.remove(KEY_SOUL_TYPE);
-            player.sendMessage(Text.translatable("gems.astra.cannot_release_soul"), true);
+            player.sendSystemMessage(Component.translatable("gems.astra.cannot_release_soul"), true);
             return false;
         }
-        EntityType<?> type = Registries.ENTITY_TYPE.get(id);
+        EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(id);
 
         // Spawn clearly above the ground so summons don't clip into the floor (common with foot-position spawning).
         // (Players reported this feeling "too low" at smaller offsets.)
         double forward = GemsBalance.v().astra().soulReleaseForwardBlocks();
         double up = GemsBalance.v().astra().soulReleaseUpBlocks();
-        Vec3d pos = player.getEntityPos()
-                .add(player.getRotationVec(1.0F).multiply(forward))
+        Vec3 pos = player.position()
+                .add(player.getViewVector(1.0F).scale(forward))
                 .add(0.0D, up, 0.0D);
         Entity entity = null;
-        NbtCompound stored = nbt.getCompound(KEY_SOUL_DATA).orElse(null);
+        CompoundTag stored = nbt.getCompound(KEY_SOUL_DATA).orElse(null);
         if (stored != null && !stored.isEmpty()) {
-            NbtCompound copy = stored.copy();
+            CompoundTag copy = stored.copy();
             copy.putString("id", id.toString());
-            entity = EntityType.loadEntityWithPassengers(copy, world, SpawnReason.MOB_SUMMONED, spawned -> {
-                spawned.refreshPositionAndAngles(pos.x, pos.y, pos.z, player.getYaw(), player.getPitch());
+            entity = EntityType.loadEntityRecursive(type, copy, world, EntitySpawnReason.MOB_SUMMONED, spawned -> {
+                spawned.snapTo(pos.x, pos.y, pos.z, player.getYRot(), player.getXRot());
                 return spawned;
             });
         }
         if (entity == null) {
-            entity = type.create(world, net.minecraft.entity.SpawnReason.MOB_SUMMONED);
+            entity = type.create(world, net.minecraft.world.entity.EntitySpawnReason.MOB_SUMMONED);
         }
         if (entity == null) {
             nbt.remove(KEY_SOUL_TYPE);
             nbt.remove(KEY_SOUL_DATA);
-            player.sendMessage(Text.translatable("gems.astra.cannot_summon", id.toString()), true);
+            player.sendSystemMessage(Component.translatable("gems.astra.cannot_summon", id.toString()), true);
             return false;
         }
-        if (entity instanceof net.minecraft.entity.mob.MobEntity mob) {
-            mob.initialize(world, world.getLocalDifficulty(net.minecraft.util.math.BlockPos.ofFloored(pos)),
-                    net.minecraft.entity.SpawnReason.MOB_SUMMONED, null);
+        if (entity instanceof net.minecraft.world.entity.Mob mob) {
+            mob.finalizeSpawn(world, world.getCurrentDifficultyAt(net.minecraft.core.BlockPos.containing(pos)),
+                    net.minecraft.world.entity.EntitySpawnReason.MOB_SUMMONED, null);
         }
-        if (entity instanceof net.minecraft.entity.mob.MobEntity mob) {
+        if (entity instanceof net.minecraft.world.entity.Mob mob) {
             com.feel.gems.power.gem.summoner.SummonerSummons.tuneControlledMob(mob);
         }
-        SoulSummons.mark(entity, player.getUuid());
+        SoulSummons.mark(entity, player.getUUID());
         SoulSummons.trackSpawn(player, entity);
         if (entity instanceof LivingEntity living) {
-            living.disableExperienceDropping();
+            living.skipDropExperience();
             living.setHealth(living.getMaxHealth());
         }
-        entity.refreshPositionAndAngles(pos.x, pos.y, pos.z, player.getYaw(), player.getPitch());
-        world.spawnEntity(entity);
+        entity.snapTo(pos.x, pos.y, pos.z, player.getYRot(), player.getXRot());
+        world.addFreshEntity(entity);
 
-        if (entity instanceof HostileEntity hostile) {
-            addHostileTargeting(hostile, player.getUuid());
+        if (entity instanceof Monster hostile) {
+            addHostileTargeting(hostile, player.getUUID());
         }
 
         nbt.remove(KEY_SOUL_TYPE);
@@ -157,25 +158,25 @@ public final class SoulSystem {
         if (GemPowers.isPassiveActive(player, PowerIds.SOUL_HEALING)) {
             player.heal(GemsBalance.v().astra().soulHealingHearts());
         }
-        AbilityFeedback.sound(player, SoundEvents.ITEM_TOTEM_USE, 0.8F, 1.4F);
+        AbilityFeedback.sound(player, SoundEvents.TOTEM_USE, 0.8F, 1.4F);
         AbilityFeedback.burstAt(world, pos.add(0.0D, 1.0D, 0.0D), ParticleTypes.SCULK_SOUL, 18, 0.35D);
-        player.sendMessage(Text.translatable("gems.astra.released_soul", id.toString()), true);
+        player.sendSystemMessage(Component.translatable("gems.astra.released_soul", id.toString()), true);
         return true;
     }
 
-    private static void addHostileTargeting(HostileEntity mob, UUID ownerUuid) {
-        if (!(mob.getEntityWorld() instanceof ServerWorld world)) {
+    private static void addHostileTargeting(Monster mob, UUID ownerUuid) {
+        if (!(mob.level() instanceof ServerLevel world)) {
             return;
         }
-        ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(ownerUuid);
+        ServerPlayer owner = world.getServer().getPlayerList().getPlayer(ownerUuid);
         if (owner == null) {
             return;
         }
 
         // Best-effort: make hostile summons target untrusted players, while excluding the owner and trusted players.
-        ((com.feel.gems.mixin.accessor.MobEntitySelectorsAccessor) mob).gems$getTargetSelector().add(1,
-                new ActiveTargetGoal<>(mob, ServerPlayerEntity.class, true, (candidate, candidateWorld) -> {
-                    if (!(candidate instanceof ServerPlayerEntity p)) {
+        ((com.feel.gems.mixin.accessor.MobEntitySelectorsAccessor) mob).gems$getTargetSelector().addGoal(1,
+                new NearestAttackableTargetGoal<>(mob, ServerPlayer.class, true, (candidate, candidateWorld) -> {
+                    if (!(candidate instanceof ServerPlayer p)) {
                         return false;
                     }
                     if (!VoidImmunity.canBeTargeted(owner, p)) {
@@ -186,7 +187,7 @@ public final class SoulSystem {
         );
     }
 
-    private static NbtCompound persistent(ServerPlayerEntity player) {
+    private static CompoundTag persistent(ServerPlayer player) {
         return ((GemsPersistentDataHolder) player).gems$getPersistentData();
     }
 

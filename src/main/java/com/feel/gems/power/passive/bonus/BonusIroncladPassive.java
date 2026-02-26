@@ -4,18 +4,18 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemMaintainedPassive;
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 /**
  * Ironclad - Armor is 25% more effective.
  */
 public final class BonusIroncladPassive implements GemMaintainedPassive {
-    private static final Identifier MODIFIER_ID = Identifier.of("gems", "bonus_ironclad");
+    private static final Identifier MODIFIER_ID = Identifier.fromNamespaceAndPath("gems", "bonus_ironclad");
 
     @Override
     public Identifier id() {
@@ -33,25 +33,25 @@ public final class BonusIroncladPassive implements GemMaintainedPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         updateModifier(player);
     }
 
     @Override
-    public void maintain(ServerPlayerEntity player) {
+    public void maintain(ServerPlayer player) {
         updateModifier(player);
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        EntityAttributeInstance attr = player.getAttributeInstance(EntityAttributes.ARMOR);
+    public void remove(ServerPlayer player) {
+        AttributeInstance attr = player.getAttribute(Attributes.ARMOR);
         if (attr != null) {
             attr.removeModifier(MODIFIER_ID);
         }
     }
 
-    private static void updateModifier(ServerPlayerEntity player) {
-        EntityAttributeInstance armor = player.getAttributeInstance(EntityAttributes.ARMOR);
+    private static void updateModifier(ServerPlayer player) {
+        AttributeInstance armor = player.getAttribute(Attributes.ARMOR);
         if (armor == null) {
             return;
         }
@@ -63,14 +63,14 @@ public final class BonusIroncladPassive implements GemMaintainedPassive {
         }
 
         armor.removeModifier(MODIFIER_ID);
-        double baseArmor = player.getAttributeValue(EntityAttributes.ARMOR);
+        double baseArmor = player.getAttributeValue(Attributes.ARMOR);
         double bonus = baseArmor * boost;
         if (bonus <= 0.0D) {
             // In some edge cases (notably in GameTests), equipment armor can momentarily report as 0 even when
             // armor items are equipped. Apply a tiny modifier so the passive is observable and stable.
             boolean hasAnyArmor = false;
             for (EquipmentSlot slot : new EquipmentSlot[] {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-                if (!player.getEquippedStack(slot).isEmpty()) {
+                if (!player.getItemBySlot(slot).isEmpty()) {
                     hasAnyArmor = true;
                     break;
                 }
@@ -80,6 +80,6 @@ public final class BonusIroncladPassive implements GemMaintainedPassive {
             }
             bonus = 0.001D;
         }
-        armor.addPersistentModifier(new EntityAttributeModifier(MODIFIER_ID, bonus, EntityAttributeModifier.Operation.ADD_VALUE));
+        armor.addPermanentModifier(new AttributeModifier(MODIFIER_ID, bonus, AttributeModifier.Operation.ADD_VALUE));
     }
 }

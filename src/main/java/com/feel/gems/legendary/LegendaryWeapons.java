@@ -4,15 +4,15 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.item.ModItems;
 import com.feel.gems.util.GemsNbt;
 import java.util.UUID;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 
 
 
@@ -23,40 +23,40 @@ public final class LegendaryWeapons {
     private LegendaryWeapons() {
     }
 
-    public static void onPlayerKill(ServerPlayerEntity killer, ServerPlayerEntity victim) {
-        if (!killer.getMainHandStack().isOf(ModItems.BLOOD_OATH_BLADE)) {
+    public static void onPlayerKill(ServerPlayer killer, ServerPlayer victim) {
+        if (!killer.getMainHandItem().is(ModItems.BLOOD_OATH_BLADE)) {
             return;
         }
         ItemStackHelper.applyUniqueKill(killer, victim);
     }
 
     private static final class ItemStackHelper {
-        static void applyUniqueKill(ServerPlayerEntity killer, ServerPlayerEntity victim) {
-            var stack = killer.getMainHandStack();
-            NbtComponent data = stack.get(DataComponentTypes.CUSTOM_DATA);
-            NbtCompound nbt = data != null ? data.copyNbt() : new NbtCompound();
-            NbtList list = nbt.getListOrEmpty(KEY_BLOOD_OATH_KILLS);
-            UUID victimId = victim.getUuid();
+        static void applyUniqueKill(ServerPlayer killer, ServerPlayer victim) {
+            var stack = killer.getMainHandItem();
+            CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+            CompoundTag nbt = data != null ? data.copyTag() : new CompoundTag();
+            ListTag list = nbt.getListOrEmpty(KEY_BLOOD_OATH_KILLS);
+            UUID victimId = victim.getUUID();
             if (containsUuid(list, victimId)) {
                 return;
             }
             list.add(GemsNbt.fromUuid(victimId));
             nbt.put(KEY_BLOOD_OATH_KILLS, list);
-            NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, out -> out.copyFrom(nbt));
+            CustomData.update(DataComponents.CUSTOM_DATA, stack, out -> out.merge(nbt));
 
-            RegistryEntry<Enchantment> sharpness = resolveSharpness(killer);
+            Holder<Enchantment> sharpness = resolveSharpness(killer);
             if (sharpness == null) {
                 return;
             }
-            int current = EnchantmentHelper.getLevel(sharpness, stack);
+            int current = EnchantmentHelper.getItemEnchantmentLevel(sharpness, stack);
             int cap = GemsBalance.v().legendary().bloodOathSharpnessCap();
             int next = Math.min(cap, current + 1);
             if (next > current) {
-                EnchantmentHelper.apply(stack, builder -> builder.set(sharpness, next));
+                EnchantmentHelper.updateEnchantments(stack, builder -> builder.set(sharpness, next));
             }
         }
 
-        private static boolean containsUuid(NbtList list, UUID uuid) {
+        private static boolean containsUuid(ListTag list, UUID uuid) {
             for (int i = 0; i < list.size(); i++) {
                 if (uuid.equals(GemsNbt.toUuid(list.get(i)))) {
                     return true;
@@ -65,8 +65,8 @@ public final class LegendaryWeapons {
             return false;
         }
 
-        private static RegistryEntry<Enchantment> resolveSharpness(ServerPlayerEntity killer) {
-            return killer.getEntityWorld().getRegistryManager().getOptionalEntry(Enchantments.SHARPNESS).orElse(null);
+        private static Holder<Enchantment> resolveSharpness(ServerPlayer killer) {
+            return killer.level().registryAccess().get(Enchantments.SHARPNESS).orElse(null);
         }
     }
 }

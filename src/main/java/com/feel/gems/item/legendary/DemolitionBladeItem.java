@@ -7,48 +7,48 @@ import com.feel.gems.legendary.LegendaryItem;
 import com.feel.gems.power.util.Targeting;
 import com.feel.gems.util.GemsTooltipFormat;
 import java.util.function.Consumer;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.TntEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ToolMaterial;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ToolMaterial;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 
 
 
 public final class DemolitionBladeItem extends Item implements LegendaryItem {
-    public DemolitionBladeItem(ToolMaterial material, Settings settings) {
+    public DemolitionBladeItem(ToolMaterial material, Properties settings) {
         super(settings.sword(material, 3.0F, -2.4F).enchantable(15));
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "demolition_blade").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "demolition_blade").toString();
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (world.isClient()) {
-            return ActionResult.SUCCESS;
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+        if (world.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        if (!(user instanceof ServerPlayerEntity player)) {
-            return ActionResult.PASS;
+        if (!(user instanceof ServerPlayer player)) {
+            return InteractionResult.PASS;
         }
-        ItemStack held = player.getStackInHand(hand);
-        if (player.getItemCooldownManager().isCoolingDown(held) && !GemsAdmin.noLegendaryCooldowns(player)) {
-            return ActionResult.SUCCESS;
+        ItemStack held = player.getItemInHand(hand);
+        if (player.getCooldowns().isOnCooldown(held) && !GemsAdmin.noLegendaryCooldowns(player)) {
+            return InteractionResult.SUCCESS;
         }
         int cooldown = GemsBalance.v().legendary().demolitionCooldownTicks();
         int cooldownScale = GemsBalance.v().legendary().demolitionCooldownScalePercent();
@@ -56,36 +56,36 @@ public final class DemolitionBladeItem extends Item implements LegendaryItem {
             cooldown = Math.max(0, Math.round(cooldown * (cooldownScale / 100.0F)));
         }
         if (cooldown > 0 && !GemsAdmin.noLegendaryCooldowns(player)) {
-            player.getItemCooldownManager().set(held, cooldown);
+            player.getCooldowns().addCooldown(held, cooldown);
         }
         int range = GemsBalance.v().legendary().demolitionRangeBlocks();
         LivingEntity target = Targeting.raycastLiving(player, range);
-        Vec3d spawnPos = null;
+        Vec3 spawnPos = null;
         if (target != null) {
-            spawnPos = target.getEntityPos().add(0.0D, 0.2D, 0.0D);
+            spawnPos = target.position().add(0.0D, 0.2D, 0.0D);
         } else {
-            HitResult hit = player.raycast(range, 1.0F, false);
+            HitResult hit = player.pick(range, 1.0F, false);
             if (hit instanceof BlockHitResult blockHit) {
-                Vec3d pos = blockHit.getPos();
-                spawnPos = new Vec3d(pos.x, pos.y + 0.1D, pos.z);
+                Vec3 pos = blockHit.getLocation();
+                spawnPos = new Vec3(pos.x, pos.y + 0.1D, pos.z);
             }
         }
         if (spawnPos == null) {
-            player.sendMessage(Text.translatable("gems.item.demolition_blade.no_target"), true);
-            return ActionResult.SUCCESS;
+            player.sendSystemMessage(Component.translatable("gems.item.demolition_blade.no_target"), true);
+            return InteractionResult.SUCCESS;
         }
         int fuse = Math.max(1, GemsBalance.v().legendary().demolitionFuseTicks());
         int tntCount = GemsBalance.v().legendary().demolitionTntCount();
         for (int i = 0; i < tntCount; i++) {
-            TntEntity tnt = new TntEntity(world, spawnPos.x, spawnPos.y, spawnPos.z, player);
+            PrimedTnt tnt = new PrimedTnt(world, spawnPos.x, spawnPos.y, spawnPos.z, player);
             tnt.setFuse(fuse);
-            world.spawnEntity(tnt);
+            world.addFreshEntity(tnt);
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
-        GemsTooltipFormat.appendDescription(tooltip, Text.translatable("item.gems.demolition_blade.desc"));
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
+        GemsTooltipFormat.appendDescription(tooltip, Component.translatable("item.gems.demolition_blade.desc"));
     }
 }

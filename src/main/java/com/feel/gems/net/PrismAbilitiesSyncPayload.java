@@ -3,10 +3,10 @@ package com.feel.gems.net;
 import com.feel.gems.GemsMod;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * S2C: syncs the Prism player's selected abilities to the client for HUD display.
@@ -14,8 +14,8 @@ import net.minecraft.util.Identifier;
 public record PrismAbilitiesSyncPayload(
     List<PrismAbilityInfo> abilities,
     List<PrismPassiveInfo> passives
-) implements CustomPayload {
-    
+) implements CustomPacketPayload {
+
     public record PrismAbilityInfo(
             Identifier id,
             String name,
@@ -27,39 +27,39 @@ public record PrismAbilitiesSyncPayload(
             String name
         ) {}
 
-    public static final Id<PrismAbilitiesSyncPayload> ID = 
-            new Id<>(Identifier.of(GemsMod.MOD_ID, "prism_abilities_sync"));
+    public static final Type<PrismAbilitiesSyncPayload> ID =
+            new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "prism_abilities_sync"));
 
-    public static final PacketCodec<RegistryByteBuf, PrismAbilitiesSyncPayload> CODEC = PacketCodec.ofStatic(
+    public static final StreamCodec<RegistryFriendlyByteBuf, PrismAbilitiesSyncPayload> CODEC = StreamCodec.of(
             PrismAbilitiesSyncPayload::write,
             PrismAbilitiesSyncPayload::read
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-    private static void write(RegistryByteBuf buf, PrismAbilitiesSyncPayload payload) {
+    private static void write(RegistryFriendlyByteBuf buf, PrismAbilitiesSyncPayload payload) {
         buf.writeVarInt(payload.abilities.size());
         for (PrismAbilityInfo info : payload.abilities) {
             buf.writeIdentifier(info.id());
-            buf.writeString(info.name(), 128);
+            buf.writeUtf(info.name(), 128);
             buf.writeVarInt(info.remainingCooldownTicks());
         }
         buf.writeVarInt(payload.passives.size());
         for (PrismPassiveInfo info : payload.passives) {
             buf.writeIdentifier(info.id());
-            buf.writeString(info.name(), 128);
+            buf.writeUtf(info.name(), 128);
         }
     }
 
-    private static PrismAbilitiesSyncPayload read(RegistryByteBuf buf) {
+    private static PrismAbilitiesSyncPayload read(RegistryFriendlyByteBuf buf) {
         int size = buf.readVarInt();
         List<PrismAbilityInfo> abilities = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             Identifier id = buf.readIdentifier();
-            String name = buf.readString(128);
+            String name = buf.readUtf(128);
             int cooldown = buf.readVarInt();
             abilities.add(new PrismAbilityInfo(id, name, cooldown));
         }
@@ -67,7 +67,7 @@ public record PrismAbilitiesSyncPayload(
         List<PrismPassiveInfo> passives = new ArrayList<>(passiveSize);
         for (int i = 0; i < passiveSize; i++) {
             Identifier id = buf.readIdentifier();
-            String name = buf.readString(128);
+            String name = buf.readUtf(128);
             passives.add(new PrismPassiveInfo(id, name));
         }
         return new PrismAbilitiesSyncPayload(abilities, passives);

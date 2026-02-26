@@ -6,11 +6,11 @@ import com.feel.gems.power.runtime.AbilityFeedback;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 
 
 public final class PillagerDiscipline {
@@ -19,13 +19,13 @@ public final class PillagerDiscipline {
     private PillagerDiscipline() {
     }
 
-    public static void tick(ServerPlayerEntity player) {
+    public static void tick(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.PILLAGER_ILLAGER_DISCIPLINE)) {
             return;
         }
         long now = GemsTime.now(player);
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        long next = nbt.getLong(KEY_NEXT, 0L);
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        long next = nbt.getLongOr(KEY_NEXT, 0L);
         if (next > now) {
             return;
         }
@@ -43,9 +43,9 @@ public final class PillagerDiscipline {
             return;
         }
 
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, duration, amp, true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, duration, amp, true, false, false));
         nbt.putLong(KEY_NEXT, now + cooldown);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_PILLAGER_CELEBRATE, 0.5F, 0.9F);
+        AbilityFeedback.sound(player, SoundEvents.PILLAGER_CELEBRATE, 0.5F, 0.9F);
     }
 }
 

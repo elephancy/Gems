@@ -5,16 +5,16 @@ import com.feel.gems.power.registry.ModAbilities;
 import com.feel.gems.power.registry.ModPassives;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.datafixer.DataFixTypes;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Uuids;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.PersistentStateType;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
 import java.util.*;
-import net.minecraft.server.network.ServerPlayerEntity;
 import com.feel.gems.config.GemsBalance;
 
 /**
@@ -28,7 +28,7 @@ import com.feel.gems.config.GemsBalance;
  * Bonus abilities/passives are also claimed globally via {@link BonusClaimsState}; Prism selections track
  * which specific bonus abilities/passives a Prism player is using.
  */
-public final class PrismSelectionsState extends PersistentState {
+public final class PrismSelectionsState extends SavedData {
     private static final String STATE_ID = GemsMod.MOD_ID + "_prism_selections";
     
     // Maps player UUID -> their Prism selections
@@ -77,13 +77,13 @@ public final class PrismSelectionsState extends PersistentState {
     }
 
     static final Codec<PrismSelectionsState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.unboundedMap(Uuids.CODEC, PrismSelection.CODEC)
+            Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, PrismSelection.CODEC)
                     .optionalFieldOf("selections", Map.of())
                     .forGetter(state -> state.selections)
     ).apply(instance, PrismSelectionsState::new));
 
-    private static final PersistentStateType<PrismSelectionsState> TYPE =
-            new PersistentStateType<>(STATE_ID, PrismSelectionsState::new, CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<PrismSelectionsState> TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(STATE_ID), PrismSelectionsState::new, CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
 
     public PrismSelectionsState() {
         this(Map.of());
@@ -94,8 +94,8 @@ public final class PrismSelectionsState extends PersistentState {
     }
 
     public static PrismSelectionsState get(MinecraftServer server) {
-        PersistentStateManager manager = server.getWorld(World.OVERWORLD).getPersistentStateManager();
-        PrismSelectionsState state = manager.getOrCreate(TYPE);
+        SavedDataStorage manager = server.getLevel(Level.OVERWORLD).getDataStorage();
+        PrismSelectionsState state = manager.computeIfAbsent(TYPE);
         state.attach(server);
         return state;
     }
@@ -182,34 +182,34 @@ public final class PrismSelectionsState extends PersistentState {
                 List.copyOf(newBonusPassives)
         );
         selections.put(playerUuid, sanitized);
-        markDirty();
+        setDirty();
         return sanitized;
     }
 
-    public static boolean hasAbility(ServerPlayerEntity player, Identifier abilityId) {
+    public static boolean hasAbility(ServerPlayer player, Identifier abilityId) {
         if (player == null || abilityId == null) {
             return false;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return false;
         }
-        PrismSelection selection = get(server).getSelection(player.getUuid());
+        PrismSelection selection = get(server).getSelection(player.getUUID());
         if (BonusPoolRegistry.isBonusAbility(abilityId)) {
             return selection.bonusAbilities().contains(abilityId);
         }
         return selection.gemAbilities().contains(abilityId);
     }
 
-    public static boolean hasAnyAbility(ServerPlayerEntity player, Collection<Identifier> abilityIds) {
+    public static boolean hasAnyAbility(ServerPlayer player, Collection<Identifier> abilityIds) {
         if (player == null || abilityIds == null || abilityIds.isEmpty()) {
             return false;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return false;
         }
-        PrismSelection selection = get(server).getSelection(player.getUuid());
+        PrismSelection selection = get(server).getSelection(player.getUUID());
         for (Identifier id : abilityIds) {
             if (BonusPoolRegistry.isBonusAbility(id)) {
                 if (selection.bonusAbilities().contains(id)) {
@@ -250,7 +250,7 @@ public final class PrismSelectionsState extends PersistentState {
         List<Identifier> newGemAbilities = new ArrayList<>(current.gemAbilities);
         newGemAbilities.add(abilityId);
         selections.put(playerUuid, new PrismSelection(newGemAbilities, current.bonusAbilities, current.gemPassives, current.bonusPassives));
-        markDirty();
+        setDirty();
         return true;
     }
 
@@ -287,7 +287,7 @@ public final class PrismSelectionsState extends PersistentState {
         List<Identifier> newBonusAbilities = new ArrayList<>(current.bonusAbilities);
         newBonusAbilities.add(abilityId);
         selections.put(playerUuid, new PrismSelection(current.gemAbilities, newBonusAbilities, current.gemPassives, current.bonusPassives));
-        markDirty();
+        setDirty();
         return true;
     }
 
@@ -317,7 +317,7 @@ public final class PrismSelectionsState extends PersistentState {
         List<Identifier> newGemPassives = new ArrayList<>(current.gemPassives);
         newGemPassives.add(passiveId);
         selections.put(playerUuid, new PrismSelection(current.gemAbilities, current.bonusAbilities, newGemPassives, current.bonusPassives));
-        markDirty();
+        setDirty();
         return true;
     }
 
@@ -354,7 +354,7 @@ public final class PrismSelectionsState extends PersistentState {
         List<Identifier> newBonusPassives = new ArrayList<>(current.bonusPassives);
         newBonusPassives.add(passiveId);
         selections.put(playerUuid, new PrismSelection(current.gemAbilities, current.bonusAbilities, current.gemPassives, newBonusPassives));
-        markDirty();
+        setDirty();
         return true;
     }
 
@@ -373,7 +373,7 @@ public final class PrismSelectionsState extends PersistentState {
             }
         }
         if (removed != null) {
-            markDirty();
+            setDirty();
         }
     }
 
@@ -391,7 +391,7 @@ public final class PrismSelectionsState extends PersistentState {
                 BonusClaimsState.get(attachedServer).releaseAbility(playerUuid, abilityId);
             }
             selections.put(playerUuid, new PrismSelection(newGemAbilities, newBonusAbilities, current.gemPassives, current.bonusPassives));
-            markDirty();
+            setDirty();
         }
     }
 
@@ -409,7 +409,7 @@ public final class PrismSelectionsState extends PersistentState {
                 BonusClaimsState.get(attachedServer).releasePassive(playerUuid, passiveId);
             }
             selections.put(playerUuid, new PrismSelection(current.gemAbilities, current.bonusAbilities, newGemPassives, newBonusPassives));
-            markDirty();
+            setDirty();
         }
     }
 }

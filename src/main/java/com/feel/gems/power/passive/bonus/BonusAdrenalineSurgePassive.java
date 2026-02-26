@@ -2,10 +2,10 @@ package com.feel.gems.power.passive.bonus;
 
 import com.feel.gems.power.api.GemPassive;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 
 /**
  * Adrenaline Surge - Boost movement and attack speed.
@@ -27,14 +27,14 @@ public final class BonusAdrenalineSurgePassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, Integer.MAX_VALUE, 0, false, false, true));
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE, Integer.MAX_VALUE, 0, false, false, true));
+    public void apply(ServerPlayer player) {
+        player.addEffect(new MobEffectInstance(MobEffects.SPEED, Integer.MAX_VALUE, 0, false, false, true));
+        player.addEffect(new MobEffectInstance(MobEffects.HASTE, Integer.MAX_VALUE, 0, false, false, true));
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeStatusEffect(StatusEffects.SPEED);
-        player.removeStatusEffect(StatusEffects.HASTE);
+    public void remove(ServerPlayer player) {
+        player.removeEffect(MobEffects.SPEED);
+        player.removeEffect(MobEffects.HASTE);
     }
 }

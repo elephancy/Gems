@@ -4,27 +4,27 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.util.GemsTime;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(PlayerEntity.class)
+@Mixin(Player.class)
 public abstract class PlayerEntityRotEaterTickMixin {
     private static final String KEY_ROT_EATER_UNTIL = "reaperRotEaterUntil";
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void gems$clearRotEaterEffects(CallbackInfo ci) {
-        PlayerEntity self = (PlayerEntity) (Object) this;
-        if (!(self instanceof ServerPlayerEntity player)) {
+        Player self = (Player) (Object) this;
+        if (!(self instanceof ServerPlayer player)) {
             return;
         }
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        long until = data.getLong(KEY_ROT_EATER_UNTIL, 0L);
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        long until = data.getLongOr(KEY_ROT_EATER_UNTIL, 0L);
         if (until <= 0L) {
             return;
         }
@@ -37,7 +37,7 @@ public abstract class PlayerEntityRotEaterTickMixin {
             data.remove(KEY_ROT_EATER_UNTIL);
             return;
         }
-        player.removeStatusEffect(StatusEffects.HUNGER);
-        player.removeStatusEffect(StatusEffects.POISON);
+        player.removeEffect(MobEffects.HUNGER);
+        player.removeEffect(MobEffects.POISON);
     }
 }

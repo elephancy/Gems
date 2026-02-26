@@ -1,8 +1,8 @@
 package com.feel.gems.power.passive;
 
 import com.feel.gems.power.api.GemPassive;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -37,12 +37,12 @@ public final class MarkerPassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         // no-op
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
+    public void remove(ServerPlayer player) {
         // no-op
     }
 }

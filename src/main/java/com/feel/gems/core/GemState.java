@@ -1,7 +1,7 @@
 package com.feel.gems.core;
 
 import java.util.List;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 
 

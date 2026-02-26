@@ -5,11 +5,11 @@ import com.feel.gems.power.api.GemMaintainedPassive;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 
 
 public final class TerrorDreadAuraPassive implements GemMaintainedPassive {
@@ -29,13 +29,13 @@ public final class TerrorDreadAuraPassive implements GemMaintainedPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         maintain(player);
     }
 
     @Override
-    public void maintain(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+    public void maintain(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
         int radius = GemsBalance.v().terror().dreadAuraRadiusBlocks();
@@ -45,19 +45,19 @@ public final class TerrorDreadAuraPassive implements GemMaintainedPassive {
 
         int duration = 60;
         int amp = GemsBalance.v().terror().dreadAuraAmplifier();
-        for (ServerPlayerEntity other : world.getPlayers(p -> p != player && p.squaredDistanceTo(player) <= radius * (double) radius)) {
+        for (ServerPlayer other : world.getPlayers(p -> p != player && p.distanceToSqr(player) <= radius * (double) radius)) {
             if (VoidImmunity.shouldBlockEffect(player, other)) {
                 continue;
             }
             if (GemTrust.isTrusted(player, other)) {
                 continue;
             }
-            other.addStatusEffect(new StatusEffectInstance(StatusEffects.DARKNESS, duration, amp, true, false, false), player);
+            other.addEffect(new MobEffectInstance(MobEffects.DARKNESS, duration, amp, true, false, false), player);
         }
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
+    public void remove(ServerPlayer player) {
         // No-op: Darkness expires naturally and should not be forcibly removed from others.
     }
 }

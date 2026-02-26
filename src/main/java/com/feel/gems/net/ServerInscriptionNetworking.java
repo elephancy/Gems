@@ -9,10 +9,10 @@ import com.feel.gems.legendary.LegendaryItem;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Server-side networking for legendary inscription management.
@@ -29,32 +29,32 @@ public final class ServerInscriptionNetworking {
                 context.server().execute(() -> handleRemove(context.player(), payload)));
     }
 
-    private static void handleRemove(ServerPlayerEntity player, InscriptionRemovePayload payload) {
-        ItemStack stack = payload.mainHand() ? player.getMainHandStack() : player.getOffHandStack();
+    private static void handleRemove(ServerPlayer player, InscriptionRemovePayload payload) {
+        ItemStack stack = payload.mainHand() ? player.getMainHandItem() : player.getOffhandItem();
         if (!(stack.getItem() instanceof LegendaryItem)) {
-            player.sendMessage(Text.translatable("gems.augment.need_legendary").formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.augment.need_legendary").withStyle(ChatFormatting.RED), true);
             return;
         }
         boolean removed = AugmentRuntime.removeLegendaryAugment(stack, payload.index());
         if (removed) {
-            player.sendMessage(Text.translatable("gems.augment.removed").formatted(Formatting.GREEN), true);
+            player.sendSystemMessage(Component.translatable("gems.augment.removed").withStyle(ChatFormatting.GREEN), true);
             AugmentRuntime.applyLegendaryModifiers(player);
         }
         openScreen(player, payload.mainHand());
     }
 
-    private static void openScreen(ServerPlayerEntity player, boolean mainHand) {
-        ItemStack stack = mainHand ? player.getMainHandStack() : player.getOffHandStack();
+    private static void openScreen(ServerPlayer player, boolean mainHand) {
+        ItemStack stack = mainHand ? player.getMainHandItem() : player.getOffhandItem();
         if (!(stack.getItem() instanceof LegendaryItem)) {
-            player.sendMessage(Text.translatable("gems.augment.need_legendary").formatted(Formatting.RED), true);
+            player.sendSystemMessage(Component.translatable("gems.augment.need_legendary").withStyle(ChatFormatting.RED), true);
             return;
         }
         List<AugmentInstance> inscriptions = AugmentRuntime.getLegendaryAugments(stack);
         List<InscriptionScreenPayload.Entry> entries = new ArrayList<>(inscriptions.size());
         for (AugmentInstance instance : inscriptions) {
             AugmentDefinition def = AugmentRegistry.get(instance.augmentId());
-            String name = def != null ? Text.translatable(def.nameKey()).getString() : instance.augmentId();
-            String desc = def != null ? Text.translatable(def.descriptionKey()).getString() : "";
+            String name = def != null ? Component.translatable(def.nameKey()).getString() : instance.augmentId();
+            String desc = def != null ? Component.translatable(def.descriptionKey()).getString() : "";
             String rarity = instance.rarity().name();
             entries.add(new InscriptionScreenPayload.Entry(
                     instance.augmentId(),
@@ -65,7 +65,7 @@ public final class ServerInscriptionNetworking {
             ));
         }
         int maxSlots = GemsBalance.v().augments().legendaryMaxSlots();
-        String itemKey = stack.getItem().getTranslationKey();
+        String itemKey = stack.getItem().getDescriptionId();
         ServerPlayNetworking.send(player, new InscriptionScreenPayload(itemKey, mainHand, entries, maxSlots));
     }
 }

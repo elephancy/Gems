@@ -1,31 +1,31 @@
 package com.feel.gems.util;
 
 import java.util.UUID;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtIntArray;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.util.Uuids;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
 
 public final class GemsNbt {
     private GemsNbt() {
     }
 
-    public static void putUuid(NbtCompound nbt, String key, UUID uuid) {
+    public static void putUuid(CompoundTag nbt, String key, UUID uuid) {
         if (uuid == null) {
             nbt.remove(key);
             return;
         }
-        nbt.putIntArray(key, Uuids.toIntArray(uuid));
+        nbt.putIntArray(key, UUIDUtil.uuidToIntArray(uuid));
     }
 
-    public static UUID getUuid(NbtCompound nbt, String key) {
+    public static UUID getUuid(CompoundTag nbt, String key) {
         if (nbt == null) {
             return null;
         }
         return nbt.getIntArray(key)
                 .filter(arr -> arr.length == 4)
-                .map(Uuids::toUuid)
+                .map(UUIDUtil::uuidFromIntArray)
                 .orElseGet(() -> nbt.getString(key).map(raw -> {
                     try {
                         return UUID.fromString(raw);
@@ -35,29 +35,29 @@ public final class GemsNbt {
                 }).orElse(null));
     }
 
-    public static boolean containsUuid(NbtCompound nbt, String key) {
+    public static boolean containsUuid(CompoundTag nbt, String key) {
         if (nbt == null) {
             return false;
         }
         return nbt.getIntArray(key).isPresent() || nbt.getString(key).isPresent();
     }
 
-    public static NbtElement fromUuid(UUID uuid) {
+    public static Tag fromUuid(UUID uuid) {
         if (uuid == null) {
-            return NbtString.of("");
+            return StringTag.valueOf("");
         }
-        return new NbtIntArray(Uuids.toIntArray(uuid));
+        return new IntArrayTag(UUIDUtil.uuidToIntArray(uuid));
     }
 
-    public static UUID toUuid(NbtElement element) {
-        if (element instanceof NbtIntArray array) {
-            int[] raw = array.getIntArray();
+    public static UUID toUuid(Tag element) {
+        if (element instanceof IntArrayTag array) {
+            int[] raw = array.getAsIntArray();
             if (raw.length == 4) {
-                return Uuids.toUuid(raw);
+                return UUIDUtil.uuidFromIntArray(raw);
             }
             return null;
         }
-        if (element instanceof NbtString str) {
+        if (element instanceof StringTag str) {
             String raw = str.asString().orElse("");
             if (raw.isBlank()) {
                 return null;

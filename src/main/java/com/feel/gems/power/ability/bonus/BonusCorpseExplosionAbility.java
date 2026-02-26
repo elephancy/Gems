@@ -10,15 +10,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Corpse Explosion - Detonate nearby corpses (recently killed entities) for AoE damage.
@@ -48,8 +48,8 @@ public final class BonusCorpseExplosionAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
         var cfg = GemsBalance.v().bonusPool();
         pruneMarks(world);
 
@@ -58,23 +58,23 @@ public final class BonusCorpseExplosionAbility implements GemAbility {
             return false;
         }
         int durationTicks = Math.max(1, cfg.corpseExplosionMarkDurationSeconds * 20);
-        long expiresAt = world.getTime() + durationTicks;
+        long expiresAt = world.getGameTime() + durationTicks;
 
-        Box searchBox = player.getBoundingBox().expand(range);
-        List<LivingEntity> targets = world.getEntitiesByClass(LivingEntity.class, searchBox,
+        AABB searchBox = player.getBoundingBox().inflate(range);
+        List<LivingEntity> targets = world.getEntitiesOfClass(LivingEntity.class, searchBox,
                 e -> e.isAlive() && e != player);
         if (targets.isEmpty()) {
             return false;
         }
         boolean markedAny = false;
         for (LivingEntity target : targets) {
-            if (target instanceof ServerPlayerEntity other) {
+            if (target instanceof ServerPlayer other) {
                 if (GemTrust.isTrusted(player, other) || VoidImmunity.shouldBlockEffect(player, other)) {
                     continue;
                 }
             }
-            MARKED.put(target.getUuid(), new MarkedTarget(world, player.getUuid(), expiresAt));
-            world.spawnParticles(ParticleTypes.SOUL, target.getX(), target.getY() + 0.5, target.getZ(),
+            MARKED.put(target.getUUID(), new MarkedTarget(world, player.getUUID(), expiresAt));
+            world.sendParticles(ParticleTypes.SOUL, target.getX(), target.getY() + 0.5, target.getZ(),
                     8, 0.3, 0.4, 0.3, 0.02);
             markedAny = true;
         }
@@ -82,41 +82,41 @@ public final class BonusCorpseExplosionAbility implements GemAbility {
             return false;
         }
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.PARTICLE_SOUL_ESCAPE, SoundCategory.PLAYERS, 0.6f, 1.1f);
+                SoundEvents.SOUL_ESCAPE, SoundSource.PLAYERS, 0.6f, 1.1f);
         return true;
     }
 
     public static void recordCorpse(LivingEntity entity) {
-        if (!(entity.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(entity.level() instanceof ServerLevel world)) {
             return;
         }
-        Long suppressed = SUPPRESS_CHAIN_UNTIL.remove(entity.getUuid());
-        if (suppressed != null && world.getTime() <= suppressed) {
+        Long suppressed = SUPPRESS_CHAIN_UNTIL.remove(entity.getUUID());
+        if (suppressed != null && world.getGameTime() <= suppressed) {
             return;
         }
-        MarkedTarget marked = MARKED.remove(entity.getUuid());
+        MarkedTarget marked = MARKED.remove(entity.getUUID());
         if (marked == null || marked.world != world) {
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
         if (now > marked.expiresAt) {
             return;
         }
-        explodeAt(marked, entity.getEntityPos());
+        explodeAt(marked, entity.position());
     }
 
-    private static void explodeAt(MarkedTarget marked, Vec3d pos) {
-        ServerWorld world = marked.world;
-        ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(marked.ownerUuid);
+    private static void explodeAt(MarkedTarget marked, Vec3 pos) {
+        ServerLevel world = marked.world;
+        ServerPlayer owner = world.getServer().getPlayerList().getPlayer(marked.ownerUuid);
         var cfg = GemsBalance.v().bonusPool();
-        long now = world.getTime();
+        long now = world.getGameTime();
 
-        Box explosionBox = new Box(pos, pos).expand(cfg.corpseExplosionRadiusBlocks);
-        List<LivingEntity> nearby = world.getEntitiesByClass(LivingEntity.class, explosionBox,
+        AABB explosionBox = new AABB(pos, pos).inflate(cfg.corpseExplosionRadiusBlocks);
+        List<LivingEntity> nearby = world.getEntitiesOfClass(LivingEntity.class, explosionBox,
                 e -> e.isAlive());
 
         for (LivingEntity entity : nearby) {
-            if (owner != null && entity instanceof ServerPlayerEntity other) {
+            if (owner != null && entity instanceof ServerPlayer other) {
                 if (GemTrust.isTrusted(owner, other) || VoidImmunity.shouldBlockEffect(owner, other)) {
                     continue;
                 }
@@ -124,24 +124,24 @@ public final class BonusCorpseExplosionAbility implements GemAbility {
             if (owner != null && entity == owner) {
                 continue;
             }
-            SUPPRESS_CHAIN_UNTIL.put(entity.getUuid(), now + 4);
-            entity.damage(world, world.getDamageSources().explosion(null, owner), cfg.corpseExplosionDamage);
+            SUPPRESS_CHAIN_UNTIL.put(entity.getUUID(), now + 4);
+            entity.hurtServer(world, world.damageSources().explosion(null, owner), cfg.corpseExplosionDamage);
         }
 
-        world.spawnParticles(ParticleTypes.EXPLOSION, pos.x, pos.y + 0.5, pos.z,
+        world.sendParticles(ParticleTypes.EXPLOSION, pos.x, pos.y + 0.5, pos.z,
                 6, 0.5, 0.5, 0.5, 0);
-        world.spawnParticles(ParticleTypes.SOUL, pos.x, pos.y + 0.5, pos.z,
+        world.sendParticles(ParticleTypes.SOUL, pos.x, pos.y + 0.5, pos.z,
                 20, 0.5, 0.5, 0.5, 0.05);
-        world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.ENTITY_GENERIC_EXPLODE,
-                SoundCategory.PLAYERS, 0.9f, 1.1f);
+        world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.GENERIC_EXPLODE,
+                SoundSource.PLAYERS, 0.9f, 1.1f);
     }
 
-    private static void pruneMarks(ServerWorld world) {
-        long now = world.getTime();
+    private static void pruneMarks(ServerLevel world) {
+        long now = world.getGameTime();
         Iterator<Map.Entry<UUID, MarkedTarget>> iter = MARKED.entrySet().iterator();
         while (iter.hasNext()) {
             MarkedTarget mark = iter.next().getValue();
-            long markNow = mark.world.equals(world) ? now : mark.world.getTime();
+            long markNow = mark.world.equals(world) ? now : mark.world.getGameTime();
             if (markNow > mark.expiresAt) {
                 iter.remove();
             }
@@ -156,11 +156,11 @@ public final class BonusCorpseExplosionAbility implements GemAbility {
     }
 
     private static final class MarkedTarget {
-        final ServerWorld world;
+        final ServerLevel world;
         final UUID ownerUuid;
         final long expiresAt;
 
-        private MarkedTarget(ServerWorld world, UUID ownerUuid, long expiresAt) {
+        private MarkedTarget(ServerLevel world, UUID ownerUuid, long expiresAt) {
             this.world = world;
             this.ownerUuid = ownerUuid;
             this.expiresAt = expiresAt;

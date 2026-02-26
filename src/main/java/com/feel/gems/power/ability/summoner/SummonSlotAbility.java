@@ -14,18 +14,18 @@ import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.util.MobBlacklist;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.Vec3;
 
 
 public final class SummonSlotAbility implements GemAbility {
@@ -63,14 +63,14 @@ public final class SummonSlotAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         if (GemPlayerState.getActiveGem(player) != GemId.SUMMONER) {
             if (GemPlayerState.getActiveGem(player) != GemId.PRISM || !PrismSelectionsState.hasAbility(player, id())) {
                 return false;
             }
         }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return false;
         }
 
@@ -85,7 +85,7 @@ public final class SummonSlotAbility implements GemAbility {
             default -> loadout.slot1();
         };
         if (specs.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.ability.summoner.slot.no_summons", slot), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.summoner.slot.no_summons", slot), true);
             return false;
         }
 
@@ -93,7 +93,7 @@ public final class SummonSlotAbility implements GemAbility {
         int maxPoints = cfg.maxPoints();
         int remaining = maxPoints > 0 ? Math.max(0, maxPoints - stats.points()) : 0;
         if (remaining <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.summoner.slot.cap_reached"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.summoner.slot.cap_reached"), true);
             return false;
         }
 
@@ -112,7 +112,7 @@ public final class SummonSlotAbility implements GemAbility {
             if (typeId == null) {
                 continue;
             }
-            EntityType<?> type = Registries.ENTITY_TYPE.get(typeId);
+            EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(typeId);
             if (MobBlacklist.isBlacklisted(type)) {
                 continue;
             }
@@ -121,26 +121,26 @@ public final class SummonSlotAbility implements GemAbility {
                 continue;
             }
             for (int i = 0; i < spec.count() && remaining >= cost; i++) {
-                Entity e = type.create(world, SpawnReason.MOB_SUMMONED);
-                if (!(e instanceof MobEntity mob)) {
+                Entity e = type.create(world, EntitySpawnReason.MOB_SUMMONED);
+                if (!(e instanceof Mob mob)) {
                     continue;
                 }
-                Vec3d spawnPos = spawnPos(player, spawned);
-                mob.refreshPositionAndAngles(spawnPos.x, spawnPos.y, spawnPos.z, player.getYaw(), player.getPitch());
-                mob.initialize(world, world.getLocalDifficulty(BlockPos.ofFloored(spawnPos)), SpawnReason.MOB_SUMMONED, null);
+                Vec3 spawnPos = spawnPos(player, spawned);
+                mob.snapTo(spawnPos.x, spawnPos.y, spawnPos.z, player.getYRot(), player.getXRot());
+                mob.finalizeSpawn(world, world.getCurrentDifficultyAt(BlockPos.containing(spawnPos)), EntitySpawnReason.MOB_SUMMONED, null);
                 SummonerSummons.tuneControlledMob(mob);
-                SummonerSummons.mark(mob, player.getUuid(), until);
-                mob.disableExperienceDropping();
+                SummonerSummons.mark(mob, player.getUUID(), until);
+                mob.skipDropExperience();
                 if (bonusHealth) {
                     SummonerSummons.applyBonusHealth(mob, bonusHealthAmount);
                 }
                 mob.setHealth(mob.getMaxHealth());
-                world.spawnEntity(mob);
+                world.addFreshEntity(mob);
                 SummonerSummons.trackSpawn(player, mob);
 
                 if (markTarget != null) {
                     Entity target = SummonerSummons.findEntity(world.getServer(), markTarget);
-                    if (target instanceof LivingEntity living && living.getEntityWorld() == mob.getEntityWorld()) {
+                    if (target instanceof LivingEntity living && living.level() == mob.level()) {
                         mob.setTarget(living);
                     }
                 }
@@ -151,23 +151,23 @@ public final class SummonSlotAbility implements GemAbility {
         }
 
         if (spawned <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.summoner.slot.no_valid"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.summoner.slot.no_valid"), true);
             return false;
         }
 
-        AbilityFeedback.burst(player, net.minecraft.particle.ParticleTypes.PORTAL, 18, 0.35D);
-        AbilityFeedback.sound(player, net.minecraft.sound.SoundEvents.ENTITY_EVOKER_PREPARE_SUMMON, 0.8F, 1.2F);
-        player.sendMessage(Text.translatable("gems.ability.summoner.slot.summoned", spawned), true);
+        AbilityFeedback.burst(player, net.minecraft.core.particles.ParticleTypes.PORTAL, 18, 0.35D);
+        AbilityFeedback.sound(player, net.minecraft.sounds.SoundEvents.EVOKER_PREPARE_SUMMON, 0.8F, 1.2F);
+        player.sendSystemMessage(Component.translatable("gems.ability.summoner.slot.summoned", spawned), true);
         return true;
     }
 
-    private static Vec3d spawnPos(ServerPlayerEntity player, int index) {
+    private static Vec3 spawnPos(ServerPlayer player, int index) {
         var cfg = GemsBalance.v().summoner();
         int ringLayers = Math.max(1, cfg.summonSpawnRingLayers());
         int ringSegments = Math.max(1, cfg.summonSpawnRingSegments());
-        Vec3d forward = player.getRotationVec(1.0F).normalize();
-        Vec3d base = player.getEntityPos()
-                .add(forward.multiply(cfg.summonSpawnForwardBlocks()))
+        Vec3 forward = player.getViewVector(1.0F).normalize();
+        Vec3 base = player.position()
+                .add(forward.scale(cfg.summonSpawnForwardBlocks()))
                 .add(0.0D, cfg.summonSpawnUpBlocks(), 0.0D);
         double radius = cfg.summonSpawnRingBaseBlocks() + (index % ringLayers) * cfg.summonSpawnRingStepBlocks();
         double angle = (Math.PI * 2.0D) * ((index % ringSegments) / (double) ringSegments);

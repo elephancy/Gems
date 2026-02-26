@@ -2,34 +2,34 @@ package com.feel.gems.mixin;
 
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.VexEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Set;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Vex;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Mixin to prevent spectral blade vexes from attacking their owner.
  * Targets MobEntity since that's where setTarget is defined.
  */
-@Mixin(MobEntity.class)
+@Mixin(Mob.class)
 public abstract class VexEntitySpectralBladeMixin {
 
     @Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
     private void gems$preventSpectralBladeOwnerTargeting(LivingEntity target, CallbackInfo ci) {
-        MobEntity self = (MobEntity) (Object) this;
+        Mob self = (Mob) (Object) this;
         
         // Only handle vexes
-        if (!(self instanceof VexEntity)) {
+        if (!(self instanceof Vex)) {
             return;
         }
         
@@ -37,7 +37,7 @@ public abstract class VexEntitySpectralBladeMixin {
             return;
         }
         
-        Set<String> tags = self.getCommandTags();
+        Set<String> tags = self.entityTags();
         
         // Check if this is a spectral blade
         if (!tags.contains("gems_spectral_blade")) {
@@ -58,8 +58,8 @@ public abstract class VexEntitySpectralBladeMixin {
         }
         
         // Prevent targeting the owner
-        if (target instanceof ServerPlayerEntity player) {
-            if (player.getUuidAsString().equals(ownerUuid)) {
+        if (target instanceof ServerPlayer player) {
+            if (player.getStringUUID().equals(ownerUuid)) {
                 ci.cancel();
             }
         }
@@ -67,18 +67,18 @@ public abstract class VexEntitySpectralBladeMixin {
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void gems$retargetSpectralBlade(CallbackInfo ci) {
-        MobEntity self = (MobEntity) (Object) this;
-        if (!(self instanceof VexEntity vex)) {
+        Mob self = (Mob) (Object) this;
+        if (!(self instanceof Vex vex)) {
             return;
         }
-        if (!(self.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(self.level() instanceof ServerLevel world)) {
             return;
         }
-        Set<String> tags = self.getCommandTags();
+        Set<String> tags = self.entityTags();
         if (!tags.contains("gems_spectral_blade")) {
             return;
         }
-        if (world.getTime() % 10 != 0) {
+        if (world.getGameTime() % 10 != 0) {
             return;
         }
 
@@ -92,22 +92,22 @@ public abstract class VexEntitySpectralBladeMixin {
         if (ownerUuid == null) {
             return;
         }
-        ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(java.util.UUID.fromString(ownerUuid));
+        ServerPlayer owner = world.getServer().getPlayerList().getPlayer(java.util.UUID.fromString(ownerUuid));
         if (owner == null) {
             return;
         }
 
         LivingEntity currentTarget = vex.getTarget();
         if (currentTarget != null && currentTarget.isAlive()) {
-            if (currentTarget != owner && !(currentTarget instanceof ServerPlayerEntity player && GemTrust.isTrusted(owner, player))) {
+            if (currentTarget != owner && !(currentTarget instanceof ServerPlayer player && GemTrust.isTrusted(owner, player))) {
                 return;
             }
         }
 
-        Box searchBox = vex.getBoundingBox().expand(16.0);
+        AABB searchBox = vex.getBoundingBox().inflate(16.0);
         LivingEntity selected = null;
-        for (Entity entity : world.getOtherEntities(owner, searchBox)) {
-            if (entity instanceof ServerPlayerEntity target) {
+        for (Entity entity : world.getEntities(owner, searchBox)) {
+            if (entity instanceof ServerPlayer target) {
                 if (!target.isAlive()) {
                     continue;
                 }
@@ -122,8 +122,8 @@ public abstract class VexEntitySpectralBladeMixin {
             }
         }
         if (selected == null) {
-            for (Entity entity : world.getOtherEntities(owner, searchBox)) {
-                if (entity instanceof HostileEntity hostile && hostile.isAlive()) {
+            for (Entity entity : world.getEntities(owner, searchBox)) {
+                if (entity instanceof Monster hostile && hostile.isAlive()) {
                     selected = hostile;
                     break;
                 }

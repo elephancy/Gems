@@ -12,15 +12,15 @@ import com.feel.gems.power.runtime.AbilityFeedback;
 import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Mirage - create a single illusory copy that mirrors your movements.
@@ -48,8 +48,8 @@ public final class TricksterMirageAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         var cfg = GemsBalance.v().trickster();
         int durationTicks = AugmentRuntime.applyDurationMultiplier(player, GemId.TRICKSTER, cfg.mirageDurationTicks());
         int rangeBlocks = cfg.mirageRangeBlocks();
@@ -58,37 +58,37 @@ public final class TricksterMirageAbility implements GemAbility {
             return false;
         }
 
-        Vec3d center = player.getEntityPos();
-        Vec3d direction = player.getRotationVec(1.0F);
-        Vec3d targetPos = center.add(direction.multiply(rangeBlocks));
-        HitResult hit = player.raycast(rangeBlocks, 1.0F, false);
+        Vec3 center = player.position();
+        Vec3 direction = player.getViewVector(1.0F);
+        Vec3 targetPos = center.add(direction.scale(rangeBlocks));
+        HitResult hit = player.pick(rangeBlocks, 1.0F, false);
         if (hit.getType() != HitResult.Type.MISS) {
-            targetPos = hit.getPos();
+            targetPos = hit.getLocation();
         }
-        long endTime = world.getTime() + durationTicks;
+        long endTime = world.getGameTime() + durationTicks;
 
-        Entity entity = ModEntities.SHADOW_CLONE.create(world, SpawnReason.MOB_SUMMONED);
+        Entity entity = ModEntities.SHADOW_CLONE.create(world, EntitySpawnReason.MOB_SUMMONED);
         if (!(entity instanceof ShadowCloneEntity clone)) {
             return false;
         }
-        clone.refreshPositionAndAngles(targetPos.x, targetPos.y, targetPos.z, player.getYaw(), player.getPitch());
+        clone.snapTo(targetPos.x, targetPos.y, targetPos.z, player.getYRot(), player.getXRot());
         clone.setOwner(player);
         clone.setMaxLifetime(durationTicks);
-        clone.setAiDisabled(true);
+        clone.setNoAi(true);
         clone.setNoGravity(true);
         clone.setMirageClone(true);
-        world.spawnEntity(clone);
+        world.addFreshEntity(clone);
 
-        UUID cloneUuid = clone.getUuid();
-        Vec3d offset = targetPos.subtract(center);
+        UUID cloneUuid = clone.getUUID();
+        Vec3 offset = targetPos.subtract(center);
         TricksterMirageRuntime.createMirage(player, cloneUuid, offset, endTime);
 
         ShadowCloneSyncPayload syncPayload = new ShadowCloneSyncPayload(
                 clone.getId(),
-                player.getUuid(),
+                player.getUUID(),
                 player.getGameProfile().name()
         );
-        for (ServerPlayerEntity tracker : PlayerLookup.tracking(clone)) {
+        for (ServerPlayer tracker : PlayerLookup.tracking(clone)) {
             ServerPlayNetworking.send(tracker, syncPayload);
         }
         ServerPlayNetworking.send(player, syncPayload);
@@ -97,7 +97,7 @@ public final class TricksterMirageAbility implements GemAbility {
         AbilityFeedback.burstAt(world, targetPos.add(0, 1.2, 0), ParticleTypes.ENCHANT, 10, 0.6D);
         AbilityFeedback.burstAt(world, targetPos.add(0, 0.8, 0), ParticleTypes.END_ROD, 8, 0.4D);
         AbilityFeedback.burstAt(world, center.add(0, 1.0, 0), ParticleTypes.PORTAL, 20, 0.7D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL, 1.0F, 1.0F);
+        AbilityFeedback.sound(player, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0F, 1.0F);
         return true;
     }
 }

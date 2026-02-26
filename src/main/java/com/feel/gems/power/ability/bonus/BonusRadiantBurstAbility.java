@@ -4,14 +4,14 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.voidgem.VoidImmunity;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 
 public final class BonusRadiantBurstAbility implements GemAbility {
     @Override
@@ -35,15 +35,15 @@ public final class BonusRadiantBurstAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        Box area = player.getBoundingBox().expand(10);
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        AABB area = player.getBoundingBox().inflate(10);
         
-        world.spawnParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 50, 5, 2, 5, 0.2);
+        world.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 50, 5, 2, 5, 0.2);
         
-        world.getOtherEntities(player, area, e -> e instanceof LivingEntity)
+        world.getEntities(player, area, e -> e instanceof LivingEntity)
                 .forEach(e -> {
-                    if (e instanceof ServerPlayerEntity other) {
+                    if (e instanceof ServerPlayer other) {
                         if (VoidImmunity.shouldBlockEffect(player, other)) {
                             return;
                         }
@@ -51,13 +51,13 @@ public final class BonusRadiantBurstAbility implements GemAbility {
                         if (GemTrust.isTrusted(player, other)) {
                             other.heal(6.0f);
                         } else {
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100, 0));
-                            other.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0));
+                            other.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100, 0));
+                            other.addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0));
                         }
                     } else if (e instanceof LivingEntity living) {
                         // Blind enemies
-                        living.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100, 0));
-                        living.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0));
+                        living.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100, 0));
+                        living.addEffect(new MobEffectInstance(MobEffects.GLOWING, 200, 0));
                     }
                 });
         return true;

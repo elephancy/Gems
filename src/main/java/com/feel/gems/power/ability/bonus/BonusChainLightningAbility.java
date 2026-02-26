@@ -2,16 +2,17 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LightningEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
 import java.util.List;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 public final class BonusChainLightningAbility implements GemAbility {
     @Override
@@ -35,11 +36,11 @@ public final class BonusChainLightningAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        Box area = player.getBoundingBox().expand(15);
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        AABB area = player.getBoundingBox().inflate(15);
         
-        List<LivingEntity> targets = world.getOtherEntities(player, area, e -> e instanceof LivingEntity && !(e instanceof ServerPlayerEntity))
+        List<LivingEntity> targets = world.getEntities(player, area, e -> e instanceof LivingEntity && !(e instanceof ServerPlayer))
                 .stream()
                 .filter(e -> e instanceof LivingEntity)
                 .map(e -> (LivingEntity) e)
@@ -47,11 +48,11 @@ public final class BonusChainLightningAbility implements GemAbility {
                 .toList();
         
         for (LivingEntity target : targets) {
-            LightningEntity lightning = EntityType.LIGHTNING_BOLT.create(world, SpawnReason.TRIGGERED);
+            LightningBolt lightning = EntityTypes.LIGHTNING_BOLT.create(world, EntitySpawnReason.TRIGGERED);
             if (lightning != null) {
-                Vec3d pos = target.getEntityPos();
-                lightning.refreshPositionAfterTeleport(pos.x, pos.y, pos.z);
-                world.spawnEntity(lightning);
+                Vec3 pos = target.position();
+                lightning.snapTo(pos.x, pos.y, pos.z);
+                world.addFreshEntity(lightning);
             }
         }
         return true;

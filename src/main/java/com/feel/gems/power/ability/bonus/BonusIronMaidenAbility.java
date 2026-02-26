@@ -4,8 +4,8 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Iron Maiden - attackers take reflected damage for a short duration.
@@ -34,23 +34,23 @@ public final class BonusIronMaidenAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int duration = GemsBalance.v().bonusPool().ironMaidenDurationSeconds * 20;
         if (duration <= 0) {
             return false;
         }
-        long until = player.getEntityWorld().getTime() + duration;
+        long until = player.level().getGameTime() + duration;
         PlayerStateManager.setPersistent(player, IRON_MAIDEN_UNTIL, String.valueOf(until));
         return true;
     }
 
-    public static boolean isActive(ServerPlayerEntity player) {
+    public static boolean isActive(ServerPlayer player) {
         String untilStr = PlayerStateManager.getPersistent(player, IRON_MAIDEN_UNTIL);
         if (untilStr == null || untilStr.isEmpty()) {
             return false;
         }
         long until = Long.parseLong(untilStr);
-        if (player.getEntityWorld().getTime() > until) {
+        if (player.level().getGameTime() > until) {
             PlayerStateManager.clearPersistent(player, IRON_MAIDEN_UNTIL);
             return false;
         }

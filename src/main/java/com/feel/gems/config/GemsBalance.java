@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 
 
@@ -52,8 +52,7 @@ public final class GemsBalance {
     public static java.nio.file.Path dumpEffectiveBalance() {
         GemsBalanceConfig cfg = toConfig(VALUES);
         java.nio.file.Path out = GemsConfigManager.resolveInConfigDir("balance.effective.json");
-        GemsConfigManager.write(out, cfg);
-        return out;
+        return GemsConfigManager.write(out, cfg) ? out : null;
     }
 
     private static GemsBalanceConfig toConfig(Values v) {
@@ -517,8 +516,6 @@ public final class GemsBalance {
         cfg.air.airMaceFireAspectLevel = v.air().airMaceFireAspectLevel();
 
         cfg.voidGem.blockAllStatusEffects = v.voidGem().blockAllStatusEffects();
-        cfg.chaos.rotationSeconds = ticksToSeconds(v.chaos().rotationTicks());
-        cfg.chaos.rotationAbilityCooldownSeconds = ticksToSeconds(v.chaos().rotationAbilityCooldownTicks());
         cfg.chaos.slotDurationSeconds = ticksToSeconds(v.chaos().slotDurationTicks());
         cfg.chaos.slotAbilityCooldownSeconds = ticksToSeconds(v.chaos().slotAbilityCooldownTicks());
         cfg.chaos.slotCount = v.chaos().slotCount();
@@ -2025,16 +2022,12 @@ public final class GemsBalance {
     }
 
     public record Chaos(
-            int rotationTicks,
-            int rotationAbilityCooldownTicks,
             int slotDurationTicks,
             int slotAbilityCooldownTicks,
             int slotCount
     ) {
         static Chaos from(GemsBalanceConfig.Chaos cfg) {
             return new Chaos(
-                    secClamped(cfg.rotationSeconds, 1, 24 * 3600),
-                    secClamped(cfg.rotationAbilityCooldownSeconds, 0, 3600),
                     secClamped(cfg.slotDurationSeconds, 1, 24 * 3600),
                     secClamped(cfg.slotAbilityCooldownSeconds, 0, 3600),
                     clampInt(cfg.slotCount, 1, 9)

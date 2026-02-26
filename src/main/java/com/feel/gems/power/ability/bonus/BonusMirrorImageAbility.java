@@ -2,15 +2,14 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Mirror Image - Create 3 illusions that confuse enemies.
@@ -40,37 +39,37 @@ public final class BonusMirrorImageAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) return false;
-        Vec3d playerPos = player.getEntityPos();
+    public boolean activate(ServerPlayer player) {
+        if (!(player.level() instanceof ServerLevel world)) return false;
+        Vec3 playerPos = player.position();
 
         for (int i = 0; i < ILLUSION_COUNT; i++) {
             double angle = (2 * Math.PI / ILLUSION_COUNT) * i;
             double offsetX = Math.cos(angle) * 2;
             double offsetZ = Math.sin(angle) * 2;
-            Vec3d illusionPos = playerPos.add(offsetX, 0, offsetZ);
+            Vec3 illusionPos = playerPos.add(offsetX, 0, offsetZ);
 
             // Create armor stand as illusion marker
-            ArmorStandEntity illusion = new ArmorStandEntity(world, illusionPos.x, illusionPos.y, illusionPos.z);
+            ArmorStand illusion = new ArmorStand(world, illusionPos.x, illusionPos.y, illusionPos.z);
             illusion.setInvisible(true);
             illusion.setNoGravity(true);
-            illusion.setInvulnerable(true);
+            illusion.setPermanentlyInvulnerable(true);
             illusion.setCustomName(player.getName());
-            illusion.addCommandTag("gems_mirror_image");
-            illusion.addCommandTag("owner:" + player.getUuidAsString());
-            world.spawnEntity(illusion);
+            illusion.addTag("gems_mirror_image");
+            illusion.addTag("owner:" + player.getStringUUID());
+            world.addFreshEntity(illusion);
 
             // Spawn particles at illusion location
-            world.spawnParticles(ParticleTypes.CLOUD, illusionPos.x, illusionPos.y + 1, illusionPos.z, 
+            world.sendParticles(ParticleTypes.CLOUD, illusionPos.x, illusionPos.y + 1, illusionPos.z,
                     15, 0.3, 0.8, 0.3, 0.02);
         }
 
         // Grant brief invisibility to player
-        player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(
-                net.minecraft.entity.effect.StatusEffects.INVISIBILITY, 40, 0, false, false, false));
+        player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                net.minecraft.world.effect.MobEffects.INVISIBILITY, 40, 0, false, false, false));
 
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                SoundEvents.ENTITY_ILLUSIONER_MIRROR_MOVE, SoundCategory.PLAYERS, 1.0f, 1.0f);
+                SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 1.0f, 1.0f);
         return true;
     }
 }

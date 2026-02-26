@@ -3,19 +3,19 @@ package com.feel.gems.power.gem.air;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.api.GemMaintainedPassive;
 import com.feel.gems.state.GemsPersistentDataHolder;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 
 
 public final class AirMacePassive implements GemMaintainedPassive {
@@ -49,12 +49,12 @@ public final class AirMacePassive implements GemMaintainedPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         maintain(player);
     }
 
     @Override
-    public void maintain(ServerPlayerEntity player) {
+    public void maintain(ServerPlayer player) {
         // If player was ever granted a mace, never give another.
         if (isEverGranted(player)) {
             return;
@@ -63,32 +63,32 @@ public final class AirMacePassive implements GemMaintainedPassive {
         if (mace.isEmpty()) {
             return;
         }
-        player.giveItemStack(mace);
+        player.addItem(mace);
         setEverGranted(player, true);
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
+    public void remove(ServerPlayer player) {
         // Intentionally does not remove the mace or reset the flag.
         // One mace ever - flag persists forever.
     }
 
-    public static boolean isHoldingMace(ServerPlayerEntity player) {
-        return player.getMainHandStack().isOf(Items.MACE);
+    public static boolean isHoldingMace(ServerPlayer player) {
+        return player.getMainHandItem().is(Items.MACE);
     }
 
-    private static ItemStack createAirMace(ServerPlayerEntity player) {
+    private static ItemStack createAirMace(ServerPlayer player) {
         ItemStack mace = new ItemStack(Items.MACE);
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, mace, nbt -> nbt.putBoolean(TAG_AIR_MACE, true));
+        CustomData.update(DataComponents.CUSTOM_DATA, mace, nbt -> nbt.putBoolean(TAG_AIR_MACE, true));
 
         var cfg = GemsBalance.v().air();
-        RegistryEntry<Enchantment> breach = resolve(player, Enchantments.BREACH);
-        RegistryEntry<Enchantment> windBurst = resolve(player, Enchantments.WIND_BURST);
-        RegistryEntry<Enchantment> mending = resolve(player, Enchantments.MENDING);
-        RegistryEntry<Enchantment> unbreaking = resolve(player, Enchantments.UNBREAKING);
-        RegistryEntry<Enchantment> fireAspect = resolve(player, Enchantments.FIRE_ASPECT);
+        Holder<Enchantment> breach = resolve(player, Enchantments.BREACH);
+        Holder<Enchantment> windBurst = resolve(player, Enchantments.WIND_BURST);
+        Holder<Enchantment> mending = resolve(player, Enchantments.MENDING);
+        Holder<Enchantment> unbreaking = resolve(player, Enchantments.UNBREAKING);
+        Holder<Enchantment> fireAspect = resolve(player, Enchantments.FIRE_ASPECT);
 
-        EnchantmentHelper.apply(mace, builder -> {
+        EnchantmentHelper.updateEnchantments(mace, builder -> {
             if (breach != null && cfg.airMaceBreachLevel() > 0) {
                 builder.set(breach, cfg.airMaceBreachLevel());
             }
@@ -108,13 +108,13 @@ public final class AirMacePassive implements GemMaintainedPassive {
         return mace;
     }
 
-    private static boolean isEverGranted(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        return data.getBoolean(KEY_EVER_GRANTED, false);
+    private static boolean isEverGranted(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        return data.getBooleanOr(KEY_EVER_GRANTED, false);
     }
 
-    private static void setEverGranted(ServerPlayerEntity player, boolean granted) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    private static void setEverGranted(ServerPlayer player, boolean granted) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         data.putBoolean(KEY_EVER_GRANTED, granted);
     }
 
@@ -122,17 +122,17 @@ public final class AirMacePassive implements GemMaintainedPassive {
      * Clears the "ever granted" flag, allowing the player to receive a new mace.
      * Only for admin commands.
      */
-    public static void clearEverGranted(ServerPlayerEntity player) {
-        NbtCompound data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static void clearEverGranted(ServerPlayer player) {
+        CompoundTag data = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         data.remove(KEY_EVER_GRANTED);
     }
 
-    private static RegistryEntry<Enchantment> resolve(ServerPlayerEntity player, RegistryKey<Enchantment> key) {
-        if (!(player.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld world)) {
+    private static Holder<Enchantment> resolve(ServerPlayer player, ResourceKey<Enchantment> key) {
+        if (!(player.level() instanceof net.minecraft.server.level.ServerLevel world)) {
             return null;
         }
-        var registry = world.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
-        var entry = registry.getEntry(key.getValue());
+        var registry = world.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+        var entry = registry.get(key.identifier());
         return entry.orElse(null);
     }
 }

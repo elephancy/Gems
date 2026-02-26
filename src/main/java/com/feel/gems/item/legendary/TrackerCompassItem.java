@@ -15,27 +15,27 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.component.type.TooltipDisplayComponent;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.LodestoneTrackerComponent;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.CompassItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.GlobalPos;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.CompassItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.LodestoneTracker;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.Level;
 
 
 
@@ -50,33 +50,33 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
     private static final String KEY_TARGET_LAST_SEEN = "legendaryTrackLastSeen";
     private static final String KEY_LAST_UPDATE = "legendaryTrackLastUpdate";
 
-    public TrackerCompassItem(Settings settings) {
+    public TrackerCompassItem(Properties settings) {
         super(settings);
     }
 
     @Override
-    public Text getName(ItemStack stack) {
+    public Component getName(ItemStack stack) {
         // `CompassItem` swaps the display name to "Lodestone Compass" when `LODESTONE_TRACKER` is set.
         // Tracker Compass uses that component for pointing, but should always keep its own name.
-        return Text.translatable("item.gems.tracker_compass");
+        return Component.translatable("item.gems.tracker_compass");
     }
 
     @Override
     public String legendaryId() {
-        return Identifier.of(GemsMod.MOD_ID, "tracker_compass").toString();
+        return Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "tracker_compass").toString();
     }
 
     @Override
-    public ActionResult use(World world, PlayerEntity user, Hand hand) {
-        if (!world.isClient() && user instanceof ServerPlayerEntity player) {
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
+        if (!world.isClientSide() && user instanceof ServerPlayer player) {
             openSelectionScreen(player);
         }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
-    public void inventoryTick(ItemStack stack, ServerWorld world, Entity entity, EquipmentSlot slot) {
-        if (!(entity instanceof ServerPlayerEntity player)) {
+    public void inventoryTick(ItemStack stack, ServerLevel world, Entity entity, EquipmentSlot slot) {
+        if (!(entity instanceof ServerPlayer player)) {
             return;
         }
         UUID target = targetUuid(stack);
@@ -89,34 +89,34 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
         if (now - last < refresh) {
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (SpySystem.hidesTracking(server, target)) {
             clearTarget(stack);
-            player.sendMessage(Text.translatable("gems.tracking.hidden"), true);
+            player.sendSystemMessage(Component.translatable("gems.tracking.hidden"), true);
             return;
         }
         updateTrackingData(stack, server, target, now);
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, TooltipDisplayComponent displayComponent, Consumer<Text> tooltip, TooltipType type) {
-        GemsTooltipFormat.appendDescription(tooltip, Text.translatable("item.gems.tracker_compass.desc"));
-        NbtComponent data = stack.get(DataComponentTypes.CUSTOM_DATA);
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay displayComponent, Consumer<Component> tooltip, TooltipFlag type) {
+        GemsTooltipFormat.appendDescription(tooltip, Component.translatable("item.gems.tracker_compass.desc"));
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) {
-            tooltip.accept(Text.translatable("gems.item.tracker_compass.tooltip.target_none"));
+            tooltip.accept(Component.translatable("gems.item.tracker_compass.tooltip.target_none"));
             return;
         }
-        NbtCompound nbt = data.copyNbt();
+        CompoundTag nbt = data.copyTag();
         if (nbt.getString(KEY_TARGET_NAME).isEmpty()) {
-            tooltip.accept(Text.translatable("gems.item.tracker_compass.tooltip.target_none"));
+            tooltip.accept(Component.translatable("gems.item.tracker_compass.tooltip.target_none"));
             return;
         }
-        String name = nbt.getString(KEY_TARGET_NAME, "");
-        tooltip.accept(Text.translatable("gems.item.tracker_compass.tooltip.target", name));
+        String name = nbt.getStringOr(KEY_TARGET_NAME, "");
+        tooltip.accept(Component.translatable("gems.item.tracker_compass.tooltip.target", name));
         BlockPos pos = readBlockPos(nbt, KEY_TARGET_POS);
         if (pos != null) {
-            String dim = nbt.getString(KEY_TARGET_DIM, "");
-            tooltip.accept(Text.translatable(
+            String dim = nbt.getStringOr(KEY_TARGET_DIM, "");
+            tooltip.accept(Component.translatable(
                     "gems.item.tracker_compass.tooltip.last_seen",
                     String.valueOf(pos.getX()),
                     String.valueOf(pos.getY()),
@@ -126,8 +126,8 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
         }
         BlockPos respawn = readBlockPos(nbt, KEY_TARGET_RESPAWN_POS);
         if (respawn != null) {
-            String dim = nbt.getString(KEY_TARGET_RESPAWN_DIM, "");
-            tooltip.accept(Text.translatable(
+            String dim = nbt.getStringOr(KEY_TARGET_RESPAWN_DIM, "");
+            tooltip.accept(Component.translatable(
                     "gems.item.tracker_compass.tooltip.respawn",
                     String.valueOf(respawn.getX()),
                     String.valueOf(respawn.getY()),
@@ -138,22 +138,22 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
     }
 
     @Override
-    public boolean hasGlint(ItemStack stack) {
+    public boolean isFoil(ItemStack stack) {
         return true;
     }
 
-    public static void setTarget(ServerPlayerEntity player, String name) {
+    public static void setTarget(ServerPlayer player, String name) {
         ItemStack stack = findHeldCompass(player);
         if (stack.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.item.tracker_compass.hold_to_set"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.hold_to_set"), true);
             return;
         }
         if (name == null || name.isBlank()) {
             clearTarget(stack);
-            player.sendMessage(Text.translatable("gems.item.tracker_compass.target_cleared"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.target_cleared"), true);
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
@@ -165,54 +165,54 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
             }
         }
         if (snapshot == null) {
-            player.sendMessage(Text.translatable("gems.item.tracker_compass.unknown_player", name), true);
+            player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.unknown_player", name), true);
             return;
         }
         if (SpySystem.hidesTracking(server, snapshot.uuid())) {
-            player.sendMessage(Text.translatable("gems.tracking.hidden"), true);
+            player.sendSystemMessage(Component.translatable("gems.tracking.hidden"), true);
             return;
         }
         applyTarget(player, stack, snapshot.uuid(), snapshot.name());
     }
 
-    public static void setTarget(ServerPlayerEntity player, UUID uuid) {
+    public static void setTarget(ServerPlayer player, UUID uuid) {
         if (uuid == null) {
             clearTarget(player);
             return;
         }
         ItemStack stack = findHeldCompass(player);
         if (stack.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.item.tracker_compass.hold_to_set"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.hold_to_set"), true);
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
         LegendaryPlayerTracker.Snapshot snapshot = LegendaryPlayerTracker.snapshot(server, uuid);
         if (snapshot == null) {
-            player.sendMessage(Text.translatable("gems.item.tracker_compass.unknown_player_track"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.unknown_player_track"), true);
             return;
         }
         if (SpySystem.hidesTracking(server, uuid)) {
-            player.sendMessage(Text.translatable("gems.tracking.hidden"), true);
+            player.sendSystemMessage(Component.translatable("gems.tracking.hidden"), true);
             return;
         }
         applyTarget(player, stack, uuid, snapshot.name());
     }
 
-    public static void clearTarget(ServerPlayerEntity player) {
+    public static void clearTarget(ServerPlayer player) {
         ItemStack stack = findHeldCompass(player);
         if (stack.isEmpty()) {
-            player.sendMessage(Text.translatable("gems.item.tracker_compass.hold_to_clear"), true);
+            player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.hold_to_clear"), true);
             return;
         }
         clearTarget(stack);
-        player.sendMessage(Text.translatable("gems.item.tracker_compass.target_cleared"), true);
+        player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.target_cleared"), true);
     }
 
-    public static void openSelectionScreen(ServerPlayerEntity player) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    public static void openSelectionScreen(ServerPlayer player) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
@@ -223,42 +223,42 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
             if (SpySystem.hidesTracking(server, profile.uuid())) {
                 continue;
             }
-            boolean online = server.getPlayerManager().getPlayer(profile.uuid()) != null;
+            boolean online = server.getPlayerList().getPlayer(profile.uuid()) != null;
             entries.add(new TrackerCompassScreenPayload.Entry(profile.uuid(), profile.name(), online));
         }
         ServerPlayNetworking.send(player, new TrackerCompassScreenPayload(entries));
     }
 
-    private static void applyTarget(ServerPlayerEntity player, ItemStack stack, UUID uuid, String display) {
-        MinecraftServer server = player.getEntityWorld().getServer();
+    private static void applyTarget(ServerPlayer player, ItemStack stack, UUID uuid, String display) {
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             nbt.put(KEY_TARGET, GemsNbt.fromUuid(uuid));
             nbt.putString(KEY_TARGET_NAME, display);
             nbt.putLong(KEY_LAST_UPDATE, 0L);
         });
         updateTrackingData(stack, server, uuid, GemsTime.now(server));
-        player.sendMessage(Text.translatable("gems.item.tracker_compass.now_tracking", display), true);
+        player.sendSystemMessage(Component.translatable("gems.item.tracker_compass.now_tracking", display), true);
         sendTargetInfo(player, server, uuid);
     }
 
-    private static void sendTargetInfo(ServerPlayerEntity player, MinecraftServer server, UUID target) {
+    private static void sendTargetInfo(ServerPlayer player, MinecraftServer server, UUID target) {
         LegendaryPlayerTracker.Snapshot snapshot = LegendaryPlayerTracker.snapshot(server, target);
         if (snapshot == null) {
             return;
         }
         BlockPos pos = snapshot.pos();
         BlockPos respawn = snapshot.respawnPos();
-        player.sendMessage(Text.translatable(
+        player.sendSystemMessage(Component.translatable(
                 "gems.item.tracker_compass.current_pos",
                 String.valueOf(pos.getX()),
                 String.valueOf(pos.getY()),
                 String.valueOf(pos.getZ()),
                 snapshot.dimension().toString()
         ), true);
-        player.sendMessage(Text.translatable(
+        player.sendSystemMessage(Component.translatable(
                 "gems.item.tracker_compass.respawn_pos",
                 String.valueOf(respawn.getX()),
                 String.valueOf(respawn.getY()),
@@ -269,7 +269,7 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
 
     private static void updateTrackingData(ItemStack stack, MinecraftServer server, UUID target, long now) {
         LegendaryPlayerTracker.Snapshot snapshot = LegendaryPlayerTracker.snapshot(server, target);
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             nbt.putLong(KEY_LAST_UPDATE, now);
             if (snapshot == null) {
                 nbt.putString(KEY_TARGET_DIM, "");
@@ -288,19 +288,19 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
         });
 
         if (snapshot != null) {
-            GlobalPos global = GlobalPos.create(net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.WORLD, snapshot.dimension()), snapshot.pos());
-            stack.set(DataComponentTypes.LODESTONE_TRACKER, new LodestoneTrackerComponent(Optional.of(global), true));
+            GlobalPos global = GlobalPos.of(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, snapshot.dimension()), snapshot.pos());
+            stack.set(DataComponents.LODESTONE_TRACKER, new LodestoneTracker(Optional.of(global), true));
         } else {
-            stack.set(DataComponentTypes.LODESTONE_TRACKER, new LodestoneTrackerComponent(Optional.empty(), false));
+            stack.set(DataComponents.LODESTONE_TRACKER, new LodestoneTracker(Optional.empty(), false));
         }
     }
 
     private static UUID targetUuid(ItemStack stack) {
-        NbtComponent data = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) {
             return null;
         }
-        NbtCompound nbt = data.copyNbt();
+        CompoundTag nbt = data.copyTag();
         if (!nbt.contains(KEY_TARGET)) {
             return null;
         }
@@ -308,15 +308,15 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
     }
 
     private static long lastUpdate(ItemStack stack) {
-        NbtComponent data = stack.get(DataComponentTypes.CUSTOM_DATA);
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) {
             return 0L;
         }
-        return data.copyNbt().getLong(KEY_LAST_UPDATE, 0L);
+        return data.copyTag().getLongOr(KEY_LAST_UPDATE, 0L);
     }
 
     private static void clearTarget(ItemStack stack) {
-        NbtComponent.set(DataComponentTypes.CUSTOM_DATA, stack, nbt -> {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, nbt -> {
             nbt.remove(KEY_TARGET);
             nbt.remove(KEY_TARGET_NAME);
             nbt.remove(KEY_TARGET_DIM);
@@ -326,13 +326,13 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
             nbt.remove(KEY_TARGET_LAST_SEEN);
             nbt.remove(KEY_LAST_UPDATE);
         });
-        stack.set(DataComponentTypes.LODESTONE_TRACKER, new LodestoneTrackerComponent(Optional.empty(), false));
+        stack.set(DataComponents.LODESTONE_TRACKER, new LodestoneTracker(Optional.empty(), false));
     }
 
-    private static ItemStack findHeldCompass(ServerPlayerEntity player) {
-        ItemStack stack = player.getMainHandStack();
+    private static ItemStack findHeldCompass(ServerPlayer player) {
+        ItemStack stack = player.getMainHandItem();
         if (!(stack.getItem() instanceof TrackerCompassItem)) {
-            stack = player.getOffHandStack();
+            stack = player.getOffhandItem();
         }
         if (!(stack.getItem() instanceof TrackerCompassItem)) {
             return ItemStack.EMPTY;
@@ -340,11 +340,11 @@ public final class TrackerCompassItem extends CompassItem implements LegendaryIt
         return stack;
     }
 
-    private static void writeBlockPos(NbtCompound nbt, String key, BlockPos pos) {
-        nbt.put(key, new net.minecraft.nbt.NbtIntArray(new int[]{pos.getX(), pos.getY(), pos.getZ()}));
+    private static void writeBlockPos(CompoundTag nbt, String key, BlockPos pos) {
+        nbt.put(key, new net.minecraft.nbt.IntArrayTag(new int[]{pos.getX(), pos.getY(), pos.getZ()}));
     }
 
-    private static BlockPos readBlockPos(NbtCompound nbt, String key) {
+    private static BlockPos readBlockPos(CompoundTag nbt, String key) {
         int[] values = nbt.getIntArray(key).orElse(null);
         if (values == null) {
             return null;

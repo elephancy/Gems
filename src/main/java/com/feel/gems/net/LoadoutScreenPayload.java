@@ -5,10 +5,10 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.loadout.GemLoadout;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 /**
  * S2C: opens the loadout presets manager with current presets.
@@ -20,9 +20,9 @@ public record LoadoutScreenPayload(
         int activeIndex,
         List<Identifier> abilityOrder,
         List<Preset> presets
-) implements CustomPayload {
-    public static final Id<LoadoutScreenPayload> ID = new Id<>(Identifier.of(GemsMod.MOD_ID, "loadout_screen"));
-    public static final PacketCodec<RegistryByteBuf, LoadoutScreenPayload> CODEC = PacketCodec.ofStatic(
+) implements CustomPacketPayload {
+    public static final Type<LoadoutScreenPayload> ID = new Type<>(Identifier.fromNamespaceAndPath(GemsMod.MOD_ID, "loadout_screen"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, LoadoutScreenPayload> CODEC = StreamCodec.of(
             LoadoutScreenPayload::write,
             LoadoutScreenPayload::read
     );
@@ -38,24 +38,24 @@ public record LoadoutScreenPayload(
     }
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 
-    private static void write(RegistryByteBuf buf, LoadoutScreenPayload payload) {
-        buf.writeString(payload.gem().name(), 32);
+    private static void write(RegistryFriendlyByteBuf buf, LoadoutScreenPayload payload) {
+        buf.writeUtf(payload.gem().name(), 32);
         buf.writeVarInt(payload.unlockEnergy());
         buf.writeVarInt(payload.maxPresets());
         buf.writeVarInt(payload.activeIndex());
         buf.writeVarInt(payload.abilityOrder().size());
         for (Identifier id : payload.abilityOrder()) {
-            buf.writeString(id.toString(), 128);
+            buf.writeUtf(id.toString(), 128);
         }
 
         List<Preset> list = payload.presets();
         buf.writeVarInt(list.size());
         for (Preset preset : list) {
-            buf.writeString(preset.name(), GemLoadout.MAX_NAME_LENGTH);
+            buf.writeUtf(preset.name(), GemLoadout.MAX_NAME_LENGTH);
             buf.writeBoolean(preset.passivesEnabled());
             buf.writeVarInt(preset.hudPosition().ordinal());
             buf.writeBoolean(preset.showCooldowns());
@@ -64,21 +64,21 @@ public record LoadoutScreenPayload(
         }
     }
 
-    private static LoadoutScreenPayload read(RegistryByteBuf buf) {
-        GemId gem = GemId.valueOf(buf.readString(32));
+    private static LoadoutScreenPayload read(RegistryFriendlyByteBuf buf) {
+        GemId gem = GemId.valueOf(buf.readUtf(32));
         int unlockEnergy = buf.readVarInt();
         int maxPresets = buf.readVarInt();
         int activeIndex = buf.readVarInt();
         int abilityCount = buf.readVarInt();
         List<Identifier> abilityOrder = new ArrayList<>(abilityCount);
         for (int i = 0; i < abilityCount; i++) {
-            abilityOrder.add(Identifier.of(buf.readString(128)));
+            abilityOrder.add(Identifier.parse(buf.readUtf(128)));
         }
 
         int size = buf.readVarInt();
         List<Preset> presets = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            String name = buf.readString(GemLoadout.MAX_NAME_LENGTH);
+            String name = buf.readUtf(GemLoadout.MAX_NAME_LENGTH);
             boolean passivesEnabled = buf.readBoolean();
             int posOrdinal = buf.readVarInt();
             GemLoadout.HudPosition pos = GemLoadout.HudPosition.values()[

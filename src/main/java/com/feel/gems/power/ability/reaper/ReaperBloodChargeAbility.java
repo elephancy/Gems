@@ -5,9 +5,9 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.reaper.ReaperBloodCharge;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityRuntime;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 
 
@@ -33,21 +33,21 @@ public final class ReaperBloodChargeAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int maxCharge = GemsBalance.v().reaper().bloodChargeMaxChargeTicks();
         if (maxCharge <= 0) {
-            player.sendMessage(Text.translatable("gems.ability.reaper.blood_charge.disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.blood_charge.disabled"), true);
             return false;
         }
         if (!ReaperBloodCharge.isCharging(player)) {
             AbilityRuntime.startReaperBloodChargeCharging(player, maxCharge);
-            player.sendMessage(Text.translatable("gems.ability.reaper.blood_charge.charging"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.blood_charge.charging"), true);
             return false; // do not consume cooldown on start
         }
 
         boolean ok = AbilityRuntime.finishReaperBloodChargeCharging(player);
         if (ok) {
-            player.sendMessage(Text.translatable("gems.ability.reaper.blood_charge.stored"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.reaper.blood_charge.stored"), true);
         }
         return ok;
     }

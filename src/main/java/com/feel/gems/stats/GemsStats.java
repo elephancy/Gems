@@ -7,10 +7,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class GemsStats {
     private static final String KEY_STATS = "gemsStats";
@@ -41,49 +41,49 @@ public final class GemsStats {
     private GemsStats() {
     }
 
-    public static void recordAbilityUse(ServerPlayerEntity player, Identifier abilityId) {
-        NbtCompound stats = statsRoot(player);
+    public static void recordAbilityUse(ServerPlayer player, Identifier abilityId) {
+        CompoundTag stats = statsRoot(player);
         if (abilityId != null) {
             stats.putString(KEY_LAST_ABILITY, abilityId.toString());
             incrementMap(stats, KEY_ABILITY_USES, abilityId.toString());
         }
     }
 
-    public static void recordSynergyTrigger(ServerPlayerEntity player, Identifier synergyId) {
-        NbtCompound stats = statsRoot(player);
+    public static void recordSynergyTrigger(ServerPlayer player, Identifier synergyId) {
+        CompoundTag stats = statsRoot(player);
         increment(stats, KEY_SYNERGY_TRIGGERS);
         if (synergyId != null) {
             incrementMap(stats, KEY_SYNERGY_TRIGGERS_BY_ID, synergyId.toString());
         }
     }
 
-    public static void recordDamageDealt(ServerPlayerEntity player, float amount) {
+    public static void recordDamageDealt(ServerPlayer player, float amount) {
         if (amount <= 0.0F) {
             return;
         }
-        NbtCompound stats = statsRoot(player);
-        double current = stats.getDouble(KEY_DAMAGE_DEALT, 0.0D);
+        CompoundTag stats = statsRoot(player);
+        double current = stats.getDoubleOr(KEY_DAMAGE_DEALT, 0.0D);
         stats.putDouble(KEY_DAMAGE_DEALT, current + amount);
     }
 
-    public static Identifier lastAbility(ServerPlayerEntity player) {
-        NbtCompound stats = statsRoot(player);
-        String raw = stats.getString(KEY_LAST_ABILITY, "");
+    public static Identifier lastAbility(ServerPlayer player) {
+        CompoundTag stats = statsRoot(player);
+        String raw = stats.getStringOr(KEY_LAST_ABILITY, "");
         if (raw.isEmpty()) {
             return null;
         }
         return Identifier.tryParse(raw);
     }
 
-    public static void recordMobKill(ServerPlayerEntity killer) {
+    public static void recordMobKill(ServerPlayer killer) {
         recordMobKill(killer, 1);
     }
 
-    public static void recordMobKill(ServerPlayerEntity killer, int count) {
+    public static void recordMobKill(ServerPlayer killer, int count) {
         if (count <= 0) {
             return;
         }
-        NbtCompound stats = statsRoot(killer);
+        CompoundTag stats = statsRoot(killer);
         increment(stats, KEY_KILLS, count);
         increment(stats, KEY_MOB_KILLS, count);
         incrementMap(stats, KEY_KILLS_BY_GEM, GemPlayerState.getActiveGem(killer).name(), count);
@@ -93,8 +93,8 @@ public final class GemsStats {
         }
     }
 
-    public static void recordPlayerKill(ServerPlayerEntity killer, ServerPlayerEntity victim, boolean killerAssassin, boolean victimAssassin, boolean finalKill) {
-        NbtCompound stats = statsRoot(killer);
+    public static void recordPlayerKill(ServerPlayer killer, ServerPlayer victim, boolean killerAssassin, boolean victimAssassin, boolean finalKill) {
+        CompoundTag stats = statsRoot(killer);
         increment(stats, KEY_KILLS);
         increment(stats, KEY_PLAYER_KILLS);
         if (killerAssassin) {
@@ -114,8 +114,8 @@ public final class GemsStats {
         }
     }
 
-    public static void recordPlayerDeath(ServerPlayerEntity victim, ServerPlayerEntity killer, boolean victimAssassin, boolean finalDeath) {
-        NbtCompound stats = statsRoot(victim);
+    public static void recordPlayerDeath(ServerPlayer victim, ServerPlayer killer, boolean victimAssassin, boolean finalDeath) {
+        CompoundTag stats = statsRoot(victim);
         increment(stats, KEY_DEATHS);
         increment(stats, KEY_PLAYER_DEATHS);
         if (victimAssassin) {
@@ -135,36 +135,36 @@ public final class GemsStats {
         }
     }
 
-    public static int deaths(ServerPlayerEntity player) {
-        NbtCompound stats = statsRoot(player);
-        return stats.getInt(KEY_DEATHS, 0);
+    public static int deaths(ServerPlayer player) {
+        CompoundTag stats = statsRoot(player);
+        return stats.getIntOr(KEY_DEATHS, 0);
     }
 
-    public static int abilityUses(ServerPlayerEntity player) {
+    public static int abilityUses(ServerPlayer player) {
         return sumMap(statsRoot(player), KEY_ABILITY_USES);
     }
 
-    public static int synergyTriggers(ServerPlayerEntity player) {
-        return statsRoot(player).getInt(KEY_SYNERGY_TRIGGERS, 0);
+    public static int synergyTriggers(ServerPlayer player) {
+        return statsRoot(player).getIntOr(KEY_SYNERGY_TRIGGERS, 0);
     }
 
-    public static double damageDealt(ServerPlayerEntity player) {
-        return statsRoot(player).getDouble(KEY_DAMAGE_DEALT, 0.0D);
+    public static double damageDealt(ServerPlayer player) {
+        return statsRoot(player).getDoubleOr(KEY_DAMAGE_DEALT, 0.0D);
     }
 
-    public static int playerKillsWithGem(ServerPlayerEntity player, com.feel.gems.core.GemId gem) {
+    public static int playerKillsWithGem(ServerPlayer player, com.feel.gems.core.GemId gem) {
         if (player == null || gem == null) {
             return 0;
         }
         return mapValue(statsRoot(player), KEY_PLAYER_KILLS_BY_GEM, gem.name());
     }
 
-    public static void reset(ServerPlayerEntity player) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    public static void reset(ServerPlayer player) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         root.remove(KEY_STATS);
     }
 
-    public static boolean setStat(ServerPlayerEntity player, String statId, int value) {
+    public static boolean setStat(ServerPlayer player, String statId, int value) {
         if (player == null || statId == null) {
             return false;
         }
@@ -184,124 +184,124 @@ public final class GemsStats {
         if (target == null) {
             return false;
         }
-        NbtCompound stats = statsRoot(player);
+        CompoundTag stats = statsRoot(player);
         stats.putInt(target, Math.max(0, value));
         return true;
     }
 
-    public static List<Text> buildSummary(ServerPlayerEntity player) {
-        NbtCompound stats = statsRoot(player);
-        int kills = stats.getInt(KEY_KILLS, 0);
-        int deaths = stats.getInt(KEY_DEATHS, 0);
-        int playerKills = stats.getInt(KEY_PLAYER_KILLS, 0);
-        int playerDeaths = stats.getInt(KEY_PLAYER_DEATHS, 0);
-        int mobKills = stats.getInt(KEY_MOB_KILLS, 0);
-        int assassinKills = stats.getInt(KEY_ASSASSIN_KILLS, 0);
-        int assassinDeaths = stats.getInt(KEY_ASSASSIN_DEATHS, 0);
-        int finalKills = stats.getInt(KEY_FINAL_KILLS, 0);
-        int finalDeaths = stats.getInt(KEY_FINAL_DEATHS, 0);
+    public static List<Component> buildSummary(ServerPlayer player) {
+        CompoundTag stats = statsRoot(player);
+        int kills = stats.getIntOr(KEY_KILLS, 0);
+        int deaths = stats.getIntOr(KEY_DEATHS, 0);
+        int playerKills = stats.getIntOr(KEY_PLAYER_KILLS, 0);
+        int playerDeaths = stats.getIntOr(KEY_PLAYER_DEATHS, 0);
+        int mobKills = stats.getIntOr(KEY_MOB_KILLS, 0);
+        int assassinKills = stats.getIntOr(KEY_ASSASSIN_KILLS, 0);
+        int assassinDeaths = stats.getIntOr(KEY_ASSASSIN_DEATHS, 0);
+        int finalKills = stats.getIntOr(KEY_FINAL_KILLS, 0);
+        int finalDeaths = stats.getIntOr(KEY_FINAL_DEATHS, 0);
         int totalAbilityUses = sumMap(stats, KEY_ABILITY_USES);
-        int synergyTriggers = stats.getInt(KEY_SYNERGY_TRIGGERS, 0);
-        double damageDealt = stats.getDouble(KEY_DAMAGE_DEALT, 0.0D);
+        int synergyTriggers = stats.getIntOr(KEY_SYNERGY_TRIGGERS, 0);
+        double damageDealt = stats.getDoubleOr(KEY_DAMAGE_DEALT, 0.0D);
 
-        List<Text> lines = new ArrayList<>();
-        lines.add(Text.literal("Stats for " + player.getName().getString() + ":"));
-        lines.add(Text.literal("Kills: " + kills + " (Players: " + playerKills + ", Mobs: " + mobKills + ")"));
-        lines.add(Text.literal("Deaths: " + deaths + " (Player deaths: " + playerDeaths + ")"));
-        lines.add(Text.literal("Assassin K/D: " + assassinKills + "/" + assassinDeaths + " | Final K/D: " + finalKills + "/" + finalDeaths));
-        lines.add(Text.literal("Ability uses: " + totalAbilityUses));
-        lines.add(Text.literal("Synergy triggers: " + synergyTriggers));
-        lines.add(Text.literal(String.format(java.util.Locale.ROOT, "Damage dealt: %.1f", damageDealt)));
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("Stats for " + player.getName().getString() + ":"));
+        lines.add(Component.literal("Kills: " + kills + " (Players: " + playerKills + ", Mobs: " + mobKills + ")"));
+        lines.add(Component.literal("Deaths: " + deaths + " (Player deaths: " + playerDeaths + ")"));
+        lines.add(Component.literal("Assassin K/D: " + assassinKills + "/" + assassinDeaths + " | Final K/D: " + finalKills + "/" + finalDeaths));
+        lines.add(Component.literal("Ability uses: " + totalAbilityUses));
+        lines.add(Component.literal("Synergy triggers: " + synergyTriggers));
+        lines.add(Component.literal(String.format(java.util.Locale.ROOT, "Damage dealt: %.1f", damageDealt)));
 
         String topAbility = topKey(stats, KEY_ABILITY_USES);
         if (topAbility != null) {
-            lines.add(Text.literal("Top ability: " + topAbility));
+            lines.add(Component.literal("Top ability: " + topAbility));
         }
         String topGemKills = topKey(stats, KEY_KILLS_BY_GEM);
         if (topGemKills != null) {
-            lines.add(Text.literal("Top kill gem: " + topGemKills));
+            lines.add(Component.literal("Top kill gem: " + topGemKills));
         }
         String topVictimGem = topKey(stats, KEY_KILLS_BY_VICTIM_GEM);
         if (topVictimGem != null) {
-            lines.add(Text.literal("Top victim gem: " + topVictimGem));
+            lines.add(Component.literal("Top victim gem: " + topVictimGem));
         }
         String topDeathAbility = topKey(stats, KEY_DEATHS_BY_ABILITY);
         if (topDeathAbility != null) {
-            lines.add(Text.literal("Top death ability: " + topDeathAbility));
+            lines.add(Component.literal("Top death ability: " + topDeathAbility));
         }
         String topDeathGem = topKey(stats, KEY_DEATHS_BY_GEM);
         if (topDeathGem != null) {
-            lines.add(Text.literal("Top death gem: " + topDeathGem));
+            lines.add(Component.literal("Top death gem: " + topDeathGem));
         }
         String topKillerGem = topKey(stats, KEY_DEATHS_BY_KILLER_GEM);
         if (topKillerGem != null) {
-            lines.add(Text.literal("Top killer gem: " + topKillerGem));
+            lines.add(Component.literal("Top killer gem: " + topKillerGem));
         }
         return lines;
     }
 
-    private static NbtCompound statsRoot(ServerPlayerEntity player) {
-        NbtCompound root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        NbtCompound stats = root.getCompound(KEY_STATS).orElse(null);
+    private static CompoundTag statsRoot(ServerPlayer player) {
+        CompoundTag root = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag stats = root.getCompound(KEY_STATS).orElse(null);
         if (stats == null) {
-            stats = new NbtCompound();
+            stats = new CompoundTag();
             root.put(KEY_STATS, stats);
         }
         return stats;
     }
 
-    private static void increment(NbtCompound stats, String key) {
-        int current = stats.getInt(key, 0);
+    private static void increment(CompoundTag stats, String key) {
+        int current = stats.getIntOr(key, 0);
         stats.putInt(key, current + 1);
     }
 
-    private static void increment(NbtCompound stats, String key, int delta) {
+    private static void increment(CompoundTag stats, String key, int delta) {
         if (delta <= 0) {
             return;
         }
-        int current = stats.getInt(key, 0);
+        int current = stats.getIntOr(key, 0);
         stats.putInt(key, current + delta);
     }
 
-    private static void incrementMap(NbtCompound stats, String mapKey, String key) {
-        NbtCompound map = stats.getCompound(mapKey).orElse(null);
+    private static void incrementMap(CompoundTag stats, String mapKey, String key) {
+        CompoundTag map = stats.getCompound(mapKey).orElse(null);
         if (map == null) {
-            map = new NbtCompound();
+            map = new CompoundTag();
             stats.put(mapKey, map);
         }
-        int current = map.getInt(key, 0);
+        int current = map.getIntOr(key, 0);
         map.putInt(key, current + 1);
     }
 
-    private static void incrementMap(NbtCompound stats, String mapKey, String key, int delta) {
+    private static void incrementMap(CompoundTag stats, String mapKey, String key, int delta) {
         if (delta <= 0) {
             return;
         }
-        NbtCompound map = stats.getCompound(mapKey).orElse(null);
+        CompoundTag map = stats.getCompound(mapKey).orElse(null);
         if (map == null) {
-            map = new NbtCompound();
+            map = new CompoundTag();
             stats.put(mapKey, map);
         }
-        int current = map.getInt(key, 0);
+        int current = map.getIntOr(key, 0);
         map.putInt(key, current + delta);
     }
 
-    private static int mapValue(NbtCompound stats, String mapKey, String key) {
-        NbtCompound map = stats.getCompound(mapKey).orElse(null);
+    private static int mapValue(CompoundTag stats, String mapKey, String key) {
+        CompoundTag map = stats.getCompound(mapKey).orElse(null);
         if (map == null) {
             return 0;
         }
-        return map.getInt(key, 0);
+        return map.getIntOr(key, 0);
     }
 
-    private static String topKey(NbtCompound stats, String mapKey) {
-        NbtCompound map = stats.getCompound(mapKey).orElse(null);
+    private static String topKey(CompoundTag stats, String mapKey) {
+        CompoundTag map = stats.getCompound(mapKey).orElse(null);
         if (map == null) {
             return null;
         }
         Map<String, Integer> values = new TreeMap<>();
-        for (String key : map.getKeys()) {
-            values.put(key, map.getInt(key, 0));
+        for (String key : map.keySet()) {
+            values.put(key, map.getIntOr(key, 0));
         }
         return values.entrySet().stream()
                 .max(Comparator.comparingInt(Map.Entry::getValue))
@@ -309,14 +309,14 @@ public final class GemsStats {
                 .orElse(null);
     }
 
-    private static int sumMap(NbtCompound stats, String mapKey) {
-        NbtCompound map = stats.getCompound(mapKey).orElse(null);
+    private static int sumMap(CompoundTag stats, String mapKey) {
+        CompoundTag map = stats.getCompound(mapKey).orElse(null);
         if (map == null) {
             return 0;
         }
         int total = 0;
-        for (String key : map.getKeys()) {
-            total += map.getInt(key, 0);
+        for (String key : map.keySet()) {
+            total += map.getIntOr(key, 0);
         }
         return total;
     }

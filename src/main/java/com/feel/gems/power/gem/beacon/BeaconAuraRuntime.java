@@ -8,33 +8,33 @@ import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.state.GemsPersistentDataHolder;
 import com.feel.gems.trust.GemTrust;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.Holder;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.AABB;
 
 
 public final class BeaconAuraRuntime {
     private static final String KEY_AURA_TYPE = "beaconAuraType";
 
     public enum AuraType {
-        SPEED(PowerIds.BEACON_AURA_SPEED, "Speed", StatusEffects.SPEED),
-        HASTE(PowerIds.BEACON_AURA_HASTE, "Haste", StatusEffects.HASTE),
-        RESISTANCE(PowerIds.BEACON_AURA_RESISTANCE, "Resistance", StatusEffects.RESISTANCE),
-        JUMP(PowerIds.BEACON_AURA_JUMP, "Jump Boost", StatusEffects.JUMP_BOOST),
-        STRENGTH(PowerIds.BEACON_AURA_STRENGTH, "Strength", StatusEffects.STRENGTH),
-        REGEN(PowerIds.BEACON_AURA_REGEN, "Regeneration", StatusEffects.REGENERATION);
+        SPEED(PowerIds.BEACON_AURA_SPEED, "Speed", MobEffects.SPEED),
+        HASTE(PowerIds.BEACON_AURA_HASTE, "Haste", MobEffects.HASTE),
+        RESISTANCE(PowerIds.BEACON_AURA_RESISTANCE, "Resistance", MobEffects.RESISTANCE),
+        JUMP(PowerIds.BEACON_AURA_JUMP, "Jump Boost", MobEffects.JUMP_BOOST),
+        STRENGTH(PowerIds.BEACON_AURA_STRENGTH, "Strength", MobEffects.STRENGTH),
+        REGEN(PowerIds.BEACON_AURA_REGEN, "Regeneration", MobEffects.REGENERATION);
 
         private final Identifier id;
         private final String label;
-        private final RegistryEntry<StatusEffect> effect;
+        private final Holder<MobEffect> effect;
 
-        AuraType(Identifier id, String label, RegistryEntry<StatusEffect> effect) {
+        AuraType(Identifier id, String label, Holder<MobEffect> effect) {
             this.id = id;
             this.label = label;
             this.effect = effect;
@@ -48,7 +48,7 @@ public final class BeaconAuraRuntime {
             return label;
         }
 
-        public RegistryEntry<StatusEffect> effect() {
+        public Holder<MobEffect> effect() {
             return effect;
         }
 
@@ -65,7 +65,7 @@ public final class BeaconAuraRuntime {
     private BeaconAuraRuntime() {
     }
 
-    public static void setActive(ServerPlayerEntity player, AuraType type) {
+    public static void setActive(ServerPlayer player, AuraType type) {
         AuraType prev = activeType(player);
         if (type == null) {
             if (prev != null) {
@@ -77,17 +77,17 @@ public final class BeaconAuraRuntime {
         if (prev != null && prev != type) {
             clearAuraEffects(player, prev);
         }
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         nbt.putString(KEY_AURA_TYPE, type.id().toString());
     }
 
-    public static AuraType activeType(ServerPlayerEntity player) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
-        Identifier id = Identifier.tryParse(nbt.getString(KEY_AURA_TYPE, ""));
+    public static AuraType activeType(ServerPlayer player) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+        Identifier id = Identifier.tryParse(nbt.getStringOr(KEY_AURA_TYPE, ""));
         return AuraType.fromId(id);
     }
 
-    public static void tickEverySecond(ServerPlayerEntity player) {
+    public static void tickEverySecond(ServerPlayer player) {
         GemPlayerState.initIfNeeded(player);
         AuraType type = activeType(player);
         if (type == null) {
@@ -114,21 +114,21 @@ public final class BeaconAuraRuntime {
         }
         int amplifier = amplifierFor(type);
 
-        ServerWorld world = player.getEntityWorld();
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (net.minecraft.entity.LivingEntity other : world.getEntitiesByClass(net.minecraft.entity.LivingEntity.class, box, e -> e.isAlive())) {
-            if (other instanceof ServerPlayerEntity otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
-                other.removeStatusEffect(type.effect());
+        ServerLevel world = player.level();
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (net.minecraft.world.entity.LivingEntity other : world.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, box, e -> e.isAlive())) {
+            if (other instanceof ServerPlayer otherPlayer && VoidImmunity.shouldBlockEffect(player, otherPlayer)) {
+                other.removeEffect(type.effect());
                 continue;
             }
-            boolean trusted = other instanceof ServerPlayerEntity otherPlayer && (GemTrust.isTrusted(player, otherPlayer) || otherPlayer == player);
+            boolean trusted = other instanceof ServerPlayer otherPlayer && (GemTrust.isTrusted(player, otherPlayer) || otherPlayer == player);
             if (trusted) {
-                other.addStatusEffect(new StatusEffectInstance(type.effect(), refresh, amplifier, true, false, false));
+                other.addEffect(new MobEffectInstance(type.effect(), refresh, amplifier, true, false, false));
             } else {
                 // Ensure enemies do not retain the positive aura from prior ticks or sources.
-                other.removeStatusEffect(type.effect());
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, refresh, 0, true, false, false));
-                other.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, refresh, 0, true, false, false));
+                other.removeEffect(type.effect());
+                other.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, refresh, 0, true, false, false));
+                other.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, refresh, 0, true, false, false));
             }
         }
     }
@@ -145,20 +145,20 @@ public final class BeaconAuraRuntime {
         };
     }
 
-    private static void clear(ServerPlayerEntity player) {
-        NbtCompound nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
+    private static void clear(ServerPlayer player) {
+        CompoundTag nbt = ((GemsPersistentDataHolder) player).gems$getPersistentData();
         nbt.remove(KEY_AURA_TYPE);
     }
 
-    private static void clearAuraEffects(ServerPlayerEntity player, AuraType type) {
+    private static void clearAuraEffects(ServerPlayer player, AuraType type) {
         if (type == null) {
             return;
         }
         int radius = GemsBalance.v().beacon().auraRadiusBlocks();
-        ServerWorld world = player.getEntityWorld();
-        Box box = new Box(player.getBlockPos()).expand(radius);
-        for (net.minecraft.entity.LivingEntity other : world.getEntitiesByClass(net.minecraft.entity.LivingEntity.class, box, e -> e.isAlive())) {
-            other.removeStatusEffect(type.effect());
+        ServerLevel world = player.level();
+        AABB box = new AABB(player.blockPosition()).inflate(radius);
+        for (net.minecraft.world.entity.LivingEntity other : world.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, box, e -> e.isAlive())) {
+            other.removeEffect(type.effect());
         }
     }
 }

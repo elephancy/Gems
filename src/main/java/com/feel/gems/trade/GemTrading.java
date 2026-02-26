@@ -9,10 +9,10 @@ import com.feel.gems.net.GemStateSync;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.GemPlayerState;
 import java.util.EnumSet;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 
 
@@ -27,29 +27,29 @@ public final class GemTrading {
     public record PurchaseResult(boolean success, boolean consumedToken, boolean alreadyOwned) {
     }
 
-    public static Result trade(ServerPlayerEntity player, GemId gemId) {
+    public static Result trade(ServerPlayer player, GemId gemId) {
         GemPlayerState.initIfNeeded(player);
 
         if (GemsDisables.isGemDisabledFor(player, gemId)) {
-            player.sendMessage(Text.translatable("gems.trade.gem_disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.trade.gem_disabled"), true);
             return new Result(false, false, false);
         }
 
         GemId activeBefore = GemPlayerState.getActiveGem(player);
         if (gemId == activeBefore) {
-            player.sendMessage(Text.translatable("gems.trade.gem_already_active"), true);
+            player.sendSystemMessage(Component.translatable("gems.trade.gem_already_active"), true);
             return new Result(false, false, true);
         }
 
         Item activeItem = ModItems.gemItem(activeBefore);
         if (!hasGemOnPlayer(player, activeItem)) {
-            player.sendMessage(Text.translatable("gems.trade.need_active_gem"), true);
+            player.sendSystemMessage(Component.translatable("gems.trade.need_active_gem"), true);
             return new Result(false, false, false);
         }
 
         boolean consumedTrader = consumeTrader(player);
         if (!consumedTrader) {
-            player.sendMessage(Text.translatable("gems.trade.need_gem_trader"), true);
+            player.sendSystemMessage(Component.translatable("gems.trade.need_gem_trader"), true);
             return new Result(false, false, false);
         }
         EnumSet<GemId> ownedBefore = GemPlayerState.getOwnedGems(player);
@@ -73,17 +73,17 @@ public final class GemTrading {
         return new Result(true, true, alreadyOwned);
     }
 
-    public static PurchaseResult purchase(ServerPlayerEntity player, GemId gemId) {
+    public static PurchaseResult purchase(ServerPlayer player, GemId gemId) {
         GemPlayerState.initIfNeeded(player);
 
         if (GemsDisables.isGemDisabledFor(player, gemId)) {
-            player.sendMessage(Text.translatable("gems.trade.gem_disabled"), true);
+            player.sendSystemMessage(Component.translatable("gems.trade.gem_disabled"), true);
             return new PurchaseResult(false, false, false);
         }
 
         boolean consumedToken = consumePurchaseToken(player);
         if (!consumedToken) {
-            player.sendMessage(Text.translatable("gems.trade.need_purchase_token"), true);
+            player.sendSystemMessage(Component.translatable("gems.trade.need_purchase_token"), true);
             return new PurchaseResult(false, false, false);
         }
 
@@ -105,23 +105,23 @@ public final class GemTrading {
         return new PurchaseResult(true, true, alreadyOwned);
     }
 
-    private static boolean consumeTrader(ServerPlayerEntity player) {
+    private static boolean consumeTrader(ServerPlayer player) {
         Item trader = ModItems.GEM_TRADER;
-        ItemStack main = player.getMainHandStack();
-        if (main.isOf(trader)) {
-            main.decrement(1);
+        ItemStack main = player.getMainHandItem();
+        if (main.is(trader)) {
+            main.shrink(1);
             return true;
         }
-        ItemStack off = player.getOffHandStack();
-        if (off.isOf(trader)) {
-            off.decrement(1);
+        ItemStack off = player.getOffhandItem();
+        if (off.is(trader)) {
+            off.shrink(1);
             return true;
         }
-        var mainStacks = player.getInventory().getMainStacks();
+        var mainStacks = player.getInventory().getNonEquipmentItems();
         for (int i = 0; i < mainStacks.size(); i++) {
             ItemStack stack = mainStacks.get(i);
-            if (stack.isOf(trader)) {
-                stack.decrement(1);
+            if (stack.is(trader)) {
+                stack.shrink(1);
                 if (stack.isEmpty()) {
                     mainStacks.set(i, ItemStack.EMPTY);
                 }
@@ -131,23 +131,23 @@ public final class GemTrading {
         return false;
     }
 
-    private static boolean consumePurchaseToken(ServerPlayerEntity player) {
+    private static boolean consumePurchaseToken(ServerPlayer player) {
         Item token = ModItems.GEM_PURCHASE;
-        ItemStack main = player.getMainHandStack();
-        if (main.isOf(token)) {
-            main.decrement(1);
+        ItemStack main = player.getMainHandItem();
+        if (main.is(token)) {
+            main.shrink(1);
             return true;
         }
-        ItemStack off = player.getOffHandStack();
-        if (off.isOf(token)) {
-            off.decrement(1);
+        ItemStack off = player.getOffhandItem();
+        if (off.is(token)) {
+            off.shrink(1);
             return true;
         }
-        var mainStacks = player.getInventory().getMainStacks();
+        var mainStacks = player.getInventory().getNonEquipmentItems();
         for (int i = 0; i < mainStacks.size(); i++) {
             ItemStack stack = mainStacks.get(i);
-            if (stack.isOf(token)) {
-                stack.decrement(1);
+            if (stack.is(token)) {
+                stack.shrink(1);
                 if (stack.isEmpty()) {
                     mainStacks.set(i, ItemStack.EMPTY);
                 }
@@ -157,48 +157,48 @@ public final class GemTrading {
         return false;
     }
 
-    private static void ensurePlayerHasItem(ServerPlayerEntity player, Item item) {
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
-            if (stack.isOf(item)) {
+    private static void ensurePlayerHasItem(ServerPlayer player, Item item) {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            if (stack.is(item)) {
                 return;
             }
         }
-        if (player.getOffHandStack().isOf(item)) {
+        if (player.getOffhandItem().is(item)) {
             return;
         }
-        if (player.getEquippedStack(net.minecraft.entity.EquipmentSlot.HEAD).isOf(item)
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.CHEST).isOf(item)
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.LEGS).isOf(item)
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.FEET).isOf(item)) {
+        if (player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(item)
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(item)
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).is(item)
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).is(item)) {
             return;
         }
         ItemStack stack = new ItemStack(item);
         GemOwnership.tagOwned(stack, player);
-        player.giveItemStack(stack);
+        player.addItem(stack);
     }
 
-    private static void removeGemItems(ServerPlayerEntity player, Item toRemove, Item toKeep) {
-        purgeInv(player.getInventory().getMainStacks(), toRemove, toKeep);
-        purgeEquipment(player, net.minecraft.entity.EquipmentSlot.OFFHAND, toRemove, toKeep);
-        purgeEquipment(player, net.minecraft.entity.EquipmentSlot.HEAD, toRemove, toKeep);
-        purgeEquipment(player, net.minecraft.entity.EquipmentSlot.CHEST, toRemove, toKeep);
-        purgeEquipment(player, net.minecraft.entity.EquipmentSlot.LEGS, toRemove, toKeep);
-        purgeEquipment(player, net.minecraft.entity.EquipmentSlot.FEET, toRemove, toKeep);
+    private static void removeGemItems(ServerPlayer player, Item toRemove, Item toKeep) {
+        purgeInv(player.getInventory().getNonEquipmentItems(), toRemove, toKeep);
+        purgeEquipment(player, net.minecraft.world.entity.EquipmentSlot.OFFHAND, toRemove, toKeep);
+        purgeEquipment(player, net.minecraft.world.entity.EquipmentSlot.HEAD, toRemove, toKeep);
+        purgeEquipment(player, net.minecraft.world.entity.EquipmentSlot.CHEST, toRemove, toKeep);
+        purgeEquipment(player, net.minecraft.world.entity.EquipmentSlot.LEGS, toRemove, toKeep);
+        purgeEquipment(player, net.minecraft.world.entity.EquipmentSlot.FEET, toRemove, toKeep);
         purgeInventory(player.getEnderChestInventory(), toRemove, toKeep);
     }
 
-    private static void purgeEquipment(ServerPlayerEntity player, net.minecraft.entity.EquipmentSlot slot, Item toRemove, Item toKeep) {
-        ItemStack stack = player.getEquippedStack(slot);
+    private static void purgeEquipment(ServerPlayer player, net.minecraft.world.entity.EquipmentSlot slot, Item toRemove, Item toKeep) {
+        ItemStack stack = player.getItemBySlot(slot);
         if (stack.isEmpty()) {
             return;
         }
         if (!(stack.getItem() instanceof com.feel.gems.item.GemItem)) {
             return;
         }
-        if (stack.isOf(toKeep) || !stack.isOf(toRemove)) {
+        if (stack.is(toKeep) || !stack.is(toRemove)) {
             return;
         }
-        player.equipStack(slot, ItemStack.EMPTY);
+        player.setItemSlot(slot, ItemStack.EMPTY);
     }
 
     private static void purgeInv(java.util.List<ItemStack> stacks, Item toRemove, Item toKeep) {
@@ -210,51 +210,51 @@ public final class GemTrading {
             if (!(stack.getItem() instanceof com.feel.gems.item.GemItem)) {
                 continue;
             }
-            if (stack.isOf(toKeep)) {
+            if (stack.is(toKeep)) {
                 continue;
             }
-            if (!stack.isOf(toRemove)) {
+            if (!stack.is(toRemove)) {
                 continue;
             }
             stacks.set(i, ItemStack.EMPTY);
         }
     }
 
-    private static void purgeInventory(net.minecraft.inventory.Inventory inv, Item toRemove, Item toKeep) {
-        for (int i = 0; i < inv.size(); i++) {
-            ItemStack stack = inv.getStack(i);
+    private static void purgeInventory(net.minecraft.world.Container inv, Item toRemove, Item toKeep) {
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
             if (stack.isEmpty()) {
                 continue;
             }
             if (!(stack.getItem() instanceof com.feel.gems.item.GemItem)) {
                 continue;
             }
-            if (stack.isOf(toKeep)) {
+            if (stack.is(toKeep)) {
                 continue;
             }
-            if (!stack.isOf(toRemove)) {
+            if (!stack.is(toRemove)) {
                 continue;
             }
-            inv.setStack(i, ItemStack.EMPTY);
+            inv.setItem(i, ItemStack.EMPTY);
         }
     }
 
-    private static boolean hasGemOnPlayer(ServerPlayerEntity player, Item item) {
+    private static boolean hasGemOnPlayer(ServerPlayer player, Item item) {
         if (item == null) {
             return false;
         }
-        for (ItemStack stack : player.getInventory().getMainStacks()) {
-            if (stack.isOf(item)) {
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            if (stack.is(item)) {
                 return true;
             }
         }
-        if (player.getOffHandStack().isOf(item)) {
+        if (player.getOffhandItem().is(item)) {
             return true;
         }
-        if (player.getEquippedStack(net.minecraft.entity.EquipmentSlot.HEAD).isOf(item)
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.CHEST).isOf(item)
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.LEGS).isOf(item)
-                || player.getEquippedStack(net.minecraft.entity.EquipmentSlot.FEET).isOf(item)) {
+        if (player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(item)
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(item)
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).is(item)
+                || player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).is(item)) {
             return true;
         }
         return false;

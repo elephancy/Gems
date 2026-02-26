@@ -4,10 +4,10 @@ import com.feel.gems.GemsMod;
 import com.feel.gems.core.GemId;
 import java.util.HashSet;
 import java.util.Set;
-import net.minecraft.command.permission.Permission;
-import net.minecraft.command.permission.PermissionLevel;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permission;
+import net.minecraft.server.permissions.PermissionLevel;
 
 /**
  * Server-authoritative content disables.
@@ -77,7 +77,7 @@ public final class GemsDisables {
         return VALUES.disabledGems.contains(gemId);
     }
 
-    public static boolean isGemDisabledFor(ServerPlayerEntity player, GemId gemId) {
+    public static boolean isGemDisabledFor(ServerPlayer player, GemId gemId) {
         return isGemDisabled(gemId) && !isOp(player);
     }
 
@@ -85,7 +85,7 @@ public final class GemsDisables {
         return VALUES.disabledAbilities.contains(abilityId);
     }
 
-    public static boolean isAbilityDisabledFor(ServerPlayerEntity player, Identifier abilityId) {
+    public static boolean isAbilityDisabledFor(ServerPlayer player, Identifier abilityId) {
         return isAbilityDisabled(abilityId) && !isOp(player);
     }
 
@@ -93,7 +93,7 @@ public final class GemsDisables {
         return VALUES.disabledPassives.contains(passiveId);
     }
 
-    public static boolean isPassiveDisabledFor(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isPassiveDisabledFor(ServerPlayer player, Identifier passiveId) {
         return isPassiveDisabled(passiveId) && !isOp(player);
     }
 
@@ -101,7 +101,7 @@ public final class GemsDisables {
         return VALUES.disabledBonusAbilities.contains(abilityId);
     }
 
-    public static boolean isBonusAbilityDisabledFor(ServerPlayerEntity player, Identifier abilityId) {
+    public static boolean isBonusAbilityDisabledFor(ServerPlayer player, Identifier abilityId) {
         return isBonusAbilityDisabled(abilityId) && !isOp(player);
     }
 
@@ -109,17 +109,17 @@ public final class GemsDisables {
         return VALUES.disabledBonusPassives.contains(passiveId);
     }
 
-    public static boolean isBonusPassiveDisabledFor(ServerPlayerEntity player, Identifier passiveId) {
+    public static boolean isBonusPassiveDisabledFor(ServerPlayer player, Identifier passiveId) {
         return isBonusPassiveDisabled(passiveId) && !isOp(player);
     }
 
-    private static boolean isOp(ServerPlayerEntity player) {
+    private static boolean isOp(ServerPlayer player) {
         if (player == null) {
             return false;
         }
         try {
-            var source = player.getCommandSource();
-            return source.getPermissions().hasPermission(new Permission.Level(PermissionLevel.fromLevel(2)));
+            var source = player.createCommandSourceStack();
+            return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.byId(2)));
         } catch (Throwable t) {
             return false;
         }

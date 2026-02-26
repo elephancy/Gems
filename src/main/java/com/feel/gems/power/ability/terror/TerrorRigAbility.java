@@ -5,13 +5,13 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.terror.TerrorRigRuntime;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 
 public final class TerrorRigAbility implements GemAbility {
@@ -36,21 +36,21 @@ public final class TerrorRigAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         int range = GemsBalance.v().terror().rigRangeBlocks();
-        HitResult hit = player.raycast(range, 1.0F, false);
+        HitResult hit = player.pick(range, 1.0F, false);
         if (!(hit instanceof BlockHitResult blockHit)) {
-            player.sendMessage(Text.translatable("gems.message.no_block_target"), true);
+            player.sendSystemMessage(Component.translatable("gems.message.no_block_target"), true);
             return false;
         }
         if (!TerrorRigRuntime.arm(player, blockHit.getBlockPos())) {
-            player.sendMessage(Text.translatable("gems.ability.terror.rig.cannot_rig"), true);
+            player.sendSystemMessage(Component.translatable("gems.ability.terror.rig.cannot_rig"), true);
             return false;
         }
 
-        AbilityFeedback.burstAt(player.getEntityWorld(), blockHit.getPos(), ParticleTypes.SMOKE, 10, 0.15D);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_TNT_PRIMED, 0.7F, 1.2F);
-        player.sendMessage(Text.translatable("gems.ability.terror.rig.rigged"), true);
+        AbilityFeedback.burstAt(player.level(), blockHit.getLocation(), ParticleTypes.SMOKE, 10, 0.15D);
+        AbilityFeedback.sound(player, SoundEvents.TNT_PRIMED, 0.7F, 1.2F);
+        player.sendSystemMessage(Component.translatable("gems.ability.terror.rig.rigged"), true);
         return true;
     }
 }

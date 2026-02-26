@@ -3,12 +3,12 @@ package com.feel.gems.power.gem.trickster;
 import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.ProjectileItem;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.Random;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ProjectileItem;
 
 /**
  * Trickster passive runtime implementations.
@@ -21,7 +21,7 @@ public final class TricksterPassiveRuntime {
     // ========== Sleight of Hand ==========
     // 20% chance to not consume items when using throwables.
 
-    public static boolean shouldNotConsumeThrowable(ServerPlayerEntity player) {
+    public static boolean shouldNotConsumeThrowable(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.TRICKSTER_SLEIGHT_OF_HAND)) {
             return false;
         }
@@ -33,7 +33,7 @@ public final class TricksterPassiveRuntime {
     // Your abilities have randomized bonus effects (can be beneficial or detrimental).
     // This is handled per-ability when cast.
 
-    public static boolean hasChaosAgent(ServerPlayerEntity player) {
+    public static boolean hasChaosAgent(ServerPlayer player) {
         return GemPowers.isPassiveActive(player, PowerIds.TRICKSTER_CHAOS_AGENT);
     }
 
@@ -66,7 +66,7 @@ public final class TricksterPassiveRuntime {
     // ========== Slippery ==========
     // 25% chance to ignore slowing effects.
 
-    public static boolean shouldIgnoreSlow(ServerPlayerEntity player) {
+    public static boolean shouldIgnoreSlow(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.TRICKSTER_SLIPPERY)) {
             return false;
         }
@@ -77,23 +77,23 @@ public final class TricksterPassiveRuntime {
     /**
      * Check if the player has a slowing effect and should try to remove it.
      */
-    public static void tryRemoveSlowEffects(ServerPlayerEntity player) {
+    public static void tryRemoveSlowEffects(ServerPlayer player) {
         if (shouldIgnoreSlow(player)) {
-            player.removeStatusEffect(StatusEffects.SLOWNESS);
+            player.removeEffect(MobEffects.SLOWNESS);
         }
     }
 
-    public static void applyChaosEffect(ServerPlayerEntity player) {
+    public static void applyChaosEffect(ServerPlayer player) {
         if (!hasChaosAgent(player)) {
             return;
         }
         int duration = 100;
         ChaosEffect effect = rollChaosEffect();
         switch (effect) {
-            case BENEFICIAL_SPEED -> player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(StatusEffects.SPEED, duration, 1, false, false));
-            case BENEFICIAL_STRENGTH -> player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(StatusEffects.STRENGTH, duration, 0, false, false));
-            case DETRIMENTAL_SLOW -> player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(StatusEffects.SLOWNESS, duration, 0, false, false));
-            case DETRIMENTAL_WEAKNESS -> player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(StatusEffects.WEAKNESS, duration, 0, false, false));
+            case BENEFICIAL_SPEED -> player.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.SPEED, duration, 1, false, false));
+            case BENEFICIAL_STRENGTH -> player.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.STRENGTH, duration, 0, false, false));
+            case DETRIMENTAL_SLOW -> player.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.SLOWNESS, duration, 0, false, false));
+            case DETRIMENTAL_WEAKNESS -> player.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.WEAKNESS, duration, 0, false, false));
             default -> {
             }
         }

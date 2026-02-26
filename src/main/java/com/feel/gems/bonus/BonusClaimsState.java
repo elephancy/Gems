@@ -3,14 +3,14 @@ package com.feel.gems.bonus;
 import com.feel.gems.GemsMod;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.datafixer.DataFixTypes;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Uuids;
-import net.minecraft.world.PersistentState;
-import net.minecraft.world.PersistentStateManager;
-import net.minecraft.world.PersistentStateType;
-import net.minecraft.world.World;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.SavedDataStorage;
 import java.util.*;
 
 /**
@@ -20,7 +20,7 @@ import java.util.*;
  * - Player loses energy levels (drops below 10)
  * - Player switches to another gem
  */
-public final class BonusClaimsState extends PersistentState {
+public final class BonusClaimsState extends SavedData {
     private static final String STATE_ID = GemsMod.MOD_ID + "_bonus_claims";
     
     // Maps ability/passive ID -> player UUID who claimed it
@@ -34,19 +34,19 @@ public final class BonusClaimsState extends PersistentState {
     private final Map<UUID, List<Identifier>> abilityOrder;
 
         static final Codec<BonusClaimsState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.unboundedMap(Identifier.CODEC, Uuids.CODEC)
+            Codec.unboundedMap(Identifier.CODEC, UUIDUtil.AUTHLIB_CODEC)
                     .optionalFieldOf("abilityClaims", Map.of())
                     .forGetter(state -> state.abilityClaims),
-            Codec.unboundedMap(Identifier.CODEC, Uuids.CODEC)
+            Codec.unboundedMap(Identifier.CODEC, UUIDUtil.AUTHLIB_CODEC)
                     .optionalFieldOf("passiveClaims", Map.of())
                 .forGetter(state -> state.passiveClaims),
-            Codec.unboundedMap(Uuids.CODEC, Identifier.CODEC.listOf())
+            Codec.unboundedMap(UUIDUtil.AUTHLIB_CODEC, Identifier.CODEC.listOf())
                 .optionalFieldOf("abilityOrder", Map.of())
                 .forGetter(state -> state.abilityOrder)
         ).apply(instance, BonusClaimsState::new));
 
-    private static final PersistentStateType<BonusClaimsState> TYPE =
-            new PersistentStateType<>(STATE_ID, BonusClaimsState::new, CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
+    private static final SavedDataType<BonusClaimsState> TYPE =
+            new SavedDataType<>(Identifier.withDefaultNamespace(STATE_ID), BonusClaimsState::new, CODEC, DataFixTypes.SAVED_DATA_MAP_DATA);
 
     public BonusClaimsState() {
         this(Map.of(), Map.of(), Map.of());
@@ -90,8 +90,8 @@ public final class BonusClaimsState extends PersistentState {
     }
 
     public static BonusClaimsState get(MinecraftServer server) {
-        PersistentStateManager manager = server.getWorld(World.OVERWORLD).getPersistentStateManager();
-        return manager.getOrCreate(TYPE);
+        SavedDataStorage manager = server.getLevel(Level.OVERWORLD).getDataStorage();
+        return manager.computeIfAbsent(TYPE);
     }
 
     /**
@@ -119,7 +119,7 @@ public final class BonusClaimsState extends PersistentState {
         if (!order.contains(abilityId)) {
             order.add(abilityId);
         }
-        markDirty();
+        setDirty();
         return true;
     }
 
@@ -144,7 +144,7 @@ public final class BonusClaimsState extends PersistentState {
         
         passiveClaims.put(passiveId, playerUuid);
         playerSet.add(passiveId);
-        markDirty();
+        setDirty();
         return true;
     }
 
@@ -167,7 +167,7 @@ public final class BonusClaimsState extends PersistentState {
             }
         }
         
-        markDirty();
+        setDirty();
     }
 
     /**
@@ -253,7 +253,7 @@ public final class BonusClaimsState extends PersistentState {
                     abilityOrder.remove(playerUuid);
                 }
             }
-            markDirty();
+            setDirty();
         }
     }
 
@@ -266,7 +266,7 @@ public final class BonusClaimsState extends PersistentState {
             if (playerSet != null) {
                 playerSet.remove(passiveId);
             }
-            markDirty();
+            setDirty();
         }
     }
 }

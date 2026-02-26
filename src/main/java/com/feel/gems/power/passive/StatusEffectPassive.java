@@ -2,11 +2,11 @@ package com.feel.gems.power.passive;
 
 import com.feel.gems.augment.AugmentRuntime;
 import com.feel.gems.power.api.GemPassive;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 
 
 
@@ -15,10 +15,10 @@ public final class StatusEffectPassive implements GemPassive {
     private final Identifier id;
     private final String name;
     private final String description;
-    private final RegistryEntry<StatusEffect> effect;
+    private final Holder<MobEffect> effect;
     private final int amplifier;
 
-    public StatusEffectPassive(Identifier id, String name, String description, RegistryEntry<StatusEffect> effect, int amplifier) {
+    public StatusEffectPassive(Identifier id, String name, String description, Holder<MobEffect> effect, int amplifier) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -42,19 +42,19 @@ public final class StatusEffectPassive implements GemPassive {
     }
 
     @Override
-    public void apply(ServerPlayerEntity player) {
+    public void apply(ServerPlayer player) {
         int bonus = AugmentRuntime.passiveAmplifierBonus(player, id);
         int amp = Math.max(0, amplifier + bonus);
-        StatusEffectInstance current = player.getStatusEffect(effect);
-        if (current != null && current.getAmplifier() == amp && current.isInfinite()) {
+        MobEffectInstance current = player.getEffect(effect);
+        if (current != null && current.getAmplifier() == amp && current.isInfiniteDuration()) {
             return;
         }
-        player.addStatusEffect(new StatusEffectInstance(effect, StatusEffectInstance.INFINITE, amp, true, false, false));
+        player.addEffect(new MobEffectInstance(effect, MobEffectInstance.INFINITE_DURATION, amp, true, false, false));
     }
 
     @Override
-    public void remove(ServerPlayerEntity player) {
-        player.removeStatusEffect(effect);
+    public void remove(ServerPlayer player) {
+        player.removeEffect(effect);
     }
 }
 

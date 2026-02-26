@@ -1,12 +1,12 @@
 package com.feel.gems.mastery;
 
 import com.feel.gems.core.GemId;
-import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Handles mastery aura particle effects.
@@ -22,16 +22,16 @@ public final class MasteryAuraRuntime {
     /**
      * Called every second to spawn aura particles for players with selected auras.
      */
-    public static void tick(ServerPlayerEntity player) {
+    public static void tick(ServerPlayer player) {
         MasteryReward aura = GemMastery.getSelectedAuraReward(player);
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
+        if (!(player.level() instanceof ServerLevel world)) {
             return;
         }
         double posX = player.getX();
         double posY = player.getY() + 1.0;
         double posZ = player.getZ();
 
-        ParticleEffect particle;
+        ParticleOptions particle;
         if (aura != null) {
             particle = getParticleForAura(aura);
         } else {
@@ -48,7 +48,7 @@ public final class MasteryAuraRuntime {
             double offsetZ = Math.sin(angle) * AURA_RADIUS;
             double offsetY = (world.getRandom().nextDouble() - 0.5) * 1.5;
 
-            world.spawnParticles(
+            world.sendParticles(
                     particle,
                     posX + offsetX,
                     posY + offsetY,
@@ -60,16 +60,16 @@ public final class MasteryAuraRuntime {
         }
     }
 
-    private static ParticleEffect getParticleForTitle(ServerPlayerEntity player) {
-        Formatting color = TitleDisplay.titleColor(player);
-        Integer rgb = color == null ? null : color.getColorValue();
+    private static ParticleOptions getParticleForTitle(ServerPlayer player) {
+        ChatFormatting color = TitleDisplay.titleColor(player);
+        Integer rgb = color == null ? null : net.minecraft.network.chat.TextColor.fromLegacyFormat(color).getValue();
         if (rgb == null) {
             return null;
         }
-        return new DustParticleEffect(rgb, 1.0F);
+        return new DustParticleOptions(rgb, 1.0F);
     }
 
-    private static ParticleEffect getParticleForAura(MasteryReward aura) {
+    private static ParticleOptions getParticleForAura(MasteryReward aura) {
         String id = aura.id();
 
         // Extract gem from aura id (e.g., "astra_aura_spark")
@@ -83,7 +83,7 @@ public final class MasteryAuraRuntime {
         return getGemParticle(gem);
     }
 
-    private static ParticleEffect getGemParticle(GemId gem) {
+    private static ParticleOptions getGemParticle(GemId gem) {
         return switch (gem) {
             case FIRE -> ParticleTypes.FLAME;
             case LIFE -> ParticleTypes.HAPPY_VILLAGER;

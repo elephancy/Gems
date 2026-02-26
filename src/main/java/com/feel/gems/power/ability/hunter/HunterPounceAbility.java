@@ -5,12 +5,12 @@ import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.gem.hunter.HunterPreyMarkRuntime;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.phys.Vec3;
 
 public final class HunterPounceAbility implements GemAbility {
     @Override
@@ -34,22 +34,22 @@ public final class HunterPounceAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
         int range = GemsBalance.v().hunter().pounceRangeBlocks();
         float damage = GemsBalance.v().hunter().pounceDamage();
 
         // Find marked target
         var target = HunterPreyMarkRuntime.getMarkedTarget(player);
-        if (target == null || target.squaredDistanceTo(player) > range * range) {
-            AbilityFeedback.sound(player, SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
+        if (target == null || target.distanceToSqr(player) > range * range) {
+            AbilityFeedback.sound(player, SoundEvents.NOTE_BLOCK_BASS.value(), 1.0F, 0.5F);
             return false;
         }
 
         // Calculate leap trajectory to land ON the target
-        Vec3d playerPos = player.getEntityPos();
-        Vec3d targetPos = target.getEntityPos();
-        Vec3d toTarget = targetPos.subtract(playerPos);
+        Vec3 playerPos = player.position();
+        Vec3 targetPos = target.position();
+        Vec3 toTarget = targetPos.subtract(playerPos);
         double horizontalDist = Math.sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
         double verticalDist = toTarget.y;
         
@@ -72,16 +72,16 @@ public final class HunterPounceAbility implements GemAbility {
         horizontalVel = Math.min(horizontalVel * 1.1, 3.0); // Slightly overshoot to ensure arrival
         
         // Apply velocity in direction of target
-        Vec3d horizontalDir = new Vec3d(toTarget.x, 0, toTarget.z).normalize();
-        player.setVelocity(horizontalDir.x * horizontalVel, verticalVel, horizontalDir.z * horizontalVel);
-        player.velocityDirty = true;
+        Vec3 horizontalDir = new Vec3(toTarget.x, 0, toTarget.z).normalize();
+        player.setDeltaMovement(horizontalDir.x * horizontalVel, verticalVel, horizontalDir.z * horizontalVel);
+        player.needsSync = true;
         AbilityFeedback.syncVelocity(player);
 
         // Deal damage on arrival (handled by landing check in runtime)
-        HunterPounceRuntime.setPouncing(player, target.getUuid(), damage);
+        HunterPounceRuntime.setPouncing(player, target.getUUID(), damage);
 
-        AbilityFeedback.beam(world, player.getEntityPos().add(0, 1, 0), target.getEntityPos().add(0, 1, 0), ParticleTypes.CRIT, 15);
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_CAT_HISS, 0.8F, 1.2F);
+        AbilityFeedback.beam(world, player.position().add(0, 1, 0), target.position().add(0, 1, 0), ParticleTypes.CRIT, 15);
+        AbilityFeedback.sound(player, SoundEvents.CAT_HISS_BABY, 0.8F, 1.2F);
         return true;
     }
 }

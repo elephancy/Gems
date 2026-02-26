@@ -16,8 +16,8 @@ import com.feel.gems.power.passive.strength.StrengthAdrenalinePassive;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.effect.MobEffects;
 
 
 
@@ -41,7 +41,7 @@ public final class ModPassives {
                 PowerIds.FIRE_RESISTANCE,
                 "Fire Resistance",
                 "Permanent immunity to fire/lava damage.",
-                StatusEffects.FIRE_RESISTANCE,
+                MobEffects.FIRE_RESISTANCE,
                 0
         ));
         register(new MarkerPassive(
@@ -128,14 +128,14 @@ public final class ModPassives {
                 PowerIds.SPEED_I,
                 "Speed I",
                 "Permanent Speed I effect.",
-                StatusEffects.SPEED,
+                MobEffects.SPEED,
                 0
         ));
         register(new StatusEffectPassive(
                 PowerIds.SPEED_HASTE,
                 "Haste I",
                 "Permanent Haste I effect.",
-                StatusEffects.HASTE,
+                MobEffects.HASTE,
                 0
         ));
         register(new MarkerPassive(
@@ -153,7 +153,7 @@ public final class ModPassives {
                 PowerIds.STRENGTH_I,
                 "Strength I",
                 "Permanent Strength I effect.",
-                StatusEffects.STRENGTH,
+                MobEffects.STRENGTH,
                 0
         ));
         register(AutoEnchantPassive.sharpness(
@@ -185,14 +185,14 @@ public final class ModPassives {
                 PowerIds.LUCK,
                 "Luck",
                 "Permanent Luck effect.",
-                StatusEffects.LUCK,
+                MobEffects.LUCK,
                 0
         ));
         register(new StatusEffectPassive(
                 PowerIds.HERO_OF_THE_VILLAGE,
                 "Hero of the Village",
                 "Permanent Hero of the Village effect.",
-                StatusEffects.HERO_OF_THE_VILLAGE,
+                MobEffects.HERO_OF_THE_VILLAGE,
                 4
         ));
         register(new MarkerPassive(
@@ -255,7 +255,7 @@ public final class ModPassives {
                 PowerIds.SPACE_LOW_GRAVITY,
                 "Low Gravity",
                 "Minor Slow Falling and no fall damage while the gem is active.",
-                StatusEffects.SLOW_FALLING,
+                MobEffects.SLOW_FALLING,
                 0
         ));
         register(new MarkerPassive(
@@ -307,7 +307,7 @@ public final class ModPassives {
                 PowerIds.PILLAGER_RAIDER_STRIDE,
                 "Raider's Stride",
                 "Permanent minor Speed while the gem is active.",
-                StatusEffects.SPEED,
+                MobEffects.SPEED,
                 0
         ));
 
@@ -336,7 +336,7 @@ public final class ModPassives {
                 PowerIds.SPY_QUICK_HANDS,
                 "Quick Hands",
                 "Permanent minor Haste while the gem is active.",
-                StatusEffects.HASTE,
+                MobEffects.HASTE,
                 0
         ));
 

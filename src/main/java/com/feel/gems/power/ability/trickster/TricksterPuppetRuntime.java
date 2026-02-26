@@ -1,13 +1,13 @@
 package com.feel.gems.power.ability.trickster;
 
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.AABB;
 
 public final class TricksterPuppetRuntime {
     private static final String PUPPETED_BY_KEY = "trickster_puppeted_by";
@@ -22,14 +22,14 @@ public final class TricksterPuppetRuntime {
 
     // ========== Player Puppeting ==========
 
-    public static void setPuppeted(ServerPlayerEntity target, UUID puppeteerId, int durationTicks) {
-        long endTime = target.getEntityWorld().getTime() + durationTicks;
+    public static void setPuppeted(ServerPlayer target, UUID puppeteerId, int durationTicks) {
+        long endTime = target.level().getGameTime() + durationTicks;
         PlayerStateManager.setPersistent(target, PUPPETED_BY_KEY, puppeteerId.toString());
         PlayerStateManager.setPersistent(target, PUPPETED_END_KEY, String.valueOf(endTime));
         TricksterControlSync.sync(target);
     }
 
-    public static UUID getPuppeteer(ServerPlayerEntity player) {
+    public static UUID getPuppeteer(ServerPlayer player) {
         String puppeteerStr = PlayerStateManager.getPersistent(player, PUPPETED_BY_KEY);
         if (puppeteerStr == null || puppeteerStr.isEmpty()) return null;
 
@@ -37,7 +37,7 @@ public final class TricksterPuppetRuntime {
         if (endStr == null) return null;
 
         long endTime = Long.parseLong(endStr);
-        if (player.getEntityWorld().getTime() > endTime) {
+        if (player.level().getGameTime() > endTime) {
             clearPuppeted(player);
             return null;
         }
@@ -49,37 +49,37 @@ public final class TricksterPuppetRuntime {
         }
     }
 
-    public static boolean isPuppeted(ServerPlayerEntity player) {
+    public static boolean isPuppeted(ServerPlayer player) {
         return getPuppeteer(player) != null;
     }
 
-    public static void clearPuppeted(ServerPlayerEntity player) {
+    public static void clearPuppeted(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, PUPPETED_BY_KEY);
         PlayerStateManager.clearPersistent(player, PUPPETED_END_KEY);
         TricksterControlSync.sync(player);
     }
 
-    public static void tickPuppetedPlayer(ServerPlayerEntity target) {
+    public static void tickPuppetedPlayer(ServerPlayer target) {
         UUID puppeteerId = getPuppeteer(target);
         if (puppeteerId == null) {
             return;
         }
-        ServerWorld world = target.getEntityWorld();
+        ServerLevel world = target.level();
         if (world == null || world.getServer() == null) {
             return;
         }
-        ServerPlayerEntity puppeteer = world.getServer().getPlayerManager().getPlayer(puppeteerId);
+        ServerPlayer puppeteer = world.getServer().getPlayerList().getPlayer(puppeteerId);
         if (puppeteer == null) {
             clearPuppeted(target);
             return;
         }
 
         // Mirror the puppeteer's movement and facing.
-        target.setVelocity(puppeteer.getVelocity());
-        target.velocityDirty = true;
-        target.setYaw(puppeteer.getYaw());
-        target.setPitch(puppeteer.getPitch());
-        target.setHeadYaw(puppeteer.getHeadYaw());
+        target.setDeltaMovement(puppeteer.getDeltaMovement());
+        target.needsSync = true;
+        target.setYRot(puppeteer.getYRot());
+        target.setXRot(puppeteer.getXRot());
+        target.setYHeadRot(puppeteer.getYHeadRot());
     }
 
     // ========== Mob Puppeting ==========
@@ -87,28 +87,28 @@ public final class TricksterPuppetRuntime {
     /**
      * Mark a mob as puppeted using command tags. The mob will attack its allies for the duration.
      */
-    public static void setPuppetedMob(MobEntity mob, UUID puppeteerId, int durationTicks) {
-        long endTime = mob.getEntityWorld().getTime() + durationTicks;
+    public static void setPuppetedMob(Mob mob, UUID puppeteerId, int durationTicks) {
+        long endTime = mob.level().getGameTime() + durationTicks;
         
         // Clear any existing puppeted tags first
         clearPuppetedMobTags(mob);
         
         // Add new puppeted tags
-        mob.addCommandTag(TAG_PUPPETED);
-        mob.addCommandTag(TAG_PUPPETED_BY_PREFIX + puppeteerId.toString());
-        mob.addCommandTag(TAG_PUPPETED_UNTIL_PREFIX + endTime);
+        mob.addTag(TAG_PUPPETED);
+        mob.addTag(TAG_PUPPETED_BY_PREFIX + puppeteerId.toString());
+        mob.addTag(TAG_PUPPETED_UNTIL_PREFIX + endTime);
     }
 
     /**
      * Check if a mob is currently puppeted.
      */
-    public static boolean isMobPuppeted(MobEntity mob) {
-        if (!mob.getCommandTags().contains(TAG_PUPPETED)) {
+    public static boolean isMobPuppeted(Mob mob) {
+        if (!mob.entityTags().contains(TAG_PUPPETED)) {
             return false;
         }
         
         long until = getMobPuppetedUntil(mob);
-        if (until > 0 && mob.getEntityWorld().getTime() > until) {
+        if (until > 0 && mob.level().getGameTime() > until) {
             clearPuppetedMob(mob);
             return false;
         }
@@ -119,8 +119,8 @@ public final class TricksterPuppetRuntime {
     /**
      * Get the end tick for a puppeted mob.
      */
-    private static long getMobPuppetedUntil(MobEntity mob) {
-        for (String tag : mob.getCommandTags()) {
+    private static long getMobPuppetedUntil(Mob mob) {
+        for (String tag : mob.entityTags()) {
             if (tag.startsWith(TAG_PUPPETED_UNTIL_PREFIX)) {
                 try {
                     return Long.parseLong(tag.substring(TAG_PUPPETED_UNTIL_PREFIX.length()));
@@ -135,33 +135,33 @@ public final class TricksterPuppetRuntime {
     /**
      * Tick puppeted mob to maintain hostile behavior towards allies.
      */
-    public static void tickPuppetedMob(MobEntity mob, ServerWorld world) {
+    public static void tickPuppetedMob(Mob mob, ServerLevel world) {
         if (!isMobPuppeted(mob)) {
             return;
         }
 
         // Prefer targeting other mobs so the effect is visible and persists against vanilla AI retargeting.
         LivingEntity currentTarget = mob.getTarget();
-        boolean needsNewTarget = currentTarget == null || !currentTarget.isAlive() || !(currentTarget instanceof MobEntity);
+        boolean needsNewTarget = currentTarget == null || !currentTarget.isAlive() || !(currentTarget instanceof Mob);
         if (!needsNewTarget) {
             return;
         }
 
-        Box searchBox = mob.getBoundingBox().expand(16);
-        List<MobEntity> nearbyMobs = world.getEntitiesByClass(
-                MobEntity.class,
+        AABB searchBox = mob.getBoundingBox().inflate(16);
+        List<Mob> nearbyMobs = world.getEntitiesOfClass(
+                Mob.class,
                 searchBox,
                 e -> e != mob && e.isAlive()
         );
 
         if (!nearbyMobs.isEmpty()) {
-            MobEntity newTarget = nearbyMobs.get(world.getRandom().nextInt(nearbyMobs.size()));
+            Mob newTarget = nearbyMobs.get(world.getRandom().nextInt(nearbyMobs.size()));
             mob.setTarget(newTarget);
             return;
         }
 
         // Fallback: if there are no other mobs around, pick any living entity so the effect still does something.
-        List<LivingEntity> nearbyLiving = world.getEntitiesByClass(
+        List<LivingEntity> nearbyLiving = world.getEntitiesOfClass(
                 LivingEntity.class,
                 searchBox,
                 e -> e != mob && e.isAlive()
@@ -171,17 +171,17 @@ public final class TricksterPuppetRuntime {
         }
     }
 
-    public static void clearPuppetedMob(MobEntity mob) {
+    public static void clearPuppetedMob(Mob mob) {
         clearPuppetedMobTags(mob);
         mob.setTarget(null);
     }
 
-    private static void clearPuppetedMobTags(MobEntity mob) {
-        mob.removeCommandTag(TAG_PUPPETED);
+    private static void clearPuppetedMobTags(Mob mob) {
+        mob.removeTag(TAG_PUPPETED);
         // Remove any puppeted_by and puppeted_until tags (avoid mutating the tag set directly).
-        for (String tag : List.copyOf(mob.getCommandTags())) {
+        for (String tag : List.copyOf(mob.entityTags())) {
             if (tag.startsWith(TAG_PUPPETED_BY_PREFIX) || tag.startsWith(TAG_PUPPETED_UNTIL_PREFIX)) {
-                mob.removeCommandTag(tag);
+                mob.removeTag(tag);
             }
         }
     }

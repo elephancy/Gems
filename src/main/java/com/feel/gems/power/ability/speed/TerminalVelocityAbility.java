@@ -6,14 +6,14 @@ import com.feel.gems.core.GemId;
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.AbilityFeedback;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import com.feel.gems.power.gem.speed.SpeedMomentum;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 
 public final class TerminalVelocityAbility implements GemAbility {
@@ -38,15 +38,15 @@ public final class TerminalVelocityAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
+    public boolean activate(ServerPlayer player) {
         float momentum = SpeedMomentum.multiplier(player);
         int baseDuration = Math.max(1, Math.round(GemsBalance.v().speed().terminalVelocityDurationTicks() * momentum));
         int duration = AugmentRuntime.applyDurationMultiplier(player, GemId.SPEED, baseDuration);
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, duration, GemsBalance.v().speed().terminalVelocitySpeedAmplifier(), true, false, false));
-        player.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE, duration, GemsBalance.v().speed().terminalVelocityHasteAmplifier(), true, false, false));
-        AbilityFeedback.sound(player, SoundEvents.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.9F, 1.3F);
+        player.addEffect(new MobEffectInstance(MobEffects.SPEED, duration, GemsBalance.v().speed().terminalVelocitySpeedAmplifier(), true, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.HASTE, duration, GemsBalance.v().speed().terminalVelocityHasteAmplifier(), true, false, false));
+        AbilityFeedback.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 0.9F, 1.3F);
         AbilityFeedback.burst(player, ParticleTypes.CLOUD, 14, 0.35D);
-        player.sendMessage(Text.translatable("gems.ability.speed.terminal_velocity.active"), true);
+        player.sendSystemMessage(Component.translatable("gems.ability.speed.terminal_velocity.active"), true);
         return true;
     }
 }

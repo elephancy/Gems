@@ -5,12 +5,12 @@ import com.feel.gems.state.PlayerStateManager;
 import java.util.Optional;
 import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 import com.feel.gems.state.GemPlayerState;
 import com.feel.gems.net.GemStateSync;
 
@@ -20,16 +20,16 @@ public final class DuelistMirrorMatchRuntime {
     private DuelistMirrorMatchRuntime() {
     }
 
-    public static void start(ServerPlayerEntity caster, ServerPlayerEntity target) {
+    public static void start(ServerPlayer caster, ServerPlayer target) {
         if (caster == null || target == null) {
             return;
         }
         // Swap appearances for the duration.
-        syncDisguise(caster, target.getUuid());
-        syncDisguise(target, caster.getUuid());
+        syncDisguise(caster, target.getUUID());
+        syncDisguise(target, caster.getUUID());
     }
 
-    public static void tick(ServerPlayerEntity player) {
+    public static void tick(ServerPlayer player) {
         if (player == null) {
             return;
         }
@@ -45,11 +45,11 @@ public final class DuelistMirrorMatchRuntime {
      * Clear duel state and optionally teleport the player back to spawn.
      * @param teleportBack whether to teleport the player back to their saved spawn position
      */
-    public static void clear(ServerPlayerEntity player, boolean teleportBack) {
+    public static void clear(ServerPlayer player, boolean teleportBack) {
         if (player == null) {
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         UUID partner = partnerUuid(player);
 
         // Remove the barrier cage before clearing state
@@ -65,7 +65,7 @@ public final class DuelistMirrorMatchRuntime {
 
         // Ensure the partner's disguise is also cleared for all viewers, even if the partner is offline.
         if (server != null && partner != null) {
-            ServerPlayerEntity partnerPlayer = server.getPlayerManager().getPlayer(partner);
+            ServerPlayer partnerPlayer = server.getPlayerList().getPlayer(partner);
             if (partnerPlayer != null) {
                 // Note: We don't call removeCageIfPresent here because both players share the same cage
                 // and we already removed it above. Also don't teleport partner - they lost/died.
@@ -80,11 +80,11 @@ public final class DuelistMirrorMatchRuntime {
     /**
      * Called when a player dies during a duel - loser doesn't get teleported back.
      */
-    public static void onDeath(ServerPlayerEntity player) {
+    public static void onDeath(ServerPlayer player) {
         if (!DuelistMirrorMatchAbility.isInDuel(player)) {
             return;
         }
-        MinecraftServer server = player.getEntityWorld().getServer();
+        MinecraftServer server = player.level().getServer();
         UUID partner = partnerUuid(player);
         removeCageIfPresent(player);
 
@@ -92,7 +92,7 @@ public final class DuelistMirrorMatchRuntime {
         syncDisguise(player, null);
 
         if (server != null && partner != null) {
-            ServerPlayerEntity partnerPlayer = server.getPlayerManager().getPlayer(partner);
+            ServerPlayer partnerPlayer = server.getPlayerList().getPlayer(partner);
             if (partnerPlayer != null) {
                 DuelistMirrorMatchAbility.clearDuel(partnerPlayer);
                 syncDisguise(partnerPlayer, null);
@@ -107,7 +107,7 @@ public final class DuelistMirrorMatchRuntime {
      * Called when a player disconnects during a duel.
      * Both players should be teleported back and the cage removed.
      */
-    public static void onDisconnect(ServerPlayerEntity player, MinecraftServer server) {
+    public static void onDisconnect(ServerPlayer player, MinecraftServer server) {
         if (!DuelistMirrorMatchAbility.isInDuel(player)) {
             return;
         }
@@ -117,7 +117,7 @@ public final class DuelistMirrorMatchRuntime {
         
         // Remove cage before clearing state
         if (cageCenter != null) {
-            for (ServerWorld world : server.getWorlds()) {
+            for (ServerLevel world : server.getAllLevels()) {
                 DuelistMirrorMatchAbility.removeCage(world, cageCenter);
             }
         }
@@ -126,11 +126,11 @@ public final class DuelistMirrorMatchRuntime {
         DuelistMirrorMatchAbility.clearDuel(player);
         markLogoutPenalty(player);
         syncDisguise(player, null);
-        clearDisguiseForAllViewers(server, player.getUuid());
+        clearDisguiseForAllViewers(server, player.getUUID());
         
         // Teleport partner back to their saved spawn
         if (partnerUuid != null) {
-            ServerPlayerEntity partner = server.getPlayerManager().getPlayer(partnerUuid);
+            ServerPlayer partner = server.getPlayerList().getPlayer(partnerUuid);
             if (partner != null) {
                 teleportToRespawn(server, partner);
                 DuelistMirrorMatchAbility.clearDuel(partner);
@@ -144,24 +144,24 @@ public final class DuelistMirrorMatchRuntime {
     /**
      * Remove the barrier cage if the player is in a duel with a cage.
      */
-    private static void removeCageIfPresent(ServerPlayerEntity player) {
+    private static void removeCageIfPresent(ServerPlayer player) {
         BlockPos cageCenter = DuelistMirrorMatchAbility.getCageCenter(player);
-        if (cageCenter != null && player.getEntityWorld() instanceof ServerWorld world) {
+        if (cageCenter != null && player.level() instanceof ServerLevel world) {
             DuelistMirrorMatchAbility.removeCage(world, cageCenter);
         }
     }
 
-    private static void syncDisguise(ServerPlayerEntity player, java.util.UUID targetUuid) {
-        if (player.getEntityWorld().getServer() == null) {
+    private static void syncDisguise(ServerPlayer player, java.util.UUID targetUuid) {
+        if (player.level().getServer() == null) {
             return;
         }
-        SpySkinshiftPayload payload = new SpySkinshiftPayload(player.getUuid(), Optional.ofNullable(targetUuid));
-        for (ServerPlayerEntity viewer : player.getEntityWorld().getServer().getPlayerManager().getPlayerList()) {
+        SpySkinshiftPayload payload = new SpySkinshiftPayload(player.getUUID(), Optional.ofNullable(targetUuid));
+        for (ServerPlayer viewer : player.level().getServer().getPlayerList().getPlayers()) {
             ServerPlayNetworking.send(viewer, payload);
         }
     }
 
-    private static UUID partnerUuid(ServerPlayerEntity player) {
+    private static UUID partnerUuid(ServerPlayer player) {
         String partnerStr = PlayerStateManager.getPersistent(player, DuelistMirrorMatchAbility.DUEL_PARTNER_KEY);
         if (partnerStr == null || partnerStr.isEmpty()) {
             return null;
@@ -175,12 +175,12 @@ public final class DuelistMirrorMatchRuntime {
 
     private static void clearDisguiseForAllViewers(MinecraftServer server, UUID playerId) {
         SpySkinshiftPayload payload = new SpySkinshiftPayload(playerId, Optional.empty());
-        for (ServerPlayerEntity viewer : server.getPlayerManager().getPlayerList()) {
+        for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
             ServerPlayNetworking.send(viewer, payload);
         }
     }
 
-    public static void applyLogoutPenalty(ServerPlayerEntity player) {
+    public static void applyLogoutPenalty(ServerPlayer player) {
         String flag = PlayerStateManager.getPersistent(player, LOGOUT_PENALTY_KEY);
         if (!"true".equals(flag)) {
             return;
@@ -192,25 +192,25 @@ public final class DuelistMirrorMatchRuntime {
         GemStateSync.send(player);
     }
 
-    private static void markLogoutPenalty(ServerPlayerEntity player) {
+    private static void markLogoutPenalty(ServerPlayer player) {
         PlayerStateManager.setPersistent(player, LOGOUT_PENALTY_KEY, "true");
     }
 
-    private static void teleportToRespawn(MinecraftServer server, ServerPlayerEntity player) {
-        var respawn = player.getRespawn();
+    private static void teleportToRespawn(MinecraftServer server, ServerPlayer player) {
+        var respawn = player.getRespawnConfig();
         var spawnPoint = respawn == null ? null : respawn.respawnData();
-        RegistryKey<World> respawnKey = spawnPoint == null ? null : spawnPoint.getDimension();
-        BlockPos respawnPos = spawnPoint == null ? null : spawnPoint.getPos();
+        ResourceKey<Level> respawnKey = spawnPoint == null ? null : spawnPoint.dimension();
+        BlockPos respawnPos = spawnPoint == null ? null : spawnPoint.pos();
         if (respawnKey == null || respawnPos == null) {
-            ServerWorld overworld = server.getOverworld();
-            respawnKey = World.OVERWORLD;
-            respawnPos = overworld.getSpawnPoint().getPos();
+            ServerLevel overworld = server.overworld();
+            respawnKey = Level.OVERWORLD;
+            respawnPos = overworld.getRespawnData().pos();
         }
-        ServerWorld world = server.getWorld(respawnKey);
+        ServerLevel world = server.getLevel(respawnKey);
         if (world == null) {
-            world = server.getOverworld();
+            world = server.overworld();
         }
-        player.teleport(world, respawnPos.getX() + 0.5, respawnPos.getY(), respawnPos.getZ() + 0.5,
-                java.util.Set.of(), player.getYaw(), player.getPitch(), true);
+        player.teleportTo(world, respawnPos.getX() + 0.5, respawnPos.getY(), respawnPos.getZ() + 0.5,
+                java.util.Set.of(), player.getYRot(), player.getXRot(), true);
     }
 }

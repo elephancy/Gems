@@ -2,12 +2,12 @@ package com.feel.gems.power.ability.bonus;
 
 import com.feel.gems.power.api.GemAbility;
 import com.feel.gems.power.registry.PowerIds;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Curse Bolt - Drain life from nearby enemies, healing yourself.
@@ -34,29 +34,29 @@ public final class BonusCurseBoltAbility implements GemAbility {
     }
 
     @Override
-    public boolean activate(ServerPlayerEntity player) {
-        ServerWorld world = player.getEntityWorld();
-        Box area = player.getBoundingBox().expand(8);
+    public boolean activate(ServerPlayer player) {
+        ServerLevel world = player.level();
+        AABB area = player.getBoundingBox().inflate(8);
 
         float totalDrain = 0.0F;
-        for (LivingEntity living : world.getEntitiesByClass(
+        for (LivingEntity living : world.getEntitiesOfClass(
                 LivingEntity.class,
                 area,
-                e -> e != player && !(e instanceof ServerPlayerEntity) && e.isAlive()
+                e -> e != player && !(e instanceof ServerPlayer) && e.isAlive()
         )) {
             float before = living.getHealth();
-            living.damage(world, player.getDamageSources().indirectMagic(player, player), 4.0F);
+            living.hurtServer(world, player.damageSources().indirectMagic(player, player), 4.0F);
             float dealt = Math.max(0.0F, before - living.getHealth());
             if (dealt > 0.0F) {
                 totalDrain += dealt * 0.5F;
             }
-            world.spawnParticles(ParticleTypes.SOUL, living.getX(), living.getY() + 1, living.getZ(), 10, 0.3, 0.5, 0.3, 0.05);
+            world.sendParticles(ParticleTypes.SOUL, living.getX(), living.getY() + 1, living.getZ(), 10, 0.3, 0.5, 0.3, 0.05);
         }
 
         if (totalDrain > 0.0F) {
             player.heal(totalDrain);
         }
-        world.spawnParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1, player.getZ(), 20, 0.5, 1, 0.5, 0.05);
+        world.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1, player.getZ(), 20, 0.5, 1, 0.5, 0.05);
         return true;
     }
 }

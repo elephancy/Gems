@@ -4,16 +4,16 @@ import com.feel.gems.config.GemsBalance;
 import com.feel.gems.power.registry.PowerIds;
 import com.feel.gems.power.runtime.GemPowers;
 import com.feel.gems.state.PlayerStateManager;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Runtime logic for bonus passive effects.
@@ -38,7 +38,7 @@ public final class BonusPassiveRuntime {
     // ========== Second Wind ==========
     // Survive a killing blow on cooldown
 
-    public static boolean shouldTriggerSecondWind(ServerPlayerEntity player) {
+    public static boolean shouldTriggerSecondWind(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_SECOND_WIND)) {
             return false;
         }
@@ -48,26 +48,26 @@ public final class BonusPassiveRuntime {
         }
         try {
             long readyAt = Long.parseLong(used);
-            return player.getEntityWorld().getTime() >= readyAt;
+            return player.level().getGameTime() >= readyAt;
         } catch (NumberFormatException e) {
             return true;
         }
     }
 
-    public static void consumeSecondWind(ServerPlayerEntity player) {
+    public static void consumeSecondWind(ServerPlayer player) {
         int cdTicks = GemsBalance.v().bonusPool().secondWindCooldownSeconds * 20;
-        long readyAt = player.getEntityWorld().getTime() + Math.max(0, cdTicks);
+        long readyAt = player.level().getGameTime() + Math.max(0, cdTicks);
         PlayerStateManager.setPersistent(player, SECOND_WIND_USED_KEY, String.valueOf(readyAt));
     }
 
-    public static void resetSecondWind(ServerPlayerEntity player) {
+    public static void resetSecondWind(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, SECOND_WIND_USED_KEY);
     }
 
     // ========== Arcane Barrier ==========
     // Absorb first hit every 30 seconds
 
-    public static boolean shouldTriggerArcaneBarrier(ServerPlayerEntity player) {
+    public static boolean shouldTriggerArcaneBarrier(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_ARCANE_BARRIER)) {
             return false;
         }
@@ -76,29 +76,29 @@ public final class BonusPassiveRuntime {
             return true;
         }
         long cooldownEnd = Long.parseLong(cdStr);
-        return player.getEntityWorld().getTime() >= cooldownEnd;
+        return player.level().getGameTime() >= cooldownEnd;
     }
 
-    public static void consumeArcaneBarrier(ServerPlayerEntity player) {
+    public static void consumeArcaneBarrier(ServerPlayer player) {
         int cdTicks = GemsBalance.v().bonusPool().arcaneBarrierCooldownSeconds * 20;
-        long cooldownEnd = player.getEntityWorld().getTime() + Math.max(0, cdTicks);
+        long cooldownEnd = player.level().getGameTime() + Math.max(0, cdTicks);
         PlayerStateManager.setPersistent(player, ARCANE_BARRIER_COOLDOWN_KEY, String.valueOf(cooldownEnd));
     }
 
     // ========== Counter Strike ==========
     // After blocking, next hit deals 2x damage
 
-    public static void triggerCounterStrike(ServerPlayerEntity player) {
+    public static void triggerCounterStrike(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_COUNTER_STRIKE)) {
             return;
         }
         int windowTicks = GemsBalance.v().bonusPool().counterStrikeWindowSeconds * 20;
-        long endTime = player.getEntityWorld().getTime() + Math.max(0, windowTicks);
+        long endTime = player.level().getGameTime() + Math.max(0, windowTicks);
         PlayerStateManager.setPersistent(player, COUNTER_STRIKE_READY_KEY, "true");
         PlayerStateManager.setPersistent(player, COUNTER_STRIKE_READY_KEY + "_end", String.valueOf(endTime));
     }
 
-    public static boolean consumeCounterStrike(ServerPlayerEntity player) {
+    public static boolean consumeCounterStrike(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_COUNTER_STRIKE)) {
             return false;
         }
@@ -107,7 +107,7 @@ public final class BonusPassiveRuntime {
             String endStr = PlayerStateManager.getPersistent(player, COUNTER_STRIKE_READY_KEY + "_end");
             if (endStr != null && !endStr.isEmpty()) {
                 long end = Long.parseLong(endStr);
-                if (player.getEntityWorld().getTime() > end) {
+                if (player.level().getGameTime() > end) {
                     PlayerStateManager.clearPersistent(player, COUNTER_STRIKE_READY_KEY);
                     PlayerStateManager.clearPersistent(player, COUNTER_STRIKE_READY_KEY + "_end");
                     return false;
@@ -123,17 +123,17 @@ public final class BonusPassiveRuntime {
     // ========== Vengeance ==========
     // After taking damage, next attack within 5s deals +50% damage
 
-    public static void triggerVengeance(ServerPlayerEntity player) {
+    public static void triggerVengeance(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_VENGEANCE)) {
             return;
         }
         int windowTicks = Math.round(GemsBalance.v().bonusPool().vengeanceBuffDurationSeconds * 20.0f);
-        long endTime = player.getEntityWorld().getTime() + Math.max(0, windowTicks);
+        long endTime = player.level().getGameTime() + Math.max(0, windowTicks);
         PlayerStateManager.setPersistent(player, VENGEANCE_READY_KEY, "true");
         PlayerStateManager.setPersistent(player, VENGEANCE_END_KEY, String.valueOf(endTime));
     }
 
-    public static boolean consumeVengeance(ServerPlayerEntity player) {
+    public static boolean consumeVengeance(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_VENGEANCE)) {
             return false;
         }
@@ -146,7 +146,7 @@ public final class BonusPassiveRuntime {
             return false;
         }
         long endTime = Long.parseLong(endStr);
-        if (player.getEntityWorld().getTime() > endTime) {
+        if (player.level().getGameTime() > endTime) {
             clearVengeance(player);
             return false;
         }
@@ -154,7 +154,7 @@ public final class BonusPassiveRuntime {
         return true;
     }
 
-    public static void clearVengeance(ServerPlayerEntity player) {
+    public static void clearVengeance(ServerPlayer player) {
         PlayerStateManager.clearPersistent(player, VENGEANCE_READY_KEY);
         PlayerStateManager.clearPersistent(player, VENGEANCE_END_KEY);
     }
@@ -162,11 +162,11 @@ public final class BonusPassiveRuntime {
     // ========== Nemesis ==========
     // +25% damage to last player who killed you
 
-    public static void setLastKiller(ServerPlayerEntity player, UUID killerUuid) {
+    public static void setLastKiller(ServerPlayer player, UUID killerUuid) {
         PlayerStateManager.setPersistent(player, LAST_KILLER_KEY, killerUuid.toString());
     }
 
-    public static boolean isNemesisTarget(ServerPlayerEntity attacker, LivingEntity target) {
+    public static boolean isNemesisTarget(ServerPlayer attacker, LivingEntity target) {
         if (!GemPowers.isPassiveActive(attacker, PowerIds.BONUS_NEMESIS)) {
             return false;
         }
@@ -176,7 +176,7 @@ public final class BonusPassiveRuntime {
         }
         try {
             UUID killerUuid = UUID.fromString(killerStr);
-            return killerUuid.equals(target.getUuid());
+            return killerUuid.equals(target.getUUID());
         } catch (IllegalArgumentException e) {
             return false;
         }
@@ -184,7 +184,7 @@ public final class BonusPassiveRuntime {
 
     // ========== Attack Damage Multipliers ==========
 
-    public static float getAttackDamageMultiplier(ServerPlayerEntity attacker, LivingEntity target, float baseDamage) {
+    public static float getAttackDamageMultiplier(ServerPlayer attacker, LivingEntity target, float baseDamage) {
         float multiplier = 1.0f;
         var cfg = GemsBalance.v().bonusPool();
 
@@ -255,7 +255,7 @@ public final class BonusPassiveRuntime {
             boolean backstab = false;
 
             // If a mob is actively targeting someone else, treat it as "distracted".
-            if (target instanceof net.minecraft.entity.mob.MobEntity mob && mob.getTarget() != attacker) {
+            if (target instanceof net.minecraft.world.entity.Mob mob && mob.getTarget() != attacker) {
                 if (mob.getTarget() != null) {
                     backstab = true;
                 }
@@ -263,10 +263,10 @@ public final class BonusPassiveRuntime {
 
             // Angle-based backstab check (more reliable than rotation vectors in some GameTest/teleport cases).
             if (!backstab) {
-                Vec3d delta = attacker.getEntityPos().subtract(target.getEntityPos());
-                if (delta.lengthSquared() > 1.0E-4D) {
+                Vec3 delta = attacker.position().subtract(target.position());
+                if (delta.lengthSqr() > 1.0E-4D) {
                     float toYaw = (float) (Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90.0D);
-                    float diff = net.minecraft.util.math.MathHelper.wrapDegrees(toYaw - target.getYaw());
+                    float diff = net.minecraft.util.Mth.wrapDegrees(toYaw - target.getYRot());
                     // Within ~45 degrees of directly behind.
                     backstab = Math.abs(diff) > 135.0F;
                 }
@@ -290,7 +290,7 @@ public final class BonusPassiveRuntime {
         return multiplier;
     }
 
-    public static float getCriticalStrikeChance(ServerPlayerEntity attacker, LivingEntity target) {
+    public static float getCriticalStrikeChance(ServerPlayer attacker, LivingEntity target) {
         if (!GemPowers.isPassiveActive(attacker, PowerIds.BONUS_CRITICAL_STRIKE)) {
             return 0.0f;
         }
@@ -302,28 +302,28 @@ public final class BonusPassiveRuntime {
         return Math.max(0.0f, chance);
     }
 
-    private static boolean isTargetFleeing(ServerPlayerEntity attacker, LivingEntity target) {
-        Vec3d toAttacker = attacker.getEntityPos().subtract(target.getEntityPos()).normalize();
-        Vec3d targetVel = target.getVelocity();
+    private static boolean isTargetFleeing(ServerPlayer attacker, LivingEntity target) {
+        Vec3 toAttacker = attacker.position().subtract(target.position()).normalize();
+        Vec3 targetVel = target.getDeltaMovement();
         if (targetVel.length() > 0.1) {
-            return targetVel.normalize().dotProduct(toAttacker) < -0.1;
+            return targetVel.normalize().dot(toAttacker) < -0.1;
         }
-        if (target instanceof ServerPlayerEntity player && player.isSprinting()) {
-            return toAttacker.dotProduct(player.getRotationVec(1.0F)) < -0.1;
+        if (target instanceof ServerPlayer player && player.isSprinting()) {
+            return toAttacker.dot(player.getViewVector(1.0F)) < -0.1;
         }
         return false;
     }
 
     // ========== Defense Damage Modifiers ==========
 
-    public static float getDefenseDamageMultiplier(ServerPlayerEntity victim, float incomingDamage, ServerWorld world, LivingEntity attacker) {
+    public static float getDefenseDamageMultiplier(ServerPlayer victim, float incomingDamage, ServerLevel world, LivingEntity attacker) {
         float scaled = incomingDamage;
         var cfg = GemsBalance.v().bonusPool();
 
         // Evasive Roll - dodge backward while sprinting
         if (GemPowers.isPassiveActive(victim, PowerIds.BONUS_EVASIVE_ROLL) && victim.isSprinting()) {
             String cdStr = PlayerStateManager.getPersistent(victim, EVASIVE_ROLL_COOLDOWN_KEY);
-            long now = victim.getEntityWorld().getTime();
+            long now = victim.level().getGameTime();
             long readyAt = 0L;
             if (cdStr != null && !cdStr.isEmpty()) {
                 readyAt = Long.parseLong(cdStr);
@@ -331,9 +331,9 @@ public final class BonusPassiveRuntime {
             if (now >= readyAt) {
                 int cdTicks = cfg.evasiveRollCooldownSeconds * 20;
                 PlayerStateManager.setPersistent(victim, EVASIVE_ROLL_COOLDOWN_KEY, String.valueOf(now + Math.max(0, cdTicks)));
-                Vec3d backward = victim.getRotationVec(1.0F).multiply(-1.0);
-                victim.setVelocity(backward.x * cfg.evasiveRollDistanceBlocks, 0.1D, backward.z * cfg.evasiveRollDistanceBlocks);
-                victim.velocityDirty = true;
+                Vec3 backward = victim.getViewVector(1.0F).scale(-1.0);
+                victim.setDeltaMovement(backward.x * cfg.evasiveRollDistanceBlocks, 0.1D, backward.z * cfg.evasiveRollDistanceBlocks);
+                victim.needsSync = true;
                 return 0.0f;
             }
         }
@@ -376,14 +376,14 @@ public final class BonusPassiveRuntime {
         if (scaled >= victim.getHealth() && shouldTriggerSecondWind(victim)) {
             consumeSecondWind(victim);
             victim.setHealth(Math.max(1.0f, victim.getMaxHealth() * 0.5f));
-            victim.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 40, 4, false, true));
+            victim.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 40, 4, false, true));
             return 0.0f;
         }
 
         // Intimidate - nearby enemies deal less damage
         if (GemPowers.isPassiveActive(victim, PowerIds.BONUS_INTIMIDATE) && attacker != null) {
             int radius = cfg.intimidateRadiusBlocks;
-            if (radius > 0 && attacker.squaredDistanceTo(victim) <= (double) radius * radius) {
+            if (radius > 0 && attacker.distanceToSqr(victim) <= (double) radius * radius) {
                 scaled *= (1.0f - (cfg.intimidateDamageReductionPercent / 100.0f));
             }
         }
@@ -396,7 +396,7 @@ public final class BonusPassiveRuntime {
         if (GemPowers.isPassiveActive(victim, PowerIds.BONUS_THORNS_AURA)) {
             if (attacker != null && attacker != victim) {
                 float reflected = scaled * (cfg.thornsAuraDamagePercent / 100.0f);
-                attacker.damage(world, victim.getDamageSources().thorns(victim), reflected);
+                attacker.hurtServer(world, victim.damageSources().thorns(victim), reflected);
             }
         }
 
@@ -407,7 +407,7 @@ public final class BonusPassiveRuntime {
                 float xpPerDamage = Math.max(0.1f, cfg.manaShieldXpPerDamage);
                 float absorbed = Math.min(scaled * 0.25f, xpLevels * xpPerDamage);
                 int levelsUsed = (int) Math.ceil(absorbed / xpPerDamage);
-                victim.addExperienceLevels(-levelsUsed);
+                victim.giveExperienceLevels(-levelsUsed);
                 scaled -= absorbed;
             }
         }
@@ -416,7 +416,7 @@ public final class BonusPassiveRuntime {
     }
 
     // ========== Lifesteal ==========
-    public static void applyLifesteal(ServerPlayerEntity attacker, float damageDealt) {
+    public static void applyLifesteal(ServerPlayer attacker, float damageDealt) {
         if (!GemPowers.isPassiveActive(attacker, PowerIds.BONUS_LIFESTEAL)) {
             return;
         }
@@ -426,7 +426,7 @@ public final class BonusPassiveRuntime {
 
     // ========== Echo Strike ==========
 
-    public static boolean shouldEchoStrike(ServerPlayerEntity attacker) {
+    public static boolean shouldEchoStrike(ServerPlayer attacker) {
         if (!GemPowers.isPassiveActive(attacker, PowerIds.BONUS_ECHO_STRIKE)) {
             return false;
         }
@@ -435,7 +435,7 @@ public final class BonusPassiveRuntime {
 
     // ========== Kill Event Handlers ==========
 
-    public static void onKill(ServerPlayerEntity killer, LivingEntity victim) {
+    public static void onKill(ServerPlayer killer, LivingEntity victim) {
         // Bloodthirst - heal 4 HP on kill
         if (GemPowers.isPassiveActive(killer, PowerIds.BONUS_BLOODTHIRST)) {
             killer.heal(GemsBalance.v().bonusPool().bloodthirstHealOnKill);
@@ -445,54 +445,54 @@ public final class BonusPassiveRuntime {
         if (GemPowers.isPassiveActive(killer, PowerIds.BONUS_ADRENALINE_RUSH)) {
             int duration = GemsBalance.v().bonusPool().adrenalineSurgeDurationSeconds * 20;
             if (duration > 0) {
-                killer.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, duration, 0, false, true));
+                killer.addEffect(new MobEffectInstance(MobEffects.SPEED, duration, 0, false, true));
             }
         }
 
         // War Cry - killing enemies grants nearby allies Strength
-        if (GemPowers.isPassiveActive(killer, PowerIds.BONUS_WAR_CRY) && killer.getEntityWorld() instanceof ServerWorld world) {
+        if (GemPowers.isPassiveActive(killer, PowerIds.BONUS_WAR_CRY) && killer.level() instanceof ServerLevel world) {
             int radius = GemsBalance.v().bonusPool().warCryRadiusBlocks;
             int duration = GemsBalance.v().bonusPool().warCryStrengthDurationSeconds * 20;
-            Box searchBox = killer.getBoundingBox().expand(radius);
-            List<ServerPlayerEntity> nearbyAllies = world.getEntitiesByClass(
-                    ServerPlayerEntity.class,
+            AABB searchBox = killer.getBoundingBox().inflate(radius);
+            List<ServerPlayer> nearbyAllies = world.getEntitiesOfClass(
+                    ServerPlayer.class,
                     searchBox,
                     p -> p != killer && p.isAlive() && com.feel.gems.trust.GemTrust.isTrusted(killer, p)
             );
-            for (ServerPlayerEntity ally : nearbyAllies) {
-                ally.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, duration, 0, false, true));
+            for (ServerPlayer ally : nearbyAllies) {
+                ally.addEffect(new MobEffectInstance(MobEffects.STRENGTH, duration, 0, false, true));
             }
         }
     }
 
     // ========== Tick Handlers ==========
 
-    public static void tickEverySecond(ServerPlayerEntity player, ServerWorld world) {
+    public static void tickEverySecond(ServerPlayer player, ServerLevel world) {
         var cfg = GemsBalance.v().bonusPool();
 
         // Predator Sense - apply Glowing to nearby <30% HP enemies
         if (GemPowers.isPassiveActive(player, PowerIds.BONUS_PREDATOR_SENSE)) {
-            Box searchBox = player.getBoundingBox().expand(cfg.predatorSenseRangeBlocks);
-            List<LivingEntity> nearbyEntities = world.getEntitiesByClass(
+            AABB searchBox = player.getBoundingBox().inflate(cfg.predatorSenseRangeBlocks);
+            List<LivingEntity> nearbyEntities = world.getEntitiesOfClass(
                 LivingEntity.class,
                 searchBox,
                 e -> e != player && e.isAlive() && e.getHealth() < e.getMaxHealth() * (cfg.predatorSenseThresholdPercent / 100.0f)
             );
             for (LivingEntity entity : nearbyEntities) {
-                entity.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 30, 0, false, false));
+                entity.addEffect(new MobEffectInstance(MobEffects.GLOWING, 30, 0, false, false));
             }
         }
 
         // Battle Medic - heal nearby allies slowly
         if (GemPowers.isPassiveActive(player, PowerIds.BONUS_BATTLE_MEDIC)) {
-            Box searchBox = player.getBoundingBox().expand(cfg.battleMedicRadiusBlocks);
-            List<ServerPlayerEntity> nearbyAllies = world.getEntitiesByClass(
-                ServerPlayerEntity.class,
+            AABB searchBox = player.getBoundingBox().inflate(cfg.battleMedicRadiusBlocks);
+            List<ServerPlayer> nearbyAllies = world.getEntitiesOfClass(
+                ServerPlayer.class,
                 searchBox,
                 p -> p != player && p.isAlive() && p.getHealth() < p.getMaxHealth()
                         && com.feel.gems.trust.GemTrust.isTrusted(player, p)
             );
-            for (ServerPlayerEntity ally : nearbyAllies) {
+            for (ServerPlayer ally : nearbyAllies) {
                 ally.heal(cfg.battleMedicHealPerSecond);
             }
         }
@@ -504,20 +504,20 @@ public final class BonusPassiveRuntime {
             float boost = (1.0f - healthPercent) * maxBoost;
             int hasteLevel = Math.min(2, Math.round(boost / 0.2f));
             if (hasteLevel > 0) {
-                player.addStatusEffect(new StatusEffectInstance(StatusEffects.HASTE, 30, hasteLevel - 1, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.HASTE, 30, hasteLevel - 1, false, false));
             }
         }
 
         // Intimidate - debuff nearby enemies
         if (GemPowers.isPassiveActive(player, PowerIds.BONUS_INTIMIDATE)) {
-            Box searchBox = player.getBoundingBox().expand(cfg.intimidateRadiusBlocks);
-            List<LivingEntity> nearbyEnemies = world.getEntitiesByClass(
+            AABB searchBox = player.getBoundingBox().inflate(cfg.intimidateRadiusBlocks);
+            List<LivingEntity> nearbyEnemies = world.getEntitiesOfClass(
                 LivingEntity.class,
                 searchBox,
-                e -> e != player && e.isAlive() && !(e instanceof PlayerEntity)
+                e -> e != player && e.isAlive() && !(e instanceof Player)
             );
             for (LivingEntity enemy : nearbyEnemies) {
-                enemy.addStatusEffect(new StatusEffectInstance(StatusEffects.WEAKNESS, 30, 0, false, false));
+                enemy.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 30, 0, false, false));
             }
         }
 
@@ -529,13 +529,13 @@ public final class BonusPassiveRuntime {
 
     // ========== Steel Resolve (Knockback Immunity) ==========
 
-    public static boolean isKnockbackImmune(ServerPlayerEntity player) {
+    public static boolean isKnockbackImmune(ServerPlayer player) {
         return GemPowers.isPassiveActive(player, PowerIds.BONUS_STEEL_RESOLVE);
     }
 
     // ========== Focused Mind (Cooldown Reduction) ==========
 
-    public static float getCooldownMultiplier(ServerPlayerEntity player) {
+    public static float getCooldownMultiplier(ServerPlayer player) {
         if (GemPowers.isPassiveActive(player, PowerIds.BONUS_FOCUSED_MIND)) {
             float reduction = GemsBalance.v().bonusPool().focusedMindCooldownReductionPercent / 100.0f;
             return 1.0f - reduction;
@@ -545,7 +545,7 @@ public final class BonusPassiveRuntime {
 
     // ========== Bulwark (Shield Blocking) ==========
 
-    public static float getBlockingDamageMultiplier(ServerPlayerEntity player) {
+    public static float getBlockingDamageMultiplier(ServerPlayer player) {
         if (GemPowers.isPassiveActive(player, PowerIds.BONUS_BULWARK)) {
             float boost = GemsBalance.v().bonusPool().bulwarkBlockEffectivenessBoostPercent / 100.0f;
             return 1.0f - boost;
@@ -553,11 +553,11 @@ public final class BonusPassiveRuntime {
         return 1.0f;
     }
 
-    public static void triggerAdrenalineSurge(ServerPlayerEntity victim) {
+    public static void triggerAdrenalineSurge(ServerPlayer victim) {
         if (!GemPowers.isPassiveActive(victim, PowerIds.BONUS_ADRENALINE_SURGE)) {
             return;
         }
-        long now = victim.getEntityWorld().getTime();
+        long now = victim.level().getGameTime();
         String untilStr = PlayerStateManager.getPersistent(victim, ADRENALINE_SURGE_UNTIL_KEY);
         if (untilStr != null && !untilStr.isEmpty()) {
             long until = Long.parseLong(untilStr);
@@ -568,22 +568,22 @@ public final class BonusPassiveRuntime {
         int duration = GemsBalance.v().bonusPool().adrenalineSurgeDurationSeconds * 20;
         int cooldown = GemsBalance.v().bonusPool().adrenalineSurgeCooldownSeconds * 20;
         if (duration > 0) {
-            victim.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, duration, 1, false, true));
+            victim.addEffect(new MobEffectInstance(MobEffects.SPEED, duration, 1, false, true));
         }
         PlayerStateManager.setPersistent(victim, ADRENALINE_SURGE_UNTIL_KEY, String.valueOf(now + Math.max(0, cooldown)));
     }
 
-    public static void tickCombatMeditate(ServerPlayerEntity player) {
+    public static void tickCombatMeditate(ServerPlayer player) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_COMBAT_MEDITATE)) {
             PlayerStateManager.clearPersistent(player, MEDITATE_POS_KEY);
             PlayerStateManager.clearPersistent(player, MEDITATE_START_KEY);
             return;
         }
         var cfg = GemsBalance.v().bonusPool();
-        long now = player.getEntityWorld().getTime();
+        long now = player.level().getGameTime();
         String posStr = PlayerStateManager.getPersistent(player, MEDITATE_POS_KEY);
         String startStr = PlayerStateManager.getPersistent(player, MEDITATE_START_KEY);
-        String currentPos = player.getBlockPos().getX() + "," + player.getBlockPos().getY() + "," + player.getBlockPos().getZ();
+        String currentPos = player.blockPosition().getX() + "," + player.blockPosition().getY() + "," + player.blockPosition().getZ();
         if (posStr == null || !posStr.equals(currentPos)) {
             PlayerStateManager.setPersistent(player, MEDITATE_POS_KEY, currentPos);
             PlayerStateManager.setPersistent(player, MEDITATE_START_KEY, String.valueOf(now));
@@ -599,54 +599,54 @@ public final class BonusPassiveRuntime {
         }
     }
 
-    public static void tickSixthSense(ServerPlayerEntity player, ServerWorld world) {
+    public static void tickSixthSense(ServerPlayer player, ServerLevel world) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_SIXTH_SENSE)) {
             return;
         }
         int range = GemsBalance.v().bonusPool().sixthSenseWarningRangeBlocks;
-        Box box = player.getBoundingBox().expand(range);
-        List<LivingEntity> hostiles = world.getEntitiesByClass(
+        AABB box = player.getBoundingBox().inflate(range);
+        List<LivingEntity> hostiles = world.getEntitiesOfClass(
                 LivingEntity.class,
                 box,
                 e -> e != player && e.isAlive()
         );
         for (LivingEntity hostile : hostiles) {
             boolean targeting = false;
-            if (hostile instanceof net.minecraft.entity.mob.MobEntity mob) {
+            if (hostile instanceof net.minecraft.world.entity.Mob mob) {
                 targeting = mob.getTarget() == player;
-            } else if (hostile instanceof ServerPlayerEntity other) {
-                targeting = other.getAttacking() == player;
+            } else if (hostile instanceof ServerPlayer other) {
+                targeting = other.getLastHurtMob() == player;
             }
             if (targeting) {
-                world.spawnParticles(net.minecraft.particle.ParticleTypes.END_ROD,
+                world.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
                         player.getX(), player.getY() + 1.2, player.getZ(), 6, 0.3, 0.3, 0.3, 0.01);
                 break;
             }
         }
     }
 
-    public static void tickMagneticPull(ServerPlayerEntity player, ServerWorld world) {
+    public static void tickMagneticPull(ServerPlayer player, ServerLevel world) {
         if (!GemPowers.isPassiveActive(player, PowerIds.BONUS_MAGNETIC_PULL)) {
             return;
         }
         float mult = GemsBalance.v().bonusPool().magneticPullRangeMultiplier;
         double radius = 4.0D * Math.max(1.0f, mult);
-        Box box = player.getBoundingBox().expand(radius);
-        for (net.minecraft.entity.ItemEntity item : world.getEntitiesByClass(net.minecraft.entity.ItemEntity.class, box, e -> e.isAlive())) {
-            Vec3d dir = player.getEntityPos().subtract(item.getEntityPos());
-            if (dir.lengthSquared() <= 0.01D) {
+        AABB box = player.getBoundingBox().inflate(radius);
+        for (net.minecraft.world.entity.item.ItemEntity item : world.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, box, e -> e.isAlive())) {
+            Vec3 dir = player.position().subtract(item.position());
+            if (dir.lengthSqr() <= 0.01D) {
                 continue;
             }
-            Vec3d vel = dir.normalize().multiply(0.2D);
-            item.addVelocity(vel.x, vel.y, vel.z);
+            Vec3 vel = dir.normalize().scale(0.2D);
+            item.push(vel.x, vel.y, vel.z);
         }
-        for (net.minecraft.entity.ExperienceOrbEntity orb : world.getEntitiesByClass(net.minecraft.entity.ExperienceOrbEntity.class, box, e -> e.isAlive())) {
-            Vec3d dir = player.getEntityPos().subtract(orb.getEntityPos());
-            if (dir.lengthSquared() <= 0.01D) {
+        for (net.minecraft.world.entity.ExperienceOrb orb : world.getEntitiesOfClass(net.minecraft.world.entity.ExperienceOrb.class, box, e -> e.isAlive())) {
+            Vec3 dir = player.position().subtract(orb.position());
+            if (dir.lengthSqr() <= 0.01D) {
                 continue;
             }
-            Vec3d vel = dir.normalize().multiply(0.25D);
-            orb.addVelocity(vel.x, vel.y, vel.z);
+            Vec3 vel = dir.normalize().scale(0.25D);
+            orb.push(vel.x, vel.y, vel.z);
         }
     }
 }
