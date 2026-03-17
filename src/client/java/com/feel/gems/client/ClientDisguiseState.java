@@ -4,11 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.entity.player.SkinTextures;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.PlayerSkin;
 
 
 public final class ClientDisguiseState {
@@ -42,14 +42,14 @@ public final class ClientDisguiseState {
         DISGUISES.put(player, target.get());
     }
 
-    public static SkinTextures overrideSkin(AbstractClientPlayerEntity player) {
+    public static PlayerSkin overrideSkin(AbstractClientPlayer player) {
         if (player == null) {
             return null;
         }
-        return overrideSkin(player.getUuid());
+        return overrideSkin(player.getUUID());
     }
 
-    public static SkinTextures overrideSkin(UUID playerId) {
+    public static PlayerSkin overrideSkin(UUID playerId) {
         if (playerId == null) {
             return null;
         }
@@ -57,20 +57,20 @@ public final class ClientDisguiseState {
         if (target == null) {
             return null;
         }
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.getNetworkHandler() == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.getConnection() == null) {
             return null;
         }
         // Avoid recursion if both players are disguised as each other (e.g., Mirror Match).
         UUID removed = removeDisguise(target);
         try {
-            PlayerListEntry entry = client.getNetworkHandler().getPlayerListEntry(target);
+            PlayerInfo entry = client.getConnection().getPlayerInfo(target);
             if (entry != null) {
-                return entry.getSkinTextures();
+                return entry.getSkin();
             }
-            if (client.world != null) {
-                var entity = client.world.getPlayerByUuid(target);
-                if (entity instanceof AbstractClientPlayerEntity targetPlayer) {
+            if (client.level != null) {
+                var entity = client.level.getPlayerByUUID(target);
+                if (entity instanceof AbstractClientPlayer targetPlayer) {
                     return targetPlayer.getSkin();
                 }
             }
@@ -80,14 +80,14 @@ public final class ClientDisguiseState {
         }
     }
 
-    public static Text overrideName(AbstractClientPlayerEntity player) {
+    public static Component overrideName(AbstractClientPlayer player) {
         if (player == null) {
             return null;
         }
-        return overrideName(player.getUuid());
+        return overrideName(player.getUUID());
     }
 
-    public static Text overrideName(UUID playerId) {
+    public static Component overrideName(UUID playerId) {
         if (playerId == null) {
             return null;
         }
@@ -95,15 +95,15 @@ public final class ClientDisguiseState {
         if (target == null) {
             return null;
         }
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.getNetworkHandler() == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.getConnection() == null) {
             return null;
         }
-        PlayerListEntry entry = client.getNetworkHandler().getPlayerListEntry(target);
+        PlayerInfo entry = client.getConnection().getPlayerInfo(target);
         if (entry == null || entry.getProfile() == null) {
             return null;
         }
-        return Text.literal(entry.getProfile().name());
+        return Component.literal(entry.getProfile().name());
     }
 
     public static void reset() {

@@ -3,14 +3,12 @@ package com.feel.gems.client;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.resources.Identifier;
 import com.feel.gems.core.GemDefinition;
 import com.feel.gems.core.GemId;
 import com.feel.gems.core.GemRegistry;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.Identifier;
 
 
 
@@ -45,12 +43,12 @@ public final class ClientCooldowns {
         clearIfGemChanged(gem);
         END_TICKS.clear();
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
         if (world == null) {
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
 
         List<Identifier> abilities = orderedAbilities(gem);
         int n = Math.min(abilities.size(), remainingAbilityCooldownTicks.size());
@@ -81,12 +79,12 @@ public final class ClientCooldowns {
             return;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
         if (world == null) {
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
 
         List<Identifier> abilities = orderedAbilities(gem);
         if (abilityIndex < 0 || abilityIndex >= abilities.size()) {
@@ -109,8 +107,8 @@ public final class ClientCooldowns {
         if (activeGem != gem) {
             return 0;
         }
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
         if (world == null) {
             return 0;
         }
@@ -118,7 +116,7 @@ public final class ClientCooldowns {
         if (end == null) {
             return 0;
         }
-        long remaining = end - world.getTime();
+        long remaining = end - world.getGameTime();
         if (remaining <= 0) {
             return 0;
         }

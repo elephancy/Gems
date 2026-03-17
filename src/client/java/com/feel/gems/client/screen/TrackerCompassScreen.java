@@ -10,17 +10,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 public final class TrackerCompassScreen extends GemsScreenBase {
     private final List<TrackerCompassScreenPayload.Entry> entries;
     private int page = 0;
 
     public TrackerCompassScreen(TrackerCompassScreenPayload payload) {
-        super(Text.translatable("gems.screen.tracker_compass.title"));
+        super(Component.translatable("gems.screen.tracker_compass.title"));
         this.entries = new ArrayList<>(payload.entries());
         this.entries.sort(Comparator.comparing(entry -> entry.name().toLowerCase(java.util.Locale.ROOT)));
     }
@@ -32,7 +32,7 @@ public final class TrackerCompassScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
 
         int panelW = panelWidth(width);
         int centerX = width / 2;
@@ -46,37 +46,37 @@ public final class TrackerCompassScreen extends GemsScreenBase {
         int y = CONTENT_START_Y;
 
         if (entries.isEmpty()) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.tracker_compass.no_players").formatted(Formatting.GRAY), btn -> {
-            }).dimensions(entryX, y, panelW, BUTTON_HEIGHT).build()).active = false;
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.tracker_compass.no_players").withStyle(ChatFormatting.GRAY), btn -> {
+            }).bounds(entryX, y, panelW, BUTTON_HEIGHT).build()).active = false;
         } else {
             for (int i = start; i < end; i++) {
                 TrackerCompassScreenPayload.Entry entry = entries.get(i);
-                Text label = Text.literal(entry.name()).formatted(entry.online() ? Formatting.GREEN : Formatting.GRAY);
+                Component label = Component.literal(entry.name()).withStyle(entry.online() ? ChatFormatting.GREEN : ChatFormatting.GRAY);
                 int buttonY = y + (i - start) * (BUTTON_HEIGHT + SPACING);
-                addDrawableChild(ButtonWidget.builder(label, btn -> select(entry.uuid()))
-                        .dimensions(entryX, buttonY, panelW, BUTTON_HEIGHT)
+                addRenderableWidget(Button.builder(label, btn -> select(entry.uuid()))
+                        .bounds(entryX, buttonY, panelW, BUTTON_HEIGHT)
                         .build());
             }
         }
 
         int navY = navButtonY(height);
-        ButtonWidget prev = ButtonWidget.builder(Text.translatable("gems.screen.button.prev"), btn -> changePage(-1))
-                .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button prev = Button.builder(Component.translatable("gems.screen.button.prev"), btn -> changePage(-1))
+                .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
-        ButtonWidget next = ButtonWidget.builder(Text.translatable("gems.screen.button.next"), btn -> changePage(1))
-                .dimensions(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button next = Button.builder(Component.translatable("gems.screen.button.next"), btn -> changePage(1))
+                .bounds(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
         prev.active = page > 0;
         next.active = (page + 1) * ENTRIES_PER_PAGE < entries.size();
-        addDrawableChild(prev);
-        addDrawableChild(next);
+        addRenderableWidget(prev);
+        addRenderableWidget(next);
 
         int closeY = closeButtonY(height);
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.clear"), btn -> clearTarget())
-                .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.clear"), btn -> clearTarget())
+                .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.close"), btn -> close())
-                .dimensions(centerX + SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.close"), btn -> onClose())
+                .bounds(centerX + SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
     }
 
@@ -88,22 +88,22 @@ public final class TrackerCompassScreen extends GemsScreenBase {
 
     private void select(UUID uuid) {
         ClientPlayNetworking.send(new TrackerCompassSelectPayload(Optional.of(uuid)));
-        close();
+        onClose();
     }
 
     private void clearTarget() {
         ClientPlayNetworking.send(new TrackerCompassSelectPayload(Optional.empty()));
-        close();
+        onClose();
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
         renderBase(context);
         if (!entries.isEmpty()) {
             int maxPage = totalPages(entries.size(), ENTRIES_PER_PAGE);
             String pageText = "Page " + (page + 1) + " / " + maxPage;
-            context.drawCenteredTextWithShadow(this.textRenderer, pageText, this.width / 2, SUBTITLE_Y, COLOR_GRAY);
+            context.centeredText(this.font, pageText, this.width / 2, SUBTITLE_Y, COLOR_GRAY);
         }
     }
 }

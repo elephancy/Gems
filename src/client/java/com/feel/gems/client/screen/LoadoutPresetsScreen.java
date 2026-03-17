@@ -16,13 +16,13 @@ import com.feel.gems.power.registry.ModAbilities;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CyclingButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * Client UI for managing per-gem loadout presets.
@@ -35,21 +35,21 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
     private static final int ABILITY_BUTTON_WIDTH = 22;
 
     private final LoadoutScreenPayload payload;
-    private final List<ButtonWidget> loadButtons = new ArrayList<>();
-    private final List<ButtonWidget> deleteButtons = new ArrayList<>();
-    private final List<ButtonWidget> abilityUpButtons = new ArrayList<>();
-    private final List<ButtonWidget> abilityDownButtons = new ArrayList<>();
+    private final List<Button> loadButtons = new ArrayList<>();
+    private final List<Button> deleteButtons = new ArrayList<>();
+    private final List<Button> abilityUpButtons = new ArrayList<>();
+    private final List<Button> abilityDownButtons = new ArrayList<>();
 
-    private TextFieldWidget nameField;
-    private ButtonWidget saveButton;
-    private ButtonWidget closeButton;
-    private ButtonWidget prevGemButton;
-    private ButtonWidget nextGemButton;
-    private CyclingButtonWidget<Boolean> passivesToggle;
-    private CyclingButtonWidget<GemLoadout.HudPosition> hudPosToggle;
-    private CyclingButtonWidget<Boolean> showCooldownsToggle;
-    private CyclingButtonWidget<Boolean> showEnergyToggle;
-    private CyclingButtonWidget<Boolean> compactModeToggle;
+    private EditBox nameField;
+    private Button saveButton;
+    private Button closeButton;
+    private Button prevGemButton;
+    private Button nextGemButton;
+    private CycleButton<Boolean> passivesToggle;
+    private CycleButton<GemLoadout.HudPosition> hudPosToggle;
+    private CycleButton<Boolean> showCooldownsToggle;
+    private CycleButton<Boolean> showEnergyToggle;
+    private CycleButton<Boolean> compactModeToggle;
 
     private boolean passivesEnabled = true;
     private GemLoadout.HudPosition hudPosition = GemLoadout.HudPosition.TOP_LEFT;
@@ -72,7 +72,7 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
     private int panelBottom;
 
     public LoadoutPresetsScreen(LoadoutScreenPayload payload) {
-        super(Text.translatable("gems.screen.loadout_presets.title"));
+        super(Component.translatable("gems.screen.loadout_presets.title"));
         this.payload = payload;
     }
 
@@ -98,7 +98,7 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
         loadButtons.clear();
         deleteButtons.clear();
         abilityUpButtons.clear();
@@ -121,30 +121,30 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
         loadX = panelRight - 130;
         deleteX = panelRight - 60;
 
-        String nameText = nameField != null ? nameField.getText() : initialName;
-        nameField = new TextFieldWidget(this.textRenderer, panelLeft + 10, top + 26, panelWidth - 150, 18, Text.translatable("gems.screen.loadout_presets.name"));
-        nameField.setText(nameText);
-        addDrawableChild(nameField);
+        String nameText = nameField != null ? nameField.getValue() : initialName;
+        nameField = new EditBox(this.font, panelLeft + 10, top + 26, panelWidth - 150, 18, Component.translatable("gems.screen.loadout_presets.name"));
+        nameField.setValue(nameText);
+        addRenderableWidget(nameField);
 
-        saveButton = ButtonWidget.builder(Text.translatable("gems.screen.loadout_presets.save"), btn -> savePreset())
-                .dimensions(panelRight - 130, top + 24, 120, BUTTON_HEIGHT)
+        saveButton = Button.builder(Component.translatable("gems.screen.loadout_presets.save"), btn -> savePreset())
+                .bounds(panelRight - 130, top + 24, 120, BUTTON_HEIGHT)
                 .build();
-        addDrawableChild(saveButton);
+        addRenderableWidget(saveButton);
 
-        prevGemButton = ButtonWidget.builder(Text.literal("<"), btn -> requestGem(offsetGem(-1)))
-            .dimensions(panelLeft + 10, top, 20, BUTTON_HEIGHT)
+        prevGemButton = Button.builder(Component.literal("<"), btn -> requestGem(offsetGem(-1)))
+            .bounds(panelLeft + 10, top, 20, BUTTON_HEIGHT)
                 .build();
-        addDrawableChild(prevGemButton);
+        addRenderableWidget(prevGemButton);
 
-        nextGemButton = ButtonWidget.builder(Text.literal(">"), btn -> requestGem(offsetGem(1)))
-            .dimensions(panelLeft + 140, top, 20, BUTTON_HEIGHT)
+        nextGemButton = Button.builder(Component.literal(">"), btn -> requestGem(offsetGem(1)))
+            .bounds(panelLeft + 140, top, 20, BUTTON_HEIGHT)
                 .build();
-        addDrawableChild(nextGemButton);
+        addRenderableWidget(nextGemButton);
 
-        closeButton = ButtonWidget.builder(Text.translatable("gems.screen.button.close"), btn -> close())
-                .dimensions(panelRight - 80, this.height - 28, 70, BUTTON_HEIGHT)
+        closeButton = Button.builder(Component.translatable("gems.screen.button.close"), btn -> onClose())
+                .bounds(panelRight - 80, this.height - 28, 70, BUTTON_HEIGHT)
                 .build();
-        addDrawableChild(closeButton);
+        addRenderableWidget(closeButton);
 
         int labelW = 140;
         int fieldW = panelWidth - labelW - 30;
@@ -157,10 +157,10 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
         rowY += SETTINGS_ROW_HEIGHT;
 
         addLabel(labelX, rowY, labelW, "HUD Position");
-        hudPosToggle = CyclingButtonWidget.builder(pos -> Text.literal(pos.name()), hudPosition)
-            .values(java.util.Arrays.asList(GemLoadout.HudPosition.values()))
-            .build(fieldX, rowY, fieldW, BUTTON_HEIGHT, Text.empty(), (b, v) -> hudPosition = v);
-        addDrawableChild(hudPosToggle);
+        hudPosToggle = CycleButton.builder(pos -> Component.literal(pos.name()), hudPosition)
+            .withValues(java.util.Arrays.asList(GemLoadout.HudPosition.values()))
+            .create(fieldX, rowY, fieldW, BUTTON_HEIGHT, Component.empty(), (b, v) -> hudPosition = v);
+        addRenderableWidget(hudPosToggle);
         rowY += SETTINGS_ROW_HEIGHT;
 
         addLabel(labelX, rowY, labelW, "Show Cooldowns");
@@ -186,19 +186,19 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
         for (int i = 0; i < Math.max(1, abilityOrder.size()); i++) {
             int index = i;
             int y = abilityTop + (i * ABILITY_ROW_HEIGHT);
-            ButtonWidget up = ButtonWidget.builder(Text.literal("^"), btn -> moveAbility(index, -1))
-                    .dimensions(buttonX, y - 2, ABILITY_BUTTON_WIDTH, BUTTON_HEIGHT)
+            Button up = Button.builder(Component.literal("^"), btn -> moveAbility(index, -1))
+                    .bounds(buttonX, y - 2, ABILITY_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build();
-            ButtonWidget down = ButtonWidget.builder(Text.literal("v"), btn -> moveAbility(index, 1))
-                    .dimensions(buttonX + ABILITY_BUTTON_WIDTH + 4, y - 2, ABILITY_BUTTON_WIDTH, BUTTON_HEIGHT)
+            Button down = Button.builder(Component.literal("v"), btn -> moveAbility(index, 1))
+                    .bounds(buttonX + ABILITY_BUTTON_WIDTH + 4, y - 2, ABILITY_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build();
             boolean active = index < abilityOrder.size();
             up.active = active && index > 0;
             down.active = active && index < abilityOrder.size() - 1;
             abilityUpButtons.add(up);
             abilityDownButtons.add(down);
-            addDrawableChild(up);
-            addDrawableChild(down);
+            addRenderableWidget(up);
+            addRenderableWidget(down);
         }
     }
 
@@ -211,11 +211,11 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
             int y = listTop + (i * ROW_HEIGHT);
             int index = i;
 
-            ButtonWidget loadBtn = ButtonWidget.builder(Text.translatable("gems.screen.loadout_presets.load"), btn -> loadPreset(index))
-                    .dimensions(loadX, y - 2, 60, BUTTON_HEIGHT)
+            Button loadBtn = Button.builder(Component.translatable("gems.screen.loadout_presets.load"), btn -> loadPreset(index))
+                    .bounds(loadX, y - 2, 60, BUTTON_HEIGHT)
                     .build();
-            ButtonWidget deleteBtn = ButtonWidget.builder(Text.translatable("gems.screen.loadout_presets.delete"), btn -> deletePreset(index))
-                    .dimensions(deleteX, y - 2, 50, BUTTON_HEIGHT)
+            Button deleteBtn = Button.builder(Component.translatable("gems.screen.loadout_presets.delete"), btn -> deletePreset(index))
+                    .bounds(deleteX, y - 2, 50, BUTTON_HEIGHT)
                     .build();
 
             boolean hasPreset = index < payload.presets().size();
@@ -224,8 +224,8 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
 
             loadButtons.add(loadBtn);
             deleteButtons.add(deleteBtn);
-            addDrawableChild(loadBtn);
-            addDrawableChild(deleteBtn);
+            addRenderableWidget(loadBtn);
+            addRenderableWidget(deleteBtn);
         }
     }
 
@@ -233,7 +233,7 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
         if (!ClientGemState.isInitialized()) {
             return;
         }
-        String name = nameField.getText();
+        String name = nameField.getValue();
         ClientPlayNetworking.send(new LoadoutSavePayload(
                 payload.gem(),
                 name == null ? "" : name,
@@ -289,7 +289,7 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
     }
 
     @Override
-    public boolean keyPressed(KeyInput key) {
+    public boolean keyPressed(KeyEvent key) {
         if (nameField != null && nameField.keyPressed(key)) {
             return true;
         }
@@ -297,38 +297,38 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
         drawPanel(context, panelLeft, panelTop, panelRight, panelBottom);
 
         renderBase(context);
 
-        String gemLabel = Text.translatable("gems.screen.loadout_presets.gem", payload.gem().name()).getString();
-        context.drawTextWithShadow(this.textRenderer, gemLabel, (this.width / 2) - 20, 30, COLOR_GRAY);
+        String gemLabel = Component.translatable("gems.screen.loadout_presets.gem", payload.gem().name()).getString();
+        context.text(this.font, gemLabel, (this.width / 2) - 20, 30, COLOR_GRAY);
 
         int abilityRows = Math.max(1, abilityOrder.size());
         for (int i = 0; i < abilityRows; i++) {
-            String label = Text.translatable("gems.screen.loadout_presets.empty").getString();
+            String label = Component.translatable("gems.screen.loadout_presets.empty").getString();
             if (i < abilityOrder.size()) {
                 Identifier id = abilityOrder.get(i);
                 GemAbility ability = ModAbilities.get(id);
                 label = ability != null ? ability.name() : id.getPath();
             }
             String line = (i + 1) + ". " + label;
-            context.drawTextWithShadow(this.textRenderer, this.textRenderer.trimToWidth(line, abilityTextWidth), labelX, abilityTop + (i * ABILITY_ROW_HEIGHT), COLOR_WHITE);
+            context.text(this.font, this.font.plainSubstrByWidth(line, abilityTextWidth), labelX, abilityTop + (i * ABILITY_ROW_HEIGHT), COLOR_WHITE);
         }
 
         int maxPresets = Math.max(1, payload.maxPresets());
         for (int i = 0; i < maxPresets; i++) {
-            String label = Text.translatable("gems.screen.loadout_presets.empty").getString();
+            String label = Component.translatable("gems.screen.loadout_presets.empty").getString();
             if (i < payload.presets().size()) {
                 LoadoutScreenPayload.Preset preset = payload.presets().get(i);
                 label = preset.name();
             }
             if (i == payload.activeIndex()) {
-                label = label + " " + Text.translatable("gems.screen.loadout_presets.active").getString();
+                label = label + " " + Component.translatable("gems.screen.loadout_presets.active").getString();
             }
-            context.drawTextWithShadow(this.textRenderer, (i + 1) + ". " + label, labelX, listTop + (i * ROW_HEIGHT), COLOR_WHITE);
+            context.text(this.font, (i + 1) + ". " + label, labelX, listTop + (i * ROW_HEIGHT), COLOR_WHITE);
         }
 
     }
@@ -350,17 +350,17 @@ public final class LoadoutPresetsScreen extends GemsScreenBase {
     }
 
     private void addLabel(int x, int y, int w, String text) {
-        ButtonWidget label = ButtonWidget.builder(Text.literal(text), b -> {})
-                .dimensions(x, y, w, BUTTON_HEIGHT)
+        Button label = Button.builder(Component.literal(text), b -> {})
+                .bounds(x, y, w, BUTTON_HEIGHT)
                 .build();
         label.active = false;
-        addDrawableChild(label);
+        addRenderableWidget(label);
     }
 
-    private CyclingButtonWidget<Boolean> addToggle(int x, int y, int w, boolean initial, java.util.function.Consumer<Boolean> setter) {
-        CyclingButtonWidget<Boolean> btn = CyclingButtonWidget.onOffBuilder(initial)
-                .build(x, y, w, BUTTON_HEIGHT, Text.empty(), (b, v) -> setter.accept(v));
-        addDrawableChild(btn);
+    private CycleButton<Boolean> addToggle(int x, int y, int w, boolean initial, java.util.function.Consumer<Boolean> setter) {
+        CycleButton<Boolean> btn = CycleButton.onOffBuilder(initial)
+                .create(x, y, w, BUTTON_HEIGHT, Component.empty(), (b, v) -> setter.accept(v));
+        addRenderableWidget(btn);
         return btn;
     }
 }

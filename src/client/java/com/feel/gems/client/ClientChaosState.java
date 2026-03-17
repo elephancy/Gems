@@ -1,18 +1,15 @@
 package com.feel.gems.client;
 
 import com.feel.gems.net.ChaosSlotPayload;
-import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.resources.Identifier;
 
 /**
  * Client-side state for Chaos gem's ability slots.
  * Slot count is dynamic and determined by server config.
  */
 public final class ClientChaosState {
-    /** @deprecated Use {@link #slotCount()} instead. Kept for legacy compatibility. */
-    @Deprecated
-    public static final int SLOT_COUNT = 6;
     
     public record SlotState(
         String abilityName,
@@ -100,28 +97,4 @@ public final class ClientChaosState {
         return false;
     }
     
-    // Legacy methods for compatibility
-    public static String abilityName() {
-        SlotState slot = getSlot(0);
-        return slot.abilityName;
-    }
-
-    public static Identifier abilityId() {
-        SlotState slot = getSlot(0);
-        return slot.abilityId;
-    }
-
-    public static String passiveName() {
-        SlotState slot = getSlot(0);
-        return slot.passiveName;
-    }
-
-    public static int rotationSecondsRemaining() {
-        SlotState slot = getSlot(0);
-        return slot.remainingSeconds;
-    }
-
-    public static boolean hasState() {
-        return hasAnyActiveSlot();
-    }
 }

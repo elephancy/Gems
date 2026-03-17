@@ -7,11 +7,11 @@ import com.feel.gems.net.SpyObservedSelectPayload;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * Client UI for selecting observed Spy abilities for Echo/Steal.
@@ -26,7 +26,7 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
     private Tab tab = Tab.ECHO;
 
     public SpyObservedSelectionScreen(SpyObservedScreenPayload payload) {
-        super(Text.translatable("gems.screen.spy_observed.title"));
+        super(Component.translatable("gems.screen.spy_observed.title"));
         this.entries = new ArrayList<>(payload.observed());
         this.stolen = new ArrayList<>(payload.stolen());
         this.selectedEchoId = payload.selectedEchoId();
@@ -41,7 +41,7 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
 
         int centerX = this.width / 2;
         int panelW = panelWidth(width);
@@ -58,8 +58,8 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
         addTabButtons(centerX, entryX, panelW);
 
         if (visible.isEmpty()) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.spy_observed.none").formatted(Formatting.GRAY), btn -> {})
-                    .dimensions(entryX, listY + 8, panelW, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.spy_observed.none").withStyle(ChatFormatting.GRAY), btn -> {})
+                    .bounds(entryX, listY + 8, panelW, BUTTON_HEIGHT)
                     .build()).active = false;
         } else {
             for (int i = start; i < end; i++) {
@@ -67,14 +67,14 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
                 boolean isSelected = view.selected;
                 String labelText = view.label;
 
-                Formatting color = view.color;
+                ChatFormatting color = view.color;
                 if (isSelected) {
-                    color = Formatting.GOLD;
+                    color = ChatFormatting.GOLD;
                 }
-                Text label = Text.literal(labelText).formatted(color);
+                Component label = Component.literal(labelText).withStyle(color);
 
-                ButtonWidget button = addDrawableChild(ButtonWidget.builder(label, btn -> select(view.id))
-                        .dimensions(entryX, listY + (i - start) * (BUTTON_HEIGHT + SPACING), panelW, BUTTON_HEIGHT)
+                Button button = addRenderableWidget(Button.builder(label, btn -> select(view.id))
+                        .bounds(entryX, listY + (i - start) * (BUTTON_HEIGHT + SPACING), panelW, BUTTON_HEIGHT)
                         .build());
                 button.active = view.clickable;
             }
@@ -82,19 +82,19 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
 
         int navY = navButtonY(height);
 
-        ButtonWidget prev = ButtonWidget.builder(Text.translatable("gems.screen.button.prev"), btn -> changePage(-1))
-                .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button prev = Button.builder(Component.translatable("gems.screen.button.prev"), btn -> changePage(-1))
+                .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
-        ButtonWidget next = ButtonWidget.builder(Text.translatable("gems.screen.button.next"), btn -> changePage(1))
-                .dimensions(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button next = Button.builder(Component.translatable("gems.screen.button.next"), btn -> changePage(1))
+                .bounds(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
         prev.active = page > 0;
         next.active = page < totalPg - 1;
-        addDrawableChild(prev);
-        addDrawableChild(next);
+        addRenderableWidget(prev);
+        addRenderableWidget(next);
 
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.close"), btn -> close())
-                .dimensions(centerX - CLOSE_BUTTON_WIDTH / 2, closeButtonY(height), CLOSE_BUTTON_WIDTH, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.close"), btn -> onClose())
+                .bounds(centerX - CLOSE_BUTTON_WIDTH / 2, closeButtonY(height), CLOSE_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
     }
 
@@ -102,24 +102,24 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
         int tabW = (panelW - (SPACING * 2)) / 3;
         int tabY = CONTENT_START_Y;
 
-        addDrawableChild(ButtonWidget.builder(tabLabel(Tab.ECHO), btn -> switchTab(Tab.ECHO))
-                .dimensions(entryX, tabY, tabW, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(tabLabel(Tab.ECHO), btn -> switchTab(Tab.ECHO))
+                .bounds(entryX, tabY, tabW, BUTTON_HEIGHT)
                 .build()).active = tab != Tab.ECHO;
 
-        addDrawableChild(ButtonWidget.builder(tabLabel(Tab.STEAL), btn -> switchTab(Tab.STEAL))
-                .dimensions(entryX + tabW + SPACING, tabY, tabW, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(tabLabel(Tab.STEAL), btn -> switchTab(Tab.STEAL))
+                .bounds(entryX + tabW + SPACING, tabY, tabW, BUTTON_HEIGHT)
                 .build()).active = tab != Tab.STEAL;
 
-        addDrawableChild(ButtonWidget.builder(tabLabel(Tab.STOLEN_CAST), btn -> switchTab(Tab.STOLEN_CAST))
-                .dimensions(entryX + (tabW + SPACING) * 2, tabY, tabW, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(tabLabel(Tab.STOLEN_CAST), btn -> switchTab(Tab.STOLEN_CAST))
+                .bounds(entryX + (tabW + SPACING) * 2, tabY, tabW, BUTTON_HEIGHT)
                 .build()).active = tab != Tab.STOLEN_CAST;
     }
 
-    private Text tabLabel(Tab target) {
+    private Component tabLabel(Tab target) {
         return switch (target) {
-            case ECHO -> Text.translatable("gems.screen.spy_observed.tab.echo");
-            case STEAL -> Text.translatable("gems.screen.spy_observed.tab.steal");
-            case STOLEN_CAST -> Text.translatable("gems.screen.spy_observed.tab.stolen_cast");
+            case ECHO -> Component.translatable("gems.screen.spy_observed.tab.echo");
+            case STEAL -> Component.translatable("gems.screen.spy_observed.tab.steal");
+            case STOLEN_CAST -> Component.translatable("gems.screen.spy_observed.tab.stolen_cast");
         };
     }
 
@@ -137,7 +137,7 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
         if (tab == Tab.STOLEN_CAST) {
             for (SpyObservedScreenPayload.StolenEntry entry : stolen) {
                 boolean selected = entry.id().equals(selectedStolenCastId);
-                out.add(new EntryView(entry.id(), entry.name(), Formatting.AQUA, true, selected));
+                out.add(new EntryView(entry.id(), entry.name(), ChatFormatting.AQUA, true, selected));
             }
             return out;
         }
@@ -153,7 +153,7 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
                     ? entry.id().equals(selectedEchoId)
                     : entry.id().equals(selectedStealId);
             String label = entry.name() + " x" + entry.count();
-            Formatting color = tab == Tab.STEAL ? Formatting.GREEN : Formatting.AQUA;
+            ChatFormatting color = tab == Tab.STEAL ? ChatFormatting.GREEN : ChatFormatting.AQUA;
             out.add(new EntryView(entry.id(), label, color, true, selected));
         }
         return out;
@@ -175,12 +175,12 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
         int centerX = this.width / 2;
         renderBase(context);
-        context.drawCenteredTextWithShadow(this.textRenderer,
-                Text.translatable("gems.screen.spy_observed.subtitle"),
+        context.centeredText(this.font,
+                Component.translatable("gems.screen.spy_observed.subtitle"),
                 centerX, SUBTITLE_Y, COLOR_GRAY);
     }
 
@@ -190,6 +190,6 @@ public final class SpyObservedSelectionScreen extends GemsScreenBase {
         STOLEN_CAST
     }
 
-    private record EntryView(Identifier id, String label, Formatting color, boolean clickable, boolean selected) {
+    private record EntryView(Identifier id, String label, ChatFormatting color, boolean clickable, boolean selected) {
     }
 }

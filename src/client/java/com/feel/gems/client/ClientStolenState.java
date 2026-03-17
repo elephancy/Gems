@@ -1,7 +1,7 @@
 package com.feel.gems.client;
 
 import java.util.Set;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public final class ClientStolenState {
     private static Set<Identifier> stolenPassives = Set.of();

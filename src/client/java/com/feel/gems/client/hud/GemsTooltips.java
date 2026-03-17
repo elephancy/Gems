@@ -15,14 +15,14 @@ import com.feel.gems.power.registry.ModPassives;
 import com.feel.gems.util.GemsNbt;
 import java.util.List;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 
 
 
@@ -49,12 +49,12 @@ public final class GemsTooltips {
     private static final String OWNER_UUID_KEY = "gemsOwner";
     private static final String PREV_OWNER_NAME_KEY = "gemsPrevOwnerName";
 
-    private static void appendOwnerTooltip(ItemStack stack, List<Text> lines) {
-        NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
+    private static void appendOwnerTooltip(ItemStack stack, List<Component> lines) {
+        CustomData custom = stack.get(DataComponents.CUSTOM_DATA);
         if (custom == null) {
             return;
         }
-        NbtCompound nbt = custom.copyNbt();
+        CompoundTag nbt = custom.copyTag();
         if (!nbt.contains(OWNER_NAME_KEY)) {
             return;
         }
@@ -63,21 +63,21 @@ public final class GemsTooltips {
             String displayName = ownerName;
             String prevOwnerName = nbt.getString(PREV_OWNER_NAME_KEY).orElse("");
             if (!prevOwnerName.isEmpty()) {
-                MinecraftClient client = MinecraftClient.getInstance();
+                Minecraft client = Minecraft.getInstance();
                 if (client.player != null) {
                     var ownerUuid = GemsNbt.getUuid(nbt, OWNER_UUID_KEY);
-                    if (ownerUuid != null && ownerUuid.equals(client.player.getUuid())) {
+                    if (ownerUuid != null && ownerUuid.equals(client.player.getUUID())) {
                         displayName = prevOwnerName;
                     } else if (ownerUuid == null && ownerName.equalsIgnoreCase(client.player.getName().getString())) {
                         displayName = prevOwnerName;
                     }
                 }
             }
-            lines.add(Text.translatable("gems.item.last_owner", displayName).formatted(Formatting.GRAY));
+            lines.add(Component.translatable("gems.item.last_owner", displayName).withStyle(ChatFormatting.GRAY));
         }
     }
 
-    private static void appendTooltip(ItemStack stack, List<Text> lines) {
+    private static void appendTooltip(ItemStack stack, List<Component> lines) {
         if (!(stack.getItem() instanceof GemItem item)) {
             return;
         }
@@ -88,17 +88,17 @@ public final class GemsTooltips {
         if (gem == GemId.PRISM || gem == GemId.CHAOS) {
             appendDynamicSections(gem, def, lines);
         } else {
-            Formatting headerColor = Formatting.LIGHT_PURPLE;
-            Formatting abilityColor = Formatting.AQUA;
-            Formatting passiveColor = Formatting.GREEN;
+            ChatFormatting headerColor = ChatFormatting.LIGHT_PURPLE;
+            ChatFormatting abilityColor = ChatFormatting.AQUA;
+            ChatFormatting passiveColor = ChatFormatting.GREEN;
 
-            lines.add(Text.translatable("gems.tooltip.passives").formatted(headerColor));
+            lines.add(Component.translatable("gems.tooltip.passives").withStyle(headerColor));
             for (Identifier id : def.passives()) {
                 GemPassive passive = ModPassives.get(id);
                 appendEntry(lines, passiveColor, passive != null ? passive.name() : id.toString(), passive != null ? passive.description() : "");
             }
 
-            lines.add(Text.translatable("gems.tooltip.abilities").formatted(headerColor));
+            lines.add(Component.translatable("gems.tooltip.abilities").withStyle(headerColor));
             for (Identifier id : def.abilities()) {
                 GemAbility ability = ModAbilities.get(id);
                 appendEntry(lines, abilityColor, ability != null ? ability.name() : id.toString(), ability != null ? ability.description() : "");
@@ -108,28 +108,28 @@ public final class GemsTooltips {
         if (gem == GemId.FLUX) {
             String chord = com.feel.gems.client.GemsKeybinds.chordSlotLabel(2);
             if (!chord.isEmpty()) {
-                lines.add(Text.translatable("gems.tooltip.flux.charge_key", chord).formatted(Formatting.AQUA));
+                lines.add(Component.translatable("gems.tooltip.flux.charge_key", chord).withStyle(ChatFormatting.AQUA));
             }
-            lines.add(Text.translatable("gems.tooltip.flux.charge_items").formatted(Formatting.AQUA));
+            lines.add(Component.translatable("gems.tooltip.flux.charge_items").withStyle(ChatFormatting.AQUA));
             var flux = GemsBalance.v().flux();
-            lines.add(Text.literal(" - Diamond Block: +" + flux.chargeDiamondBlock() + "%").formatted(Formatting.DARK_AQUA));
-            lines.add(Text.literal(" - Gold Block: +" + flux.chargeGoldBlock() + "%").formatted(Formatting.DARK_AQUA));
-            lines.add(Text.literal(" - Copper Block: +" + flux.chargeCopperBlock() + "%").formatted(Formatting.DARK_AQUA));
-            lines.add(Text.literal(" - Emerald Block: +" + flux.chargeEmeraldBlock() + "%").formatted(Formatting.DARK_AQUA));
-            lines.add(Text.literal(" - Amethyst Block: +" + flux.chargeAmethystBlock() + "%").formatted(Formatting.DARK_AQUA));
-            lines.add(Text.literal(" - Netherite Scrap: +" + flux.chargeNetheriteScrap() + "%").formatted(Formatting.DARK_AQUA));
-            lines.add(Text.literal(" - Enchanted diamond tool/armor: +" + flux.chargeEnchantedDiamondItem() + "%").formatted(Formatting.DARK_AQUA));
+            lines.add(Component.literal(" - Diamond Block: +" + flux.chargeDiamondBlock() + "%").withStyle(ChatFormatting.DARK_AQUA));
+            lines.add(Component.literal(" - Gold Block: +" + flux.chargeGoldBlock() + "%").withStyle(ChatFormatting.DARK_AQUA));
+            lines.add(Component.literal(" - Copper Block: +" + flux.chargeCopperBlock() + "%").withStyle(ChatFormatting.DARK_AQUA));
+            lines.add(Component.literal(" - Emerald Block: +" + flux.chargeEmeraldBlock() + "%").withStyle(ChatFormatting.DARK_AQUA));
+            lines.add(Component.literal(" - Amethyst Block: +" + flux.chargeAmethystBlock() + "%").withStyle(ChatFormatting.DARK_AQUA));
+            lines.add(Component.literal(" - Netherite Scrap: +" + flux.chargeNetheriteScrap() + "%").withStyle(ChatFormatting.DARK_AQUA));
+            lines.add(Component.literal(" - Enchanted diamond tool/armor: +" + flux.chargeEnchantedDiamondItem() + "%").withStyle(ChatFormatting.DARK_AQUA));
         }
 
         appendStolenSections(lines);
     }
 
-    private static void appendDynamicSections(GemId gem, GemDefinition def, List<Text> lines) {
-        Formatting headerColor = Formatting.LIGHT_PURPLE;
-        Formatting abilityColor = Formatting.AQUA;
-        Formatting passiveColor = Formatting.GREEN;
+    private static void appendDynamicSections(GemId gem, GemDefinition def, List<Component> lines) {
+        ChatFormatting headerColor = ChatFormatting.LIGHT_PURPLE;
+        ChatFormatting abilityColor = ChatFormatting.AQUA;
+        ChatFormatting passiveColor = ChatFormatting.GREEN;
 
-        lines.add(Text.translatable("gems.tooltip.passives").formatted(headerColor));
+        lines.add(Component.translatable("gems.tooltip.passives").withStyle(headerColor));
         boolean anyPassives = false;
 
         for (Identifier id : def.passives()) {
@@ -158,10 +158,10 @@ public final class GemsTooltips {
         }
 
         if (!anyPassives) {
-            lines.add(Text.translatable("gems.item.prism.no_selection").formatted(Formatting.GRAY));
+            lines.add(Component.translatable("gems.item.prism.no_selection").withStyle(ChatFormatting.GRAY));
         }
 
-        lines.add(Text.translatable("gems.tooltip.abilities").formatted(headerColor));
+        lines.add(Component.translatable("gems.tooltip.abilities").withStyle(headerColor));
         boolean anyAbilities = false;
 
         for (Identifier id : def.abilities()) {
@@ -190,32 +190,32 @@ public final class GemsTooltips {
         }
 
         if (!anyAbilities) {
-            lines.add(Text.translatable("gems.item.prism.no_selection").formatted(Formatting.GRAY));
+            lines.add(Component.translatable("gems.item.prism.no_selection").withStyle(ChatFormatting.GRAY));
         }
     }
 
-    private static void appendStolenSections(List<Text> lines) {
+    private static void appendStolenSections(List<Component> lines) {
         if (ClientStolenState.hasStolenPassives()) {
-            lines.add(Text.translatable("gems.tooltip.stolen_passives").formatted(Formatting.GOLD));
+            lines.add(Component.translatable("gems.tooltip.stolen_passives").withStyle(ChatFormatting.GOLD));
             for (Identifier id : ClientStolenState.stolenPassives()) {
                 GemPassive passive = ModPassives.get(id);
-                appendEntry(lines, Formatting.YELLOW, passive != null ? passive.name() : id.toString(), passive != null ? passive.description() : "");
+                appendEntry(lines, ChatFormatting.YELLOW, passive != null ? passive.name() : id.toString(), passive != null ? passive.description() : "");
             }
         }
         if (ClientStolenState.hasStolenAbilities()) {
-            lines.add(Text.translatable("gems.tooltip.stolen_abilities").formatted(Formatting.GOLD));
+            lines.add(Component.translatable("gems.tooltip.stolen_abilities").withStyle(ChatFormatting.GOLD));
             for (Identifier id : ClientStolenState.stolenAbilities()) {
                 GemAbility ability = ModAbilities.get(id);
-                appendEntry(lines, Formatting.YELLOW, ability != null ? ability.name() : id.toString(), ability != null ? ability.description() : "");
+                appendEntry(lines, ChatFormatting.YELLOW, ability != null ? ability.name() : id.toString(), ability != null ? ability.description() : "");
             }
         }
     }
 
-    private static void appendEntry(List<Text> lines, Formatting color, String name, String desc) {
+    private static void appendEntry(List<Component> lines, ChatFormatting color, String name, String desc) {
         if (name == null || name.isBlank()) {
             return;
         }
         String suffix = desc != null && !desc.isBlank() ? ": " + desc : "";
-        lines.add(Text.literal(" - " + name + suffix).formatted(color == null ? Formatting.DARK_GRAY : color));
+        lines.add(Component.literal(" - " + name + suffix).withStyle(color == null ? ChatFormatting.DARK_GRAY : color));
     }
 }

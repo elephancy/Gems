@@ -3,7 +3,7 @@ package com.feel.gems.client;
 import com.feel.gems.core.GemId;
 import java.util.EnumMap;
 import java.util.List;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public final class ClientAbilityOrder {
     private static final EnumMap<GemId, List<Identifier>> ORDERS = new EnumMap<>(GemId.class);

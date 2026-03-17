@@ -1,9 +1,9 @@
 package com.feel.gems.mixin.client;
 
 import com.feel.gems.client.ClientDisguiseState;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,27 +12,27 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 
 
-@Mixin(PlayerEntity.class)
+@Mixin(Player.class)
 public abstract class AbstractClientPlayerEntityNameMixin {
-    @Inject(method = "getName()Lnet/minecraft/text/Text;", at = @At("HEAD"), cancellable = true)
-    private void gems$overrideName(CallbackInfoReturnable<Text> cir) {
-        PlayerEntity self = (PlayerEntity) (Object) this;
-        if (!(self instanceof AbstractClientPlayerEntity)) {
+    @Inject(method = "getName()Lnet/minecraft/network/chat/Component;", at = @At("HEAD"), cancellable = true)
+    private void gems$overrideName(CallbackInfoReturnable<Component> cir) {
+        Player self = (Player) (Object) this;
+        if (!(self instanceof AbstractClientPlayer)) {
             return;
         }
-        Text override = ClientDisguiseState.overrideName(self.getUuid());
+        Component override = ClientDisguiseState.overrideName(self.getUUID());
         if (override != null) {
             cir.setReturnValue(override);
         }
     }
 
-    @Inject(method = "getDisplayName()Lnet/minecraft/text/Text;", at = @At("HEAD"), cancellable = true)
-    private void gems$overrideDisplayName(CallbackInfoReturnable<Text> cir) {
-        PlayerEntity self = (PlayerEntity) (Object) this;
-        if (!(self instanceof AbstractClientPlayerEntity)) {
+    @Inject(method = "getDisplayName()Lnet/minecraft/network/chat/Component;", at = @At("HEAD"), cancellable = true)
+    private void gems$overrideDisplayName(CallbackInfoReturnable<Component> cir) {
+        Player self = (Player) (Object) this;
+        if (!(self instanceof AbstractClientPlayer)) {
             return;
         }
-        Text override = ClientDisguiseState.overrideName(self.getUuid());
+        Component override = ClientDisguiseState.overrideName(self.getUUID());
         if (override != null) {
             cir.setReturnValue(override);
         }

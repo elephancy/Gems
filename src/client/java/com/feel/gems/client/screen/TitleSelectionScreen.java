@@ -10,11 +10,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 public final class TitleSelectionScreen extends GemsScreenBase {
     private final List<TitleSelectionScreenPayload.Entry> entries;
@@ -22,7 +22,7 @@ public final class TitleSelectionScreen extends GemsScreenBase {
     private int page = 0;
 
     public TitleSelectionScreen(TitleSelectionScreenPayload payload) {
-        super(Text.translatable("gems.screen.title_selection.title"));
+        super(Component.translatable("gems.screen.title_selection.title"));
         this.entries = new ArrayList<>(payload.entries());
         this.entries.sort(Comparator.comparingInt(TitleSelectionScreen::sortKey));
     }
@@ -34,23 +34,23 @@ public final class TitleSelectionScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
 
         int centerX = this.width / 2;
         int panelW = panelWidth(width);
         int entryX = centerX - panelW / 2;
         int tabY = SUBTITLE_Y + 12;
 
-        ButtonWidget unlockedTab = ButtonWidget.builder(Text.translatable("gems.screen.title_selection.tab.unlocked"), btn -> switchTab(Tab.UNLOCKED))
-                .dimensions(centerX - TAB_WIDTH - TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT)
+        Button unlockedTab = Button.builder(Component.translatable("gems.screen.title_selection.tab.unlocked"), btn -> switchTab(Tab.UNLOCKED))
+                .bounds(centerX - TAB_WIDTH - TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT)
                 .build();
-        ButtonWidget allTab = ButtonWidget.builder(Text.translatable("gems.screen.title_selection.tab.all"), btn -> switchTab(Tab.ALL))
-                .dimensions(centerX + TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT)
+        Button allTab = Button.builder(Component.translatable("gems.screen.title_selection.tab.all"), btn -> switchTab(Tab.ALL))
+                .bounds(centerX + TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT)
                 .build();
         unlockedTab.active = tab != Tab.UNLOCKED;
         allTab.active = tab != Tab.ALL;
-        addDrawableChild(unlockedTab);
-        addDrawableChild(allTab);
+        addRenderableWidget(unlockedTab);
+        addRenderableWidget(allTab);
 
         List<TitleSelectionScreenPayload.Entry> visible = visibleEntries();
         int totalPg = totalPages(visible.size(), ENTRIES_PER_PAGE);
@@ -61,16 +61,16 @@ public final class TitleSelectionScreen extends GemsScreenBase {
         int y = tabY + TAB_HEIGHT + SPACING * 2;
 
         if (visible.isEmpty()) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.title_selection.none").formatted(Formatting.GRAY), btn -> {})
-                    .dimensions(entryX, y, panelW, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.title_selection.none").withStyle(ChatFormatting.GRAY), btn -> {})
+                    .bounds(entryX, y, panelW, BUTTON_HEIGHT)
                     .build()).active = false;
         } else {
             for (int i = start; i < end; i++) {
                 TitleSelectionScreenPayload.Entry entry = visible.get(i);
                 int buttonY = y + (i - start) * (BUTTON_HEIGHT + SPACING);
-                Text label = labelFor(entry);
-                ButtonWidget button = addDrawableChild(ButtonWidget.builder(label, btn -> select(entry.id()))
-                        .dimensions(entryX, buttonY, panelW, BUTTON_HEIGHT)
+                Component label = labelFor(entry);
+                Button button = addRenderableWidget(Button.builder(label, btn -> select(entry.id()))
+                        .bounds(entryX, buttonY, panelW, BUTTON_HEIGHT)
                         .build());
                 if (entry.gemOrdinal() < 0) {
                     button.active = entry.unlocked();
@@ -81,54 +81,54 @@ public final class TitleSelectionScreen extends GemsScreenBase {
         }
 
         int navY = navButtonY(height);
-        ButtonWidget prev = ButtonWidget.builder(Text.translatable("gems.screen.button.prev"), btn -> changePage(-1))
-                .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button prev = Button.builder(Component.translatable("gems.screen.button.prev"), btn -> changePage(-1))
+                .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
-        ButtonWidget next = ButtonWidget.builder(Text.translatable("gems.screen.button.next"), btn -> changePage(1))
-                .dimensions(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button next = Button.builder(Component.translatable("gems.screen.button.next"), btn -> changePage(1))
+                .bounds(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
         prev.active = page > 0;
         next.active = (page + 1) * ENTRIES_PER_PAGE < visible.size();
-        addDrawableChild(prev);
-        addDrawableChild(next);
+        addRenderableWidget(prev);
+        addRenderableWidget(next);
 
         int closeY = closeButtonY(height);
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.clear"), btn -> clearSelection())
-                .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.clear"), btn -> clearSelection())
+                .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.close"), btn -> close())
-                .dimensions(centerX + SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.close"), btn -> onClose())
+                .bounds(centerX + SPACING, closeY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
     }
 
-    private Text labelFor(TitleSelectionScreenPayload.Entry entry) {
+    private Component labelFor(TitleSelectionScreenPayload.Entry entry) {
         if (entry.gemOrdinal() < 0) {
-            MutableText label = Text.translatable("gems.screen.title_selection.general").formatted(Formatting.GRAY)
-                    .append(Text.translatable(entry.displayKey()).formatted(Formatting.GOLD));
+            MutableComponent label = Component.translatable("gems.screen.title_selection.general").withStyle(ChatFormatting.GRAY)
+                    .append(Component.translatable(entry.displayKey()).withStyle(ChatFormatting.GOLD));
             if (entry.selected()) {
-                label.append(Text.translatable("gems.screen.title_selection.selected").formatted(Formatting.GOLD));
+                label.append(Component.translatable("gems.screen.title_selection.selected").withStyle(ChatFormatting.GOLD));
             } else if (entry.unlocked()) {
-                label.append(Text.translatable("gems.screen.title_selection.leader").formatted(Formatting.GOLD));
+                label.append(Component.translatable("gems.screen.title_selection.leader").withStyle(ChatFormatting.GOLD));
             } else {
-                label.append(Text.translatable("gems.screen.title_selection.locked").formatted(Formatting.DARK_GRAY));
+                label.append(Component.translatable("gems.screen.title_selection.locked").withStyle(ChatFormatting.DARK_GRAY));
             }
             return label;
         }
         GemId gem = safeGem(entry.gemOrdinal());
         String gemName = GemSeerScreenHandler.formatGemName(gem);
 
-        MutableText label = Text.literal(gemName + " - ").formatted(Formatting.GRAY)
-                .append(Text.translatable(entry.displayKey()).formatted(GemSeerScreenHandler.gemColor(gem)))
-                .append(Text.literal(" [" + entry.usage() + "/" + entry.threshold() + "]").formatted(Formatting.DARK_GRAY));
+        MutableComponent label = Component.literal(gemName + " - ").withStyle(ChatFormatting.GRAY)
+                .append(Component.translatable(entry.displayKey()).withStyle(GemSeerScreenHandler.gemColor(gem)))
+                .append(Component.literal(" [" + entry.usage() + "/" + entry.threshold() + "]").withStyle(ChatFormatting.DARK_GRAY));
 
         if (entry.selected()) {
-            label.append(Text.translatable("gems.screen.title_selection.selected").formatted(Formatting.GOLD));
+            label.append(Component.translatable("gems.screen.title_selection.selected").withStyle(ChatFormatting.GOLD));
         } else if (!entry.unlocked()) {
-            label.append(Text.translatable("gems.screen.title_selection.locked").formatted(Formatting.DARK_GRAY));
+            label.append(Component.translatable("gems.screen.title_selection.locked").withStyle(ChatFormatting.DARK_GRAY));
         }
 
         if (entry.forcedSelected()) {
-            label.append(Text.translatable("gems.screen.title_selection.admin").formatted(Formatting.DARK_GRAY));
+            label.append(Component.translatable("gems.screen.title_selection.admin").withStyle(ChatFormatting.DARK_GRAY));
         }
 
         return label;
@@ -149,17 +149,17 @@ public final class TitleSelectionScreen extends GemsScreenBase {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
         renderBase(context);
-        context.drawCenteredTextWithShadow(this.textRenderer, Text.translatable("gems.screen.title_selection.subtitle"),
+        context.centeredText(this.font, Component.translatable("gems.screen.title_selection.subtitle"),
                 this.width / 2, SUBTITLE_Y, COLOR_GRAY);
 
         if (!entries.isEmpty()) {
             int maxPage = totalPages(visibleEntries().size(), ENTRIES_PER_PAGE);
             String pageText = "Page " + (page + 1) + " / " + maxPage;
             int pageY = SUBTITLE_Y + 12 + TAB_HEIGHT + 2;
-            context.drawCenteredTextWithShadow(this.textRenderer, pageText, this.width / 2, pageY, COLOR_GRAY);
+            context.centeredText(this.font, pageText, this.width / 2, pageY, COLOR_GRAY);
         }
     }
 

@@ -21,7 +21,6 @@ import com.feel.gems.net.BonusAbilitiesSyncPayload;
 import com.feel.gems.net.BonusSelectionScreenPayload;
 import com.feel.gems.net.BountyBoardPayload;
 import com.feel.gems.net.ChaosSlotPayload;
-import com.feel.gems.net.ChaosStatePayload;
 import com.feel.gems.net.CooldownSnapshotPayload;
 import com.feel.gems.net.ExtraStatePayload;
 import com.feel.gems.net.PrismAbilitiesSyncPayload;
@@ -35,6 +34,9 @@ import com.feel.gems.net.LoadoutScreenPayload;
 import com.feel.gems.net.HudLayoutPayload;
 import com.feel.gems.net.TrophyNecklaceScreenPayload;
 import com.feel.gems.net.TrackerCompassScreenPayload;
+import com.feel.gems.net.GemSeerOpeningPayload;
+import com.feel.gems.screen.GemSeerScreenHandler;
+import com.feel.gems.client.screen.GemSeerScreen;
 import com.feel.gems.net.TitleSelectionScreenPayload;
 import com.feel.gems.net.SpySkinshiftPayload;
 import com.feel.gems.net.TricksterControlPayload;
@@ -42,7 +44,7 @@ import com.feel.gems.net.payloads.ShadowCloneSyncPayload;
 import com.feel.gems.net.RivalrySyncPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 
 
@@ -131,25 +133,38 @@ public final class ClientNetworking {
 
         ClientPlayNetworking.registerGlobalReceiver(SummonerLoadoutScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new SummonerLoadoutScreen(payload));
+                        client.gui.setScreen(new SummonerLoadoutScreen(payload));
                     }
                 }));
 
         ClientPlayNetworking.registerGlobalReceiver(LoadoutScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new LoadoutPresetsScreen(payload));
+                        client.gui.setScreen(new LoadoutPresetsScreen(payload));
+                    }
+                }));
+
+        ClientPlayNetworking.registerGlobalReceiver(GemSeerOpeningPayload.ID, (payload, context) ->
+                context.client().execute(() -> {
+                    Minecraft client = context.client();
+                    if (client.player != null
+                            && client.player.containerMenu instanceof GemSeerScreenHandler menu
+                            && menu.containerId == payload.menuId()) {
+                        menu.setOpeningData(payload.data());
+                        if (client.gui.screen() instanceof GemSeerScreen screen) {
+                            screen.refreshPlayers();
+                        }
                     }
                 }));
 
         ClientPlayNetworking.registerGlobalReceiver(TrackerCompassScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new TrackerCompassScreen(payload));
+                        client.gui.setScreen(new TrackerCompassScreen(payload));
                     }
                 }));
         ClientPlayNetworking.registerGlobalReceiver(SpySkinshiftPayload.ID, (payload, context) ->
@@ -163,12 +178,7 @@ public final class ClientNetworking {
                 context.client().execute(() -> ClientDisables.update(payload))
         );
 
-        // Legacy chaos state (kept for compatibility)
-        ClientPlayNetworking.registerGlobalReceiver(ChaosStatePayload.ID, (payload, context) -> {
-            // Old system - ignore
-        });
-        
-        // New chaos slots system
+        // Chaos slots
         ClientPlayNetworking.registerGlobalReceiver(ChaosSlotPayload.ID, (payload, context) ->
                 context.client().execute(() -> ClientChaosState.update(payload))
         );
@@ -176,9 +186,9 @@ public final class ClientNetworking {
         // Bonus selection screen
         ClientPlayNetworking.registerGlobalReceiver(BonusSelectionScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new BonusSelectionScreen(payload));
+                        client.gui.setScreen(new BonusSelectionScreen(payload));
                     }
                 }));
 
@@ -190,27 +200,27 @@ public final class ClientNetworking {
         // Trophy Necklace screen
         ClientPlayNetworking.registerGlobalReceiver(TrophyNecklaceScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new TrophyNecklaceScreen(payload));
+                        client.gui.setScreen(new TrophyNecklaceScreen(payload));
                     }
                 }));
 
         // Augment management screen
         ClientPlayNetworking.registerGlobalReceiver(AugmentScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new AugmentScreen(payload));
+                        client.gui.setScreen(new AugmentScreen(payload));
                     }
                 }));
 
         // Inscription management screen
         ClientPlayNetworking.registerGlobalReceiver(InscriptionScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new InscriptionScreen(payload));
+                        client.gui.setScreen(new InscriptionScreen(payload));
                     }
                 }));
 
@@ -227,36 +237,36 @@ public final class ClientNetworking {
         // Prism selection screen
         ClientPlayNetworking.registerGlobalReceiver(PrismSelectionScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new PrismSelectionScreen(payload));
+                        client.gui.setScreen(new PrismSelectionScreen(payload));
                     }
                 }));
 
         // Spy observed abilities screen
         ClientPlayNetworking.registerGlobalReceiver(SpyObservedScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new SpyObservedSelectionScreen(payload));
+                        client.gui.setScreen(new SpyObservedSelectionScreen(payload));
                     }
                 }));
 
         // Title selection screen
         ClientPlayNetworking.registerGlobalReceiver(TitleSelectionScreenPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new TitleSelectionScreen(payload));
+                        client.gui.setScreen(new TitleSelectionScreen(payload));
                     }
                 }));
 
         // Bounty board screen
         ClientPlayNetworking.registerGlobalReceiver(BountyBoardPayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    MinecraftClient client = context.client();
+                    Minecraft client = context.client();
                     if (client != null) {
-                        client.setScreen(new BountyBoardScreen(payload));
+                        client.gui.setScreen(new BountyBoardScreen(payload));
                     }
                 }));
 

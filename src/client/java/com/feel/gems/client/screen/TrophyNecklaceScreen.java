@@ -9,11 +9,11 @@ import com.feel.gems.net.TrophyNecklaceScreenPayload.StolenEntry;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 public final class TrophyNecklaceScreen extends GemsScreenBase {
     private enum Tab {
@@ -30,7 +30,7 @@ public final class TrophyNecklaceScreen extends GemsScreenBase {
     private int page = 0;
 
     public TrophyNecklaceScreen(TrophyNecklaceScreenPayload payload) {
-        super(Text.translatable("gems.screen.trophy_necklace.title"));
+        super(Component.translatable("gems.screen.trophy_necklace.title"));
         this.targetName = payload.targetName();
         this.offered = new ArrayList<>(payload.offeredPassives());
         this.stolen = new ArrayList<>(payload.stolenPassives());
@@ -43,7 +43,7 @@ public final class TrophyNecklaceScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
 
         int centerX = width / 2;
         int panelW = panelWidth(width);
@@ -68,16 +68,16 @@ public final class TrophyNecklaceScreen extends GemsScreenBase {
                 String suffix = alreadyStolen
                         ? " (Already stolen)"
                         : " (Available)";
-                Text label = Text.literal(entry.name() + suffix).formatted(alreadyStolen ? Formatting.DARK_GRAY : Formatting.WHITE);
+                Component label = Component.literal(entry.name() + suffix).withStyle(alreadyStolen ? ChatFormatting.DARK_GRAY : ChatFormatting.WHITE);
 
                 Identifier id = entry.id();
-                ButtonWidget btn = ButtonWidget.builder(label, b -> steal(id))
-                        .dimensions(entryX, entryY, panelW, ENTRY_HEIGHT)
+                Button btn = Button.builder(label, b -> steal(id))
+                        .bounds(entryX, entryY, panelW, ENTRY_HEIGHT)
                         .build();
                 if (alreadyStolen || stolenCount >= maxStolenPassives) {
                     btn.active = false;
                 }
-                addDrawableChild(btn);
+                addRenderableWidget(btn);
                 entryY += ENTRY_HEIGHT + SPACING;
             }
         } else {
@@ -85,13 +85,13 @@ public final class TrophyNecklaceScreen extends GemsScreenBase {
                 StolenEntry entry = stolen.get(i);
                 boolean enabled = entry.enabled();
                 String suffix = enabled ? " (Enabled)" : " (Disabled)";
-                Text label = Text.literal(entry.name() + suffix).formatted(enabled ? Formatting.GREEN : Formatting.GRAY);
+                Component label = Component.literal(entry.name() + suffix).withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY);
 
                 Identifier id = entry.id();
-                ButtonWidget btn = ButtonWidget.builder(label, b -> toggleEnabled(id, enabled))
-                        .dimensions(entryX, entryY, panelW, ENTRY_HEIGHT)
+                Button btn = Button.builder(label, b -> toggleEnabled(id, enabled))
+                        .bounds(entryX, entryY, panelW, ENTRY_HEIGHT)
                         .build();
-                addDrawableChild(btn);
+                addRenderableWidget(btn);
                 entryY += ENTRY_HEIGHT + SPACING;
             }
         }
@@ -99,18 +99,18 @@ public final class TrophyNecklaceScreen extends GemsScreenBase {
         // Pagination
         int navY = navButtonY(height);
         if (page > 0) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.prev"), b -> changePage(-1))
-                    .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.prev"), b -> changePage(-1))
+                    .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build());
         }
         if (page < totalPages - 1) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.next"), b -> changePage(1))
-                    .dimensions(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.next"), b -> changePage(1))
+                    .bounds(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build());
         }
 
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.close"), b -> close())
-                .dimensions(centerX - CLOSE_BUTTON_WIDTH / 2, closeButtonY(height), CLOSE_BUTTON_WIDTH, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.close"), b -> onClose())
+                .bounds(centerX - CLOSE_BUTTON_WIDTH / 2, closeButtonY(height), CLOSE_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
     }
 
@@ -131,38 +131,38 @@ public final class TrophyNecklaceScreen extends GemsScreenBase {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
         renderBase(context);
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.translatable("gems.screen.trophy_necklace.subtitle", targetName, maxStolenPassives),
+        context.centeredText(font,
+                Component.translatable("gems.screen.trophy_necklace.subtitle", targetName, maxStolenPassives),
                 width / 2, SUBTITLE_Y, COLOR_GRAY);
         String status = "Available: " + offered.size() + " | Stolen: " + stolen.size() + "/" + maxStolenPassives;
-        context.drawCenteredTextWithShadow(textRenderer, status, width / 2, SUBTITLE_Y + 12, COLOR_GRAY);
+        context.centeredText(font, status, width / 2, SUBTITLE_Y + 12, COLOR_GRAY);
         String tabLabel = tab == Tab.OFFERED ? "Available passives" : "Stolen passives";
-        context.drawCenteredTextWithShadow(textRenderer, tabLabel, width / 2, SUBTITLE_Y + 24, COLOR_GRAY);
+        context.centeredText(font, tabLabel, width / 2, SUBTITLE_Y + 24, COLOR_GRAY);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     private void addTabs(int centerX, int tabY) {
-        ButtonWidget offeredTab = ButtonWidget.builder(Text.translatable("gems.screen.trophy_necklace.tab.offered"), btn -> {
+        Button offeredTab = Button.builder(Component.translatable("gems.screen.trophy_necklace.tab.offered"), btn -> {
             tab = Tab.OFFERED;
             page = 0;
             rebuild();
-        }).dimensions(centerX - TAB_WIDTH - TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
-        ButtonWidget stolenTab = ButtonWidget.builder(Text.translatable("gems.screen.trophy_necklace.tab.stolen"), btn -> {
+        }).bounds(centerX - TAB_WIDTH - TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
+        Button stolenTab = Button.builder(Component.translatable("gems.screen.trophy_necklace.tab.stolen"), btn -> {
             tab = Tab.STOLEN;
             page = 0;
             rebuild();
-        }).dimensions(centerX + TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
+        }).bounds(centerX + TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
         offeredTab.active = tab != Tab.OFFERED;
         stolenTab.active = tab != Tab.STOLEN;
-        addDrawableChild(offeredTab);
-        addDrawableChild(stolenTab);
+        addRenderableWidget(offeredTab);
+        addRenderableWidget(stolenTab);
     }
 
     private List<?> currentEntries() {

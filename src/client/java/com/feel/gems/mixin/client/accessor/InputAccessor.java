@@ -1,23 +1,23 @@
 package com.feel.gems.mixin.client.accessor;
 
-import net.minecraft.client.input.Input;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(Input.class)
+@Mixin(ClientInput.class)
 public interface InputAccessor {
-    @Accessor("playerInput")
-    PlayerInput gems$getPlayerInput();
+    @Accessor("keyPresses")
+    Input gems$getPlayerInput();
 
-    @Accessor("playerInput")
-    void gems$setPlayerInput(PlayerInput input);
+    @Accessor("keyPresses")
+    void gems$setPlayerInput(Input input);
 
-    @Accessor("movementVector")
-    Vec2f gems$getMovementVector();
+    @Accessor("moveVector")
+    Vec2 gems$getMovementVector();
 
-    @Accessor("movementVector")
-    void gems$setMovementVector(Vec2f movementVector);
+    @Accessor("moveVector")
+    void gems$setMovementVector(Vec2 movementVector);
 }
 

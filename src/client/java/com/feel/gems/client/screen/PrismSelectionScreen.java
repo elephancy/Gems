@@ -6,12 +6,11 @@ import com.feel.gems.net.PrismSelectionClaimPayload;
 import com.feel.gems.net.PrismSelectionScreenPayload;
 import com.feel.gems.net.PrismSelectionScreenPayload.PowerEntry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,10 +37,10 @@ public final class PrismSelectionScreen extends GemsScreenBase {
     private int currentTab = 0; // 0=gem abilities, 1=bonus abilities, 2=gem passives, 3=bonus passives
     private int page = 0;
 
-    private ButtonWidget[] tabButtons;
+    private Button[] tabButtons;
 
     public PrismSelectionScreen(PrismSelectionScreenPayload payload) {
-        super(Text.translatable("gems.prism.screen.title"));
+        super(Component.translatable("gems.prism.screen.title"));
         this.gemAbilities = payload.gemAbilities();
         this.bonusAbilities = payload.bonusAbilities();
         this.gemPassives = payload.gemPassives();
@@ -67,24 +66,24 @@ public final class PrismSelectionScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
 
         int centerX = width / 2;
         int startY = 30;
         int panelW = panelWidth(width);
 
         // Tab buttons - 4 tabs
-        tabButtons = new ButtonWidget[4];
+        tabButtons = new Button[4];
         int tabX = centerX - (TAB_WIDTH * 4 + TAB_GAP * 3) / 2;
 
         for (int i = 0; i < 4; i++) {
             final int tabIdx = i;
-            Text label = switch (i) {
-                case 0 -> Text.translatable("gems.screen.prism_selection.tab_gem_abilities");
-                case 1 -> Text.translatable("gems.screen.prism_selection.tab_bonus_abilities");
-                case 2 -> Text.translatable("gems.screen.prism_selection.tab_gem_passives");
-                case 3 -> Text.translatable("gems.screen.prism_selection.tab_bonus_passives");
-                default -> Text.empty();
+            Component label = switch (i) {
+                case 0 -> Component.translatable("gems.screen.prism_selection.tab_gem_abilities");
+                case 1 -> Component.translatable("gems.screen.prism_selection.tab_bonus_abilities");
+                case 2 -> Component.translatable("gems.screen.prism_selection.tab_gem_passives");
+                case 3 -> Component.translatable("gems.screen.prism_selection.tab_bonus_passives");
+                default -> Component.empty();
             };
             String suffix = switch (i) {
                 case 0 -> " (" + selectedGemAbilities.size() + "/" + maxGemAbilities + ")";
@@ -94,10 +93,10 @@ public final class PrismSelectionScreen extends GemsScreenBase {
                 default -> "";
             };
 
-            tabButtons[i] = ButtonWidget.builder(label.copy().append(suffix), b -> switchTab(tabIdx))
-                    .dimensions(tabX + i * (TAB_WIDTH + TAB_GAP), startY, TAB_WIDTH, TAB_HEIGHT)
+            tabButtons[i] = Button.builder(label.copy().append(suffix), b -> switchTab(tabIdx))
+                    .bounds(tabX + i * (TAB_WIDTH + TAB_GAP), startY, TAB_WIDTH, TAB_HEIGHT)
                     .build();
-            addDrawableChild(tabButtons[i]);
+            addRenderableWidget(tabButtons[i]);
         }
 
         // Update tab button appearance
@@ -126,32 +125,32 @@ public final class PrismSelectionScreen extends GemsScreenBase {
             String buttonText = entry.name() + " (" + entry.sourceName() + ")";
 
             final Identifier entryId = entry.id();
-            ButtonWidget entryButton = ButtonWidget.builder(
-                    Text.literal(buttonText).formatted(!isAvailable ? Formatting.RED : (isSelected ? Formatting.GREEN : Formatting.WHITE)),
+            Button entryButton = Button.builder(
+                    Component.literal(buttonText).withStyle(!isAvailable ? ChatFormatting.RED : (isSelected ? ChatFormatting.GREEN : ChatFormatting.WHITE)),
                     b -> toggleEntry(entryId)
-            ).dimensions(entryX, entryY, panelW, ENTRY_HEIGHT).build();
+            ).bounds(entryX, entryY, panelW, ENTRY_HEIGHT).build();
             entryButton.active = isAvailable;
 
-            addDrawableChild(entryButton);
+            addRenderableWidget(entryButton);
             entryY += ENTRY_HEIGHT + SPACING;
         }
 
         // Pagination
         int navY = navButtonY(height);
         if (page > 0) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.prev"), b -> changePage(-1))
-                    .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.prev"), b -> changePage(-1))
+                    .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build());
         }
         if (page < totalPg - 1) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.next"), b -> changePage(1))
-                    .dimensions(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.next"), b -> changePage(1))
+                    .bounds(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build());
         }
 
         // Close button
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.close"), b -> close())
-                .dimensions(centerX - CLOSE_BUTTON_WIDTH / 2, closeButtonY(height), CLOSE_BUTTON_WIDTH, BUTTON_HEIGHT)
+        addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.close"), b -> onClose())
+                .bounds(centerX - CLOSE_BUTTON_WIDTH / 2, closeButtonY(height), CLOSE_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
     }
 
@@ -236,16 +235,16 @@ public final class PrismSelectionScreen extends GemsScreenBase {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
 
         renderBase(context);
 
         // Page indicator
         List<PowerEntry> entries = getCurrentEntries();
         int totalPg = totalPages(entries.size(), ENTRIES_PER_PAGE);
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Page " + (page + 1) + "/" + totalPg),
+        context.centeredText(font,
+                Component.literal("Page " + (page + 1) + "/" + totalPg),
                 width / 2, height - 65, COLOR_GRAY);
 
         // Hover tooltip
@@ -261,21 +260,21 @@ public final class PrismSelectionScreen extends GemsScreenBase {
             int y = startY + (i - start) * (ENTRY_HEIGHT + SPACING);
             if (mouseX >= entryX && mouseX < entryX + panelW && mouseY >= y && mouseY < y + ENTRY_HEIGHT) {
                 PowerEntry entry = entries.get(i);
-                List<Text> tooltip = new ArrayList<>();
-                tooltip.add(Text.literal(entry.name()).formatted(Formatting.YELLOW));
-                tooltip.add(Text.literal(entry.description()).formatted(Formatting.GRAY));
-                tooltip.add(Text.literal("Source: " + entry.sourceName()).formatted(Formatting.AQUA));
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.literal(entry.name()).withStyle(ChatFormatting.YELLOW));
+                tooltip.add(Component.literal(entry.description()).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.literal("Source: " + entry.sourceName()).withStyle(ChatFormatting.AQUA));
                 if ((currentTab == 1 || currentTab == 3) && !entry.available() && !getCurrentSelected().contains(entry.id())) {
-                    tooltip.add(Text.translatable("gems.screen.bonus_selection.claimed_by_other").formatted(Formatting.RED));
+                    tooltip.add(Component.translatable("gems.screen.bonus_selection.claimed_by_other").withStyle(ChatFormatting.RED));
                 }
-                context.drawTooltip(textRenderer, tooltip, mouseX, mouseY);
+                context.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
                 break;
             }
         }
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

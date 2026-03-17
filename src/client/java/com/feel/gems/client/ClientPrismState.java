@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.resources.Identifier;
 
 /**
  * Client-side state for Prism gem abilities (HUD display and cooldown tracking).
@@ -38,9 +38,9 @@ public final class ClientPrismState {
         PASSIVES.clear();
         COOLDOWN_END_TICKS.clear();
         
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
-        long now = world != null ? world.getTime() : 0;
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
+        long now = world != null ? world.getGameTime() : 0;
         
         for (PrismAbilitiesSyncPayload.PrismAbilityInfo info : payload.abilities()) {
             ABILITIES.add(new PrismAbilityEntry(info.id(), info.name()));
@@ -60,12 +60,12 @@ public final class ClientPrismState {
         }
         Identifier id = ABILITIES.get(slotIndex).id();
         
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
         if (world == null || cooldownTicks <= 0) {
             return;
         }
-        long now = world.getTime();
+        long now = world.getGameTime();
         COOLDOWN_END_TICKS.put(id, now + cooldownTicks);
         LAST_COOLDOWN_TICKS.put(id, cooldownTicks);
         lastUsedPrism = id;
@@ -84,8 +84,8 @@ public final class ClientPrismState {
     }
 
     public static int remainingTicks(Identifier abilityId) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
         if (world == null) {
             return 0;
         }
@@ -93,7 +93,7 @@ public final class ClientPrismState {
         if (end == null) {
             return 0;
         }
-        long remaining = end - world.getTime();
+        long remaining = end - world.getGameTime();
         if (remaining <= 0) {
             return 0;
         }

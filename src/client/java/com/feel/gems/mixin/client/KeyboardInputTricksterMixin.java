@@ -2,9 +2,9 @@ package com.feel.gems.mixin.client;
 
 import com.feel.gems.client.ClientTricksterState;
 import com.feel.gems.mixin.client.accessor.InputAccessor;
-import net.minecraft.client.input.KeyboardInput;
-import net.minecraft.util.PlayerInput;
-import net.minecraft.util.math.Vec2f;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec2;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,24 +19,24 @@ public abstract class KeyboardInputTricksterMixin {
     private void gems$applyTricksterControl(CallbackInfo ci) {
         InputAccessor input = (InputAccessor) (Object) this;
         if (ClientTricksterState.isPuppeted()) {
-            input.gems$setPlayerInput(PlayerInput.DEFAULT);
-            input.gems$setMovementVector(Vec2f.ZERO);
+            input.gems$setPlayerInput(Input.EMPTY);
+            input.gems$setMovementVector(Vec2.ZERO);
             return;
         }
         if (ClientTricksterState.isMindGames()) {
             // Reverse controls: invert movement direction and swap the logical pressed keys.
-            PlayerInput current = input.gems$getPlayerInput();
-            input.gems$setPlayerInput(new PlayerInput(
+            Input current = input.gems$getPlayerInput();
+            input.gems$setPlayerInput(new Input(
                     current.backward(),
                     current.forward(),
                     current.right(),
                     current.left(),
                     current.jump(),
-                    current.sneak(),
+                    current.shift(),
                     current.sprint()
             ));
-            Vec2f movement = input.gems$getMovementVector();
-            input.gems$setMovementVector(new Vec2f(-movement.x, -movement.y));
+            Vec2 movement = input.gems$getMovementVector();
+            input.gems$setMovementVector(new Vec2(-movement.x, -movement.y));
         }
     }
 }

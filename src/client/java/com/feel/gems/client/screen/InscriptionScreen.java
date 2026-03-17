@@ -8,11 +8,11 @@ import com.feel.gems.net.InscriptionScreenPayload.Entry;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Client UI for viewing/removing legendary inscriptions.
@@ -22,7 +22,7 @@ public final class InscriptionScreen extends GemsScreenBase {
     private static final int REMOVE_BUTTON_WIDTH = 56;
 
     private final InscriptionScreenPayload payload;
-    private final List<ButtonWidget> removeButtons = new ArrayList<>();
+    private final List<Button> removeButtons = new ArrayList<>();
 
     private int page = 0;
     private int panelLeft;
@@ -31,7 +31,7 @@ public final class InscriptionScreen extends GemsScreenBase {
     private int panelBottom;
 
     public InscriptionScreen(InscriptionScreenPayload payload) {
-        super(Text.translatable("gems.screen.inscription.title"));
+        super(Component.translatable("gems.screen.inscription.title"));
         this.payload = payload;
     }
 
@@ -41,7 +41,7 @@ public final class InscriptionScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
         removeButtons.clear();
 
         int centerX = width / 2;
@@ -66,24 +66,24 @@ public final class InscriptionScreen extends GemsScreenBase {
             boolean hasInscription = i < payload.inscriptions().size();
             if (hasInscription) {
                 int index = i;
-                ButtonWidget remove = ButtonWidget.builder(Text.translatable("gems.screen.augment.remove"), b -> removeInscription(index))
-                        .dimensions(removeX, entryY - 2, REMOVE_BUTTON_WIDTH, BUTTON_HEIGHT)
+                Button remove = Button.builder(Component.translatable("gems.screen.augment.remove"), b -> removeInscription(index))
+                        .bounds(removeX, entryY - 2, REMOVE_BUTTON_WIDTH, BUTTON_HEIGHT)
                         .build();
                 removeButtons.add(remove);
-                addDrawableChild(remove);
+                addRenderableWidget(remove);
             }
             entryY += ROW_HEIGHT;
         }
 
         int navY = navButtonY(height);
         if (page > 0) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.prev"), b -> changePage(-1))
-                    .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.prev"), b -> changePage(-1))
+                    .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build());
         }
         if (page < totalPages - 1) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.button.next"), b -> changePage(1))
-                    .dimensions(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.button.next"), b -> changePage(1))
+                    .bounds(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                     .build());
         }
 
@@ -100,21 +100,21 @@ public final class InscriptionScreen extends GemsScreenBase {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
         drawPanel(context, panelLeft, panelTop, panelRight, panelBottom);
         renderBase(context);
 
         String itemName = resolveItemName(payload.itemKey());
         String handLabel = payload.mainHand()
-                ? Text.translatable("gems.screen.augment.hand.main").getString()
-                : Text.translatable("gems.screen.augment.hand.off").getString();
-        String itemLabel = Text.translatable("gems.screen.inscription.item", itemName + " (" + handLabel + ")").getString();
-        context.drawCenteredTextWithShadow(textRenderer, itemLabel, width / 2, SUBTITLE_Y, COLOR_GRAY);
+                ? Component.translatable("gems.screen.augment.hand.main").getString()
+                : Component.translatable("gems.screen.augment.hand.off").getString();
+        String itemLabel = Component.translatable("gems.screen.inscription.item", itemName + " (" + handLabel + ")").getString();
+        context.centeredText(font, itemLabel, width / 2, SUBTITLE_Y, COLOR_GRAY);
 
         int slotsUsed = payload.inscriptions().size();
-        String slotLabel = Text.translatable("gems.screen.augment.slots", slotsUsed, payload.maxSlots()).getString();
-        context.drawCenteredTextWithShadow(textRenderer, slotLabel, width / 2, SUBTITLE_Y + 12, COLOR_DARK_GRAY);
+        String slotLabel = Component.translatable("gems.screen.augment.slots", slotsUsed, payload.maxSlots()).getString();
+        context.centeredText(font, slotLabel, width / 2, SUBTITLE_Y + 12, COLOR_DARK_GRAY);
 
         int totalRows = Math.max(1, Math.max(payload.maxSlots(), payload.inscriptions().size()));
         int startIndex = page * ENTRIES_PER_PAGE;
@@ -127,40 +127,40 @@ public final class InscriptionScreen extends GemsScreenBase {
         for (int i = startIndex; i < endIndex; i++) {
             if (i < payload.inscriptions().size()) {
                 Entry entry = payload.inscriptions().get(i);
-                MutableText title = Text.literal(entry.name());
-                Formatting rarity = rarityColor(entry.rarity());
-                title = title.formatted(rarity);
+                MutableComponent title = Component.literal(entry.name());
+                ChatFormatting rarity = rarityColor(entry.rarity());
+                title = title.withStyle(rarity);
 
                 String mag = formatMagnitude(entry.magnitude());
                 if (!mag.isEmpty()) {
-                    title.append(Text.literal(" " + mag).formatted(Formatting.DARK_GRAY));
+                    title.append(Component.literal(" " + mag).withStyle(ChatFormatting.DARK_GRAY));
                 }
 
-                context.drawTextWithShadow(textRenderer, title, entryX, entryY, COLOR_WHITE);
+                context.text(font, title, entryX, entryY, COLOR_WHITE);
                 String desc = entry.description();
                 if (desc != null && !desc.isBlank()) {
-                    context.drawTextWithShadow(textRenderer, trimText(desc, textWidth), entryX, entryY + 12, COLOR_GRAY);
+                    context.text(font, trimText(desc, textWidth), entryX, entryY + 12, COLOR_GRAY);
                 }
             } else {
-                context.drawTextWithShadow(textRenderer, Text.translatable("gems.screen.augment.empty"), entryX, entryY, COLOR_DARK_GRAY);
+                context.text(font, Component.translatable("gems.screen.augment.empty"), entryX, entryY, COLOR_DARK_GRAY);
             }
             entryY += ROW_HEIGHT;
         }
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
-    private static Formatting rarityColor(String rarity) {
+    private static ChatFormatting rarityColor(String rarity) {
         if (rarity == null) {
-            return Formatting.WHITE;
+            return ChatFormatting.WHITE;
         }
         return switch (rarity.toUpperCase()) {
-            case "RARE" -> Formatting.AQUA;
-            case "EPIC" -> Formatting.LIGHT_PURPLE;
-            default -> Formatting.WHITE;
+            case "RARE" -> ChatFormatting.AQUA;
+            case "EPIC" -> ChatFormatting.LIGHT_PURPLE;
+            default -> ChatFormatting.WHITE;
         };
     }
 
@@ -168,11 +168,11 @@ public final class InscriptionScreen extends GemsScreenBase {
         if (itemKey == null || itemKey.isBlank()) {
             return "?";
         }
-        return Text.translatable(itemKey).getString();
+        return Component.translatable(itemKey).getString();
     }
 
     private String trimText(String text, int width) {
-        return this.textRenderer.trimToWidth(text, width);
+        return this.font.plainSubstrByWidth(text, width);
     }
 
     private static String formatMagnitude(float magnitude) {

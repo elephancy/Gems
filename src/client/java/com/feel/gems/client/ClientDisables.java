@@ -5,7 +5,7 @@ import com.feel.gems.net.ServerDisablesPayload;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 
 public final class ClientDisables {
     private static boolean initialized = false;

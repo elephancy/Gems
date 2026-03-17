@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 
 public final class BountyBoardScreen extends GemsScreenBase {
     private enum Tab {
@@ -35,7 +35,7 @@ public final class BountyBoardScreen extends GemsScreenBase {
     private int selectedEnergy;
 
     public BountyBoardScreen(BountyBoardPayload payload) {
-        super(Text.translatable("gems.screen.bounty.title"));
+        super(Component.translatable("gems.screen.bounty.title"));
         this.viewerId = payload.viewerId();
         this.maxAdditionalHearts = payload.maxAdditionalHearts();
         this.maxAdditionalEnergy = payload.maxAdditionalEnergy();
@@ -53,7 +53,7 @@ public final class BountyBoardScreen extends GemsScreenBase {
     }
 
     private void rebuild() {
-        clearChildren();
+        clearWidgets();
         addTabs();
 
         if (tab == Tab.ACTIVE) {
@@ -68,18 +68,18 @@ public final class BountyBoardScreen extends GemsScreenBase {
     private void addTabs() {
         int centerX = width / 2;
         int tabY = SUBTITLE_Y + 2;
-        ButtonWidget active = ButtonWidget.builder(Text.translatable("gems.screen.bounty.tab.active"), btn -> {
+        Button active = Button.builder(Component.translatable("gems.screen.bounty.tab.active"), btn -> {
             tab = Tab.ACTIVE;
             rebuild();
-        }).dimensions(centerX - TAB_WIDTH - TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
-        ButtonWidget place = ButtonWidget.builder(Text.translatable("gems.screen.bounty.tab.place"), btn -> {
+        }).bounds(centerX - TAB_WIDTH - TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
+        Button place = Button.builder(Component.translatable("gems.screen.bounty.tab.place"), btn -> {
             tab = Tab.PLACE;
             rebuild();
-        }).dimensions(centerX + TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
+        }).bounds(centerX + TAB_GAP, tabY, TAB_WIDTH, TAB_HEIGHT).build();
         active.active = tab != Tab.ACTIVE;
         place.active = tab != Tab.PLACE;
-        addDrawableChild(active);
-        addDrawableChild(place);
+        addRenderableWidget(active);
+        addRenderableWidget(place);
     }
 
     private void buildActiveTab() {
@@ -93,16 +93,16 @@ public final class BountyBoardScreen extends GemsScreenBase {
         int y = CONTENT_START_Y;
 
         if (bounties.isEmpty()) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.bounty.empty").formatted(Formatting.GRAY), btn -> {
-            }).dimensions(entryX, y, panelW, BUTTON_HEIGHT).build()).active = false;
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.bounty.empty").withStyle(ChatFormatting.GRAY), btn -> {
+            }).bounds(entryX, y, panelW, BUTTON_HEIGHT).build()).active = false;
         } else {
             for (int i = start; i < end; i++) {
                 BountyBoardPayload.Entry entry = bounties.get(i);
                 String label = entry.targetName() + " | " + entry.placerName()
                         + " | " + entry.hearts() + "H " + entry.energy() + "E";
                 int buttonY = y + (i - start) * (BUTTON_HEIGHT + SPACING);
-                addDrawableChild(ButtonWidget.builder(Text.literal(label), btn -> {
-                }).dimensions(entryX, buttonY, panelW, BUTTON_HEIGHT).build()).active = false;
+                addRenderableWidget(Button.builder(Component.literal(label), btn -> {
+                }).bounds(entryX, buttonY, panelW, BUTTON_HEIGHT).build()).active = false;
             }
         }
 
@@ -123,30 +123,30 @@ public final class BountyBoardScreen extends GemsScreenBase {
         int y = CONTENT_START_Y;
 
         if (players.isEmpty()) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("gems.screen.bounty.no_players").formatted(Formatting.GRAY), btn -> {
-            }).dimensions(entryX, y, panelW, BUTTON_HEIGHT).build()).active = false;
+            addRenderableWidget(Button.builder(Component.translatable("gems.screen.bounty.no_players").withStyle(ChatFormatting.GRAY), btn -> {
+            }).bounds(entryX, y, panelW, BUTTON_HEIGHT).build()).active = false;
         } else {
             for (int i = start; i < end; i++) {
                 BountyBoardPayload.PlayerEntry entry = players.get(i);
                 boolean selected = entry.uuid().equals(selectedTarget);
-                Text label = Text.literal(entry.name()).formatted(selected ? Formatting.GOLD : Formatting.WHITE);
+                Component label = Component.literal(entry.name()).withStyle(selected ? ChatFormatting.GOLD : ChatFormatting.WHITE);
                 int buttonY = y + (i - start) * (BUTTON_HEIGHT + SPACING);
-                addDrawableChild(ButtonWidget.builder(label, btn -> selectTarget(entry.uuid()))
-                        .dimensions(entryX, buttonY, panelW, BUTTON_HEIGHT)
+                addRenderableWidget(Button.builder(label, btn -> selectTarget(entry.uuid()))
+                        .bounds(entryX, buttonY, panelW, BUTTON_HEIGHT)
                         .build());
             }
         }
 
         int controlsY = CONTENT_START_Y + ENTRIES_PER_PAGE * (BUTTON_HEIGHT + SPACING) + SPACING;
-        addCounterRow(entryX, controlsY, Text.translatable("gems.screen.bounty.hearts"), true);
-        addCounterRow(entryX, controlsY + BUTTON_HEIGHT + SPACING, Text.translatable("gems.screen.bounty.energy"), false);
+        addCounterRow(entryX, controlsY, Component.translatable("gems.screen.bounty.hearts"), true);
+        addCounterRow(entryX, controlsY + BUTTON_HEIGHT + SPACING, Component.translatable("gems.screen.bounty.energy"), false);
 
         int placeY = controlsY + (BUTTON_HEIGHT + SPACING) * 2;
-        ButtonWidget placeButton = ButtonWidget.builder(Text.translatable("gems.screen.bounty.place"), btn -> placeBounty())
-                .dimensions(entryX, placeY, panelW, BUTTON_HEIGHT)
+        Button placeButton = Button.builder(Component.translatable("gems.screen.bounty.place"), btn -> placeBounty())
+                .bounds(entryX, placeY, panelW, BUTTON_HEIGHT)
                 .build();
         placeButton.active = selectedTarget != null && (selectedHearts > 0 || selectedEnergy > 0);
-        addDrawableChild(placeButton);
+        addRenderableWidget(placeButton);
 
         addNavButtons(players.size(), playerPage, delta -> {
             playerPage = clampPage(playerPage + delta, totalPg);
@@ -157,39 +157,39 @@ public final class BountyBoardScreen extends GemsScreenBase {
     private void addNavButtons(int count, int currentPage, java.util.function.IntConsumer changePage) {
         int centerX = width / 2;
         int navY = navButtonY(height);
-        ButtonWidget prev = ButtonWidget.builder(Text.translatable("gems.screen.button.prev"), btn -> changePage.accept(-1))
-                .dimensions(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button prev = Button.builder(Component.translatable("gems.screen.button.prev"), btn -> changePage.accept(-1))
+                .bounds(centerX - NAV_BUTTON_WIDTH - SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
-        ButtonWidget next = ButtonWidget.builder(Text.translatable("gems.screen.button.next"), btn -> changePage.accept(1))
-                .dimensions(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
+        Button next = Button.builder(Component.translatable("gems.screen.button.next"), btn -> changePage.accept(1))
+                .bounds(centerX + SPACING, navY, NAV_BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
         prev.active = currentPage > 0;
         next.active = (currentPage + 1) * ENTRIES_PER_PAGE < count;
-        addDrawableChild(prev);
-        addDrawableChild(next);
+        addRenderableWidget(prev);
+        addRenderableWidget(next);
     }
 
-    private void addCounterRow(int x, int y, Text label, boolean hearts) {
+    private void addCounterRow(int x, int y, Component label, boolean hearts) {
         int maxTotal = hearts ? maxHeartsTotal() : maxEnergyTotal();
         int minTotal = hearts ? baselineHearts() : baselineEnergy();
         int current = hearts ? selectedHearts : selectedEnergy;
 
-        Text line = Text.literal(label.getString() + ": " + current + " / " + maxTotal)
-                .formatted(Formatting.GRAY);
-        addDrawableChild(ButtonWidget.builder(line, btn -> {
-        }).dimensions(x, y, panelWidth(width), BUTTON_HEIGHT).build()).active = false;
+        Component line = Component.literal(label.getString() + ": " + current + " / " + maxTotal)
+                .withStyle(ChatFormatting.GRAY);
+        addRenderableWidget(Button.builder(line, btn -> {
+        }).bounds(x, y, panelWidth(width), BUTTON_HEIGHT).build()).active = false;
 
         int btnX = x + panelWidth(width) - (BUTTON_HEIGHT * 2 + SPACING);
-        ButtonWidget minus = ButtonWidget.builder(Text.literal("-"), btn -> adjust(hearts, -1))
-                .dimensions(btnX, y, BUTTON_HEIGHT, BUTTON_HEIGHT)
+        Button minus = Button.builder(Component.literal("-"), btn -> adjust(hearts, -1))
+                .bounds(btnX, y, BUTTON_HEIGHT, BUTTON_HEIGHT)
                 .build();
-        ButtonWidget plus = ButtonWidget.builder(Text.literal("+"), btn -> adjust(hearts, 1))
-                .dimensions(btnX + BUTTON_HEIGHT + SPACING, y, BUTTON_HEIGHT, BUTTON_HEIGHT)
+        Button plus = Button.builder(Component.literal("+"), btn -> adjust(hearts, 1))
+                .bounds(btnX + BUTTON_HEIGHT + SPACING, y, BUTTON_HEIGHT, BUTTON_HEIGHT)
                 .build();
         minus.active = current > minTotal;
         plus.active = current < maxTotal;
-        addDrawableChild(minus);
-        addDrawableChild(plus);
+        addRenderableWidget(minus);
+        addRenderableWidget(plus);
     }
 
     private void selectTarget(UUID uuid) {
@@ -245,22 +245,22 @@ public final class BountyBoardScreen extends GemsScreenBase {
             return;
         }
         ClientPlayNetworking.send(new BountyPlacePayload(selectedTarget, selectedHearts, selectedEnergy));
-        close();
+        onClose();
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
         renderBase(context);
         if (tab == Tab.ACTIVE && !bounties.isEmpty()) {
             int maxPage = totalPages(bounties.size(), ENTRIES_PER_PAGE);
             String pageText = "Page " + (page + 1) + " / " + maxPage;
-            context.drawCenteredTextWithShadow(this.textRenderer, pageText, this.width / 2, SUBTITLE_Y + 22, COLOR_GRAY);
+            context.centeredText(this.font, pageText, this.width / 2, SUBTITLE_Y + 22, COLOR_GRAY);
         }
         if (tab == Tab.PLACE && !players.isEmpty()) {
             int maxPage = totalPages(players.size(), ENTRIES_PER_PAGE);
             String pageText = "Page " + (playerPage + 1) + " / " + maxPage;
-            context.drawCenteredTextWithShadow(this.textRenderer, pageText, this.width / 2, SUBTITLE_Y + 22, COLOR_GRAY);
+            context.centeredText(this.font, pageText, this.width / 2, SUBTITLE_Y + 22, COLOR_GRAY);
         }
     }
 }

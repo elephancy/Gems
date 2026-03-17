@@ -19,33 +19,33 @@ import com.feel.gems.net.TrophyNecklaceOpenRequestPayload;
 import com.feel.gems.client.screen.GuidebookScreen;
 import com.feel.gems.item.GemItem;
 import com.feel.gems.legendary.LegendaryItem;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 
 
 
 public final class GemsKeybinds {
-    private static final KeyBinding.Category CATEGORY = KeyBinding.Category.create(Identifier.of("gems", "controls"));
+    private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("gems", "controls"));
 
     private static boolean registered = false;
-    private static KeyBinding MODIFIER;
-    private static KeyBinding[] CUSTOM_KEYS;
-    private static KeyBinding[] BONUS_ABILITY_KEYS;
-    private static KeyBinding BONUS_SCREEN_KEY;
-    private static KeyBinding SPY_OBSERVED_SCREEN_KEY;
-    private static KeyBinding TROPHY_NECKLACE_SCREEN_KEY;
-    private static KeyBinding LOADOUT_PRESETS_KEY;
-    private static KeyBinding AUGMENT_SCREEN_KEY;
-    private static KeyBinding GUIDEBOOK_KEY;
-    private static KeyBinding TITLE_SCREEN_KEY;
-    private static KeyBinding TOGGLE_CONTROL_MODE_KEY;
+    private static KeyMapping MODIFIER;
+    private static KeyMapping[] CUSTOM_KEYS;
+    private static KeyMapping[] BONUS_ABILITY_KEYS;
+    private static KeyMapping BONUS_SCREEN_KEY;
+    private static KeyMapping SPY_OBSERVED_SCREEN_KEY;
+    private static KeyMapping TROPHY_NECKLACE_SCREEN_KEY;
+    private static KeyMapping LOADOUT_PRESETS_KEY;
+    private static KeyMapping AUGMENT_SCREEN_KEY;
+    private static KeyMapping GUIDEBOOK_KEY;
+    private static KeyMapping TITLE_SCREEN_KEY;
+    private static KeyMapping TOGGLE_CONTROL_MODE_KEY;
 
     private GemsKeybinds() {
     }
@@ -56,72 +56,74 @@ public final class GemsKeybinds {
         }
         registered = true;
 
-        MODIFIER = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.modifier", GLFW.GLFW_KEY_LEFT_ALT, CATEGORY));
+        MODIFIER = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.modifier", InputConstants.KEY_LALT, CATEGORY));
 
         // Always register the custom keybinds so they appear in the Controls menu even if the user
         // starts in chord mode and switches later via config.
-        CUSTOM_KEYS = new KeyBinding[9];
+        CUSTOM_KEYS = new KeyMapping[9];
         for (int i = 0; i < CUSTOM_KEYS.length; i++) {
-            CUSTOM_KEYS[i] = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.ability_" + (i + 1), GLFW.GLFW_KEY_UNKNOWN, CATEGORY));
+            CUSTOM_KEYS[i] = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                    "key.gems.ability_" + (i + 1), InputConstants.UNKNOWN.getValue(), CATEGORY));
         }
         
         // Bonus ability keybinds (C and V by default, customizable via Controls)
-        BONUS_ABILITY_KEYS = new KeyBinding[2];
-        BONUS_ABILITY_KEYS[0] = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.bonus_ability_1", GLFW.GLFW_KEY_C, CATEGORY));
-        BONUS_ABILITY_KEYS[1] = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.bonus_ability_2", GLFW.GLFW_KEY_V, CATEGORY));
+        BONUS_ABILITY_KEYS = new KeyMapping[2];
+        BONUS_ABILITY_KEYS[0] = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.bonus_ability_1", InputConstants.KEY_C, CATEGORY));
+        BONUS_ABILITY_KEYS[1] = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.bonus_ability_2", InputConstants.KEY_V, CATEGORY));
         
         // Bonus selection screen keybind (B by default)
-        BONUS_SCREEN_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.bonus_screen", GLFW.GLFW_KEY_B, CATEGORY));
+        BONUS_SCREEN_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.bonus_screen", InputConstants.KEY_B, CATEGORY));
 
         // Spy observed abilities screen keybind (O by default)
-        SPY_OBSERVED_SCREEN_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.spy_observed_screen", GLFW.GLFW_KEY_O, CATEGORY));
+        SPY_OBSERVED_SCREEN_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.spy_observed_screen", InputConstants.KEY_O, CATEGORY));
 
         // Trophy Necklace screen keybind (P by default)
-        TROPHY_NECKLACE_SCREEN_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.trophy_necklace_screen", GLFW.GLFW_KEY_P, CATEGORY));
+        TROPHY_NECKLACE_SCREEN_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.trophy_necklace_screen", InputConstants.KEY_P, CATEGORY));
 
         // Loadout presets screen keybind (L by default)
-        LOADOUT_PRESETS_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.loadout_presets", GLFW.GLFW_KEY_L, CATEGORY));
+        LOADOUT_PRESETS_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.loadout_presets", InputConstants.KEY_L, CATEGORY));
 
         // Augment management screen keybind (U by default)
-        AUGMENT_SCREEN_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.augment_screen", GLFW.GLFW_KEY_U, CATEGORY));
+        AUGMENT_SCREEN_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.augment_screen", InputConstants.KEY_U, CATEGORY));
 
         // Guidebook keybind (tilde by default)
-        GUIDEBOOK_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.guidebook", GLFW.GLFW_KEY_GRAVE_ACCENT, CATEGORY));
+        GUIDEBOOK_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.guidebook", InputConstants.KEY_GRAVE, CATEGORY));
 
         // Title selection screen keybind (M by default)
-        TITLE_SCREEN_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.title_screen", GLFW.GLFW_KEY_M, CATEGORY));
+        TITLE_SCREEN_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.gems.title_screen", InputConstants.KEY_M, CATEGORY));
 
         // Toggle control mode keybind (unbound by default - user can assign)
-        TOGGLE_CONTROL_MODE_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.gems.toggle_control_mode", GLFW.GLFW_KEY_UNKNOWN, CATEGORY));
+        TOGGLE_CONTROL_MODE_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.gems.toggle_control_mode", InputConstants.UNKNOWN.getValue(), CATEGORY));
     }
 
     public static boolean isModifierDown() {
-        return useChordControls() && MODIFIER != null && MODIFIER.isPressed();
+        return useChordControls() && MODIFIER != null && MODIFIER.isDown();
     }
 
     public static String modifierLabel() {
         if (!useChordControls() || MODIFIER == null) {
             return "";
         }
-        return MODIFIER.getBoundKeyLocalizedText().getString();
+        return MODIFIER.getTranslatedKeyMessage().getString();
     }
 
     public static String bonusScreenLabel() {
         if (BONUS_SCREEN_KEY == null) {
             return "";
         }
-        return BONUS_SCREEN_KEY.getBoundKeyLocalizedText().getString();
+        return BONUS_SCREEN_KEY.getTranslatedKeyMessage().getString();
     }
 
     public static String bonusAbilityLabel(int bonusSlotIndex) {
         if (BONUS_ABILITY_KEYS == null || bonusSlotIndex < 0 || bonusSlotIndex >= BONUS_ABILITY_KEYS.length) {
             return "";
         }
-        KeyBinding key = BONUS_ABILITY_KEYS[bonusSlotIndex];
+        KeyMapping key = BONUS_ABILITY_KEYS[bonusSlotIndex];
         if (key == null) {
             return "";
         }
-        return key.getBoundKeyLocalizedText().getString();
+        return key.getTranslatedKeyMessage().getString();
     }
 
     public static String chordSlotLabel(int slotNumber) {
@@ -139,112 +141,112 @@ public final class GemsKeybinds {
         return modifier + " + " + key;
     }
 
-    public static void tick(MinecraftClient client) {
+    public static void tick(Minecraft client) {
         // Check bonus screen key (works regardless of control mode)
-        if (BONUS_SCREEN_KEY != null && client.currentScreen == null) {
-            while (BONUS_SCREEN_KEY.wasPressed()) {
+        if (BONUS_SCREEN_KEY != null && client.gui.screen() == null) {
+            while (BONUS_SCREEN_KEY.consumeClick()) {
                 openBonusScreen(client);
             }
         }
 
         // Spy observed abilities screen key
-        if (SPY_OBSERVED_SCREEN_KEY != null && client.currentScreen == null) {
-            while (SPY_OBSERVED_SCREEN_KEY.wasPressed()) {
+        if (SPY_OBSERVED_SCREEN_KEY != null && client.gui.screen() == null) {
+            while (SPY_OBSERVED_SCREEN_KEY.consumeClick()) {
                 openSpyObservedScreen(client);
             }
         }
 
         // Trophy Necklace screen key
-        if (TROPHY_NECKLACE_SCREEN_KEY != null && client.currentScreen == null) {
-            while (TROPHY_NECKLACE_SCREEN_KEY.wasPressed()) {
+        if (TROPHY_NECKLACE_SCREEN_KEY != null && client.gui.screen() == null) {
+            while (TROPHY_NECKLACE_SCREEN_KEY.consumeClick()) {
                 openTrophyNecklaceScreen(client);
             }
         }
 
         // Loadout presets screen key
-        if (LOADOUT_PRESETS_KEY != null && client.currentScreen == null) {
-            while (LOADOUT_PRESETS_KEY.wasPressed()) {
+        if (LOADOUT_PRESETS_KEY != null && client.gui.screen() == null) {
+            while (LOADOUT_PRESETS_KEY.consumeClick()) {
                 openLoadoutPresetsScreen(client);
             }
         }
 
         // Augment screen key
-        if (AUGMENT_SCREEN_KEY != null && client.currentScreen == null) {
-            while (AUGMENT_SCREEN_KEY.wasPressed()) {
+        if (AUGMENT_SCREEN_KEY != null && client.gui.screen() == null) {
+            while (AUGMENT_SCREEN_KEY.consumeClick()) {
                 openAugmentScreen(client);
             }
         }
 
         // Guidebook key
-        if (GUIDEBOOK_KEY != null && client.currentScreen == null) {
-            while (GUIDEBOOK_KEY.wasPressed()) {
+        if (GUIDEBOOK_KEY != null && client.gui.screen() == null) {
+            while (GUIDEBOOK_KEY.consumeClick()) {
                 GuidebookScreen.open(client);
             }
         }
 
         // Title selection screen key
-        if (TITLE_SCREEN_KEY != null && client.currentScreen == null) {
-            while (TITLE_SCREEN_KEY.wasPressed()) {
+        if (TITLE_SCREEN_KEY != null && client.gui.screen() == null) {
+            while (TITLE_SCREEN_KEY.consumeClick()) {
                 openTitleSelectionScreen(client);
             }
         }
 
         // Toggle control mode key
         if (TOGGLE_CONTROL_MODE_KEY != null) {
-            while (TOGGLE_CONTROL_MODE_KEY.wasPressed()) {
+            while (TOGGLE_CONTROL_MODE_KEY.consumeClick()) {
                 toggleControlMode(client);
             }
         }
         
         // Check bonus ability keybinds (work regardless of control mode)
-        if (BONUS_ABILITY_KEYS != null && client.currentScreen == null) {
+        if (BONUS_ABILITY_KEYS != null && client.gui.screen() == null) {
             for (int i = 0; i < BONUS_ABILITY_KEYS.length; i++) {
-                while (BONUS_ABILITY_KEYS[i].wasPressed()) {
+                while (BONUS_ABILITY_KEYS[i].consumeClick()) {
                     activateBonusAbility(client, i);
                 }
             }
         }
         
-        if (!useCustomControls() || CUSTOM_KEYS == null || client.currentScreen != null) {
+        if (!useCustomControls() || CUSTOM_KEYS == null || client.gui.screen() != null) {
             return;
         }
         for (int i = 0; i < CUSTOM_KEYS.length; i++) {
-            while (CUSTOM_KEYS[i].wasPressed()) {
+            while (CUSTOM_KEYS[i].consumeClick()) {
                 activateSlotChord(client, i + 1);
             }
         }
     }
     
-    private static void activateBonusAbility(MinecraftClient client, int slotIndex) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void activateBonusAbility(Minecraft client, int slotIndex) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         if (!ClientGemState.isInitialized()) {
-            sendActionBar(client, Text.translatable("gems.client.gem_state_not_synced"));
+            sendActionBar(client, Component.translatable("gems.client.gem_state_not_synced"));
             return;
         }
         if (ClientGemState.energy() < 10) {
-            sendActionBar(client, Text.translatable("gems.bonus.need_energy_use"));
+            sendActionBar(client, Component.translatable("gems.bonus.need_energy_use"));
             return;
         }
         ClientPlayNetworking.send(new ActivateBonusAbilityPayload(slotIndex));
     }
     
-    private static void openBonusScreen(MinecraftClient client) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void openBonusScreen(Minecraft client) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         if (!ClientGemState.isInitialized()) {
-            sendActionBar(client, Text.translatable("gems.client.gem_state_not_synced"));
+            sendActionBar(client, Component.translatable("gems.client.gem_state_not_synced"));
             return;
         }
         
         // Prism gem uses B key to open Prism selection screen (requires energy 10)
         if (ClientGemState.activeGem() == GemId.PRISM) {
             if (ClientGemState.energy() < 10) {
-                sendActionBar(client, Text.translatable("gems.prism.need_energy_access"));
+                sendActionBar(client, Component.translatable("gems.prism.need_energy_access"));
                 return;
             }
             ClientPlayNetworking.send(PrismSelectionOpenRequestPayload.INSTANCE);
@@ -253,88 +255,88 @@ public final class GemsKeybinds {
         
         // All other gems use B key for bonus selection (requires energy 10+)
         if (ClientGemState.energy() < 10) {
-            sendActionBar(client, Text.translatable("gems.bonus.need_energy_access"));
+            sendActionBar(client, Component.translatable("gems.bonus.need_energy_access"));
             return;
         }
         ClientPlayNetworking.send(BonusSelectionOpenRequestPayload.INSTANCE);
     }
 
-    private static void openTrophyNecklaceScreen(MinecraftClient client) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void openTrophyNecklaceScreen(Minecraft client) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         ClientPlayNetworking.send(TrophyNecklaceOpenRequestPayload.INSTANCE);
     }
 
-    private static void openSpyObservedScreen(MinecraftClient client) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void openSpyObservedScreen(Minecraft client) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         if (!ClientGemState.isInitialized()) {
-            sendActionBar(client, Text.translatable("gems.client.gem_state_not_synced"));
+            sendActionBar(client, Component.translatable("gems.client.gem_state_not_synced"));
             return;
         }
         GemId gem = ClientGemState.activeGem();
         if (gem != GemId.SPY && gem != GemId.PRISM) {
-            sendActionBar(client, Text.translatable("gems.spy.observed.not_spy"));
+            sendActionBar(client, Component.translatable("gems.spy.observed.not_spy"));
             return;
         }
         ClientPlayNetworking.send(SpyObservedOpenRequestPayload.INSTANCE);
     }
 
-    private static void openTitleSelectionScreen(MinecraftClient client) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void openTitleSelectionScreen(Minecraft client) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         ClientPlayNetworking.send(TitleSelectionOpenRequestPayload.INSTANCE);
     }
 
-    private static void openLoadoutPresetsScreen(MinecraftClient client) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void openLoadoutPresetsScreen(Minecraft client) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         if (!ClientGemState.isInitialized()) {
-            sendActionBar(client, Text.translatable("gems.client.gem_state_not_synced"));
+            sendActionBar(client, Component.translatable("gems.client.gem_state_not_synced"));
             return;
         }
         ClientPlayNetworking.send(new LoadoutOpenRequestPayload(ClientGemState.activeGem()));
     }
 
-    private static void openAugmentScreen(MinecraftClient client) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void openAugmentScreen(Minecraft client) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         if (client.player == null) {
             return;
         }
-        boolean mainHandGem = client.player.getMainHandStack().getItem() instanceof GemItem;
-        boolean offHandGem = client.player.getOffHandStack().getItem() instanceof GemItem;
+        boolean mainHandGem = client.player.getMainHandItem().getItem() instanceof GemItem;
+        boolean offHandGem = client.player.getOffhandItem().getItem() instanceof GemItem;
         if (mainHandGem || offHandGem) {
             ClientPlayNetworking.send(new AugmentOpenRequestPayload(mainHandGem));
             return;
         }
-        boolean mainHandLegendary = client.player.getMainHandStack().getItem() instanceof LegendaryItem;
-        boolean offHandLegendary = client.player.getOffHandStack().getItem() instanceof LegendaryItem;
+        boolean mainHandLegendary = client.player.getMainHandItem().getItem() instanceof LegendaryItem;
+        boolean offHandLegendary = client.player.getOffhandItem().getItem() instanceof LegendaryItem;
         if (mainHandLegendary || offHandLegendary) {
             ClientPlayNetworking.send(new InscriptionOpenRequestPayload(mainHandLegendary));
             return;
         }
-        sendActionBar(client, Text.translatable("gems.augment.need_gem_or_legendary"));
+        sendActionBar(client, Component.translatable("gems.augment.need_gem_or_legendary"));
     }
 
-    private static void toggleControlMode(MinecraftClient client) {
+    private static void toggleControlMode(Minecraft client) {
         GemsClientConfig cfg = GemsClientConfigManager.config();
         if (cfg.controlMode == GemsClientConfig.ControlMode.CHORD) {
             cfg.controlMode = GemsClientConfig.ControlMode.CUSTOM;
-            sendActionBar(client, Text.translatable("gems.controls.mode.custom"));
+            sendActionBar(client, Component.translatable("gems.controls.mode.custom"));
         } else {
             cfg.controlMode = GemsClientConfig.ControlMode.CHORD;
-            sendActionBar(client, Text.translatable("gems.controls.mode.chord"));
+            sendActionBar(client, Component.translatable("gems.controls.mode.chord"));
         }
         GemsClientConfigManager.save(cfg);
     }
@@ -351,20 +353,20 @@ public final class GemsKeybinds {
         if (CUSTOM_KEYS == null || slotNumber < 1 || slotNumber > CUSTOM_KEYS.length) {
             return "";
         }
-        KeyBinding key = CUSTOM_KEYS[slotNumber - 1];
+        KeyMapping key = CUSTOM_KEYS[slotNumber - 1];
         if (key == null) {
             return "";
         }
-        return key.getBoundKeyLocalizedText().getString();
+        return key.getTranslatedKeyMessage().getString();
     }
 
-    public static void activateSlotChord(MinecraftClient client, int slotNumber) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    public static void activateSlotChord(Minecraft client, int slotNumber) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         if (!ClientGemState.isInitialized()) {
-            sendActionBar(client, Text.translatable("gems.client.gem_state_not_synced"));
+            sendActionBar(client, Component.translatable("gems.client.gem_state_not_synced"));
             return;
         }
         ClientAbilitySelection.record(ClientGemState.activeGem(), slotNumber);
@@ -432,13 +434,13 @@ public final class GemsKeybinds {
         ClientPlayNetworking.send(new ActivateAbilityPayload(abilityIndex));
     }
 
-    private static void activateSoulRelease(MinecraftClient client) {
-        if (client.getNetworkHandler() == null) {
-            sendActionBar(client, Text.translatable("gems.client.not_connected"));
+    private static void activateSoulRelease(Minecraft client) {
+        if (client.getConnection() == null) {
+            sendActionBar(client, Component.translatable("gems.client.not_connected"));
             return;
         }
         if (!ClientGemState.isInitialized()) {
-            sendActionBar(client, Text.translatable("gems.client.gem_state_not_synced"));
+            sendActionBar(client, Component.translatable("gems.client.gem_state_not_synced"));
             return;
         }
         ClientAbilitySelection.record(ClientGemState.activeGem(), GemRegistry.definition(ClientGemState.activeGem()).abilities().size() + 1);
@@ -448,22 +450,22 @@ public final class GemsKeybinds {
         ClientPlayNetworking.send(SoulReleasePayload.INSTANCE);
     }
 
-    private static void sendActionBar(MinecraftClient client, Text text) {
+    private static void sendActionBar(Minecraft client, Component text) {
         if (client.player == null) {
             return;
         }
-        client.player.sendMessage(text, true);
+        client.player.sendSystemMessage(text);
     }
 
     private static String chordKeyLabel(int slotNumber) {
         if (slotNumber < 1 || slotNumber > 9) {
             return "";
         }
-        MinecraftClient client = MinecraftClient.getInstance();
-        GameOptions options = client.options;
-        if (options == null || options.hotbarKeys == null || options.hotbarKeys.length < slotNumber) {
+        Minecraft client = Minecraft.getInstance();
+        Options options = client.options;
+        if (options == null || options.keyHotbarSlots == null || options.keyHotbarSlots.length < slotNumber) {
             return "";
         }
-        return options.hotbarKeys[slotNumber - 1].getBoundKeyLocalizedText().getString();
+        return options.keyHotbarSlots[slotNumber - 1].getTranslatedKeyMessage().getString();
     }
 }
