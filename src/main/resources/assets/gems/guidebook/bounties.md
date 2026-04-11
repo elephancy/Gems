@@ -1,30 +1,29 @@
 # Bounties
 
-Bounties let players place rewards on other players. Rewards are paid out when the target is killed.
+Offer hearts or energy as a reward for defeating another player.
 
-## How To Use
+## Place a bounty
 
 - Open the Bounty Board with `/gems bounty`.
-- Use the **Active** tab to see current bounties.
-- Use the **Place** tab to select a target and set hearts/energy.
+- Check existing bounties under **Active**. Choose a target and reward under **Place**.
 
-## Placement Rules
+## Before you place one
 
 - Only non-assassins can place bounties.
 - You can only place bounties on online players.
-- Bounty costs are deducted immediately.
-- Heart bounties cannot drop you below 5 max hearts.
-- Energy bounties cannot drop you below 0 and are clamped to your current energy.
-- You can raise an existing bounty only if you do not reduce hearts or energy and at least one value increases.
+- You pay the reward immediately.
+- A Heart bounty cannot drop you below 5 maximum hearts.
+- You cannot offer more energy than you have.
+- You can raise an existing bounty, but cannot lower either reward.
 
-## Claim Rules
+## When someone wins
 
-- If anyone kills the target, they receive all rewards placed on that target.
+- Whoever kills the target receives every reward on them.
 - If the target kills a placer, the target receives that placer's bounty.
-- Heart rewards are given as Heart items and drop if your inventory is full.
-- Energy rewards are given as Energy Upgrade items.
-- Bounty rewards are in addition to normal kill drops.
+- Heart rewards arrive as Heart items; they drop if your inventory is full.
+- Energy rewards arrive as Energy Upgrade items.
+- Bounty rewards come on top of normal kill drops.
 
-## Assassin Void
+## If the target becomes an Assassin
 
-- If a bounty target becomes an assassin, all bounties on them are removed.
+- If a target becomes an Assassin, every bounty on them is removed.

@@ -1,14 +1,13 @@
 # Assassin endgame
 
-- If you die while already at the assassin trigger hearts (default 5), you become an Assassin.
+- If your maximum health reaches 5 hearts (by default), your next death turns you into an Assassin.
 - Assassins are highlighted red in the player list.
-- Assassins have a max-hearts cap, cannot consume heart items, and never drop heart items.
-- If killed by another Assassin: heart loss/gain is determined by server balance.
-- If killed by another Assassin: the killer also takes all of your accumulated Assassin points.
-- Reaching the elimination threshold permanently eliminates the Assassin.
-- Scoring (after becoming an Assassin): normal kill = +1, final kill = +3.
-- Reaching 10 Assassin points unlocks a permanent choice: you can return to normal at any time. Use `/gems assassin leave` after unlocking (leaving resets assassin points).
-- The highest-score Assassin is matched against the last non-Assassin survivor (admin-run duel).
+- Assassins have a maximum-heart limit, cannot use heart items, and never drop them.
+- If another Assassin kills you, they take all your Assassin points. The server's balance settings decide heart loss and gain.
+- At the elimination threshold, an Assassin is eliminated for good.
+- As an Assassin, gain 1 point for a normal kill or 3 for a final kill.
+- At 10 points, you unlock the permanent option to return to normal. Use `/gems assassin leave` whenever you choose; leaving resets your points.
+- An admin can match the highest-scoring Assassin against the last player who is not an Assassin.
 
 ## UI
 

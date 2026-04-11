@@ -1,15 +1,8 @@
 # Bonus abilities and passives
 
-At energy 10/10, any gem holder can claim up to 2 bonus abilities and 2 bonus passives from a server-wide pool. Press B (default keybind) to open the selection UI:
-- Most gems: Bonus Selection screen
-- Prism: Prism Selection screen (includes bonus pool tabs)
+At 10 energy, press B to choose up to two extra abilities and two extra passives. Prism uses its own selection screen, which includes these bonus choices.
 
-**Key mechanics:**
-- Claims are unique per player - once claimed, no other player can use that ability/passive until it is released.
-- Bonus abilities are cast using the `Bonus Ability 1` and `Bonus Ability 2` keybinds (default C and V).
-- Bonus passives are automatically applied while claimed and active.
-- Claims are released when your energy drops below 10 (you will be notified).
-- All bonus abilities have cooldowns and effects that may vary by server balance.
+Each bonus power can belong to only one player at a time. Chosen passives work automatically; press C or V to cast your chosen abilities. If your energy falls below 10, your choices return to the shared pool and you get a notice. Abilities need time to recharge; servers can adjust their effects.
 
 ## Bonus abilities (50)
 
@@ -54,7 +47,7 @@ At energy 10/10, any gem holder can claim up to 2 bonus abilities and 2 bonus pa
 - Seismic Slam: ground-pound that creates shockwaves.
 - Icicle Barrage: fire a volley of piercing icicles.
 - Banishment: teleport enemy far away randomly.
-- Corpse Explosion: detonate nearby corpses for AoE damage.
+- Corpse Explosion: detonate nearby corpses to damage enemies in the area.
 - Soul Swap: swap positions with target player/mob.
 - Mark of Death: mark target to take bonus damage from all sources.
 - Iron Maiden: enemies that hit you take reflect damage for duration.
@@ -81,7 +74,7 @@ At energy 10/10, any gem holder can claim up to 2 bonus abilities and 2 bonus pa
 - Evasive Roll: when hit while sprinting, auto-dodge backward (8s cooldown).
 - Combat Meditate: standing still for 2s rapidly restores health.
 - Weapon Mastery: +1 attack damage with all weapons.
-- Culling Blade: instantly kill enemies below 10% HP on hit.
+- Culling Blade: instantly kill enemies below 10% health when you hit them.
 - Thick Skin: projectiles deal 25% less damage to you.
 - XP Boost: gain 25% bonus XP from all sources.
 - Hunger Resist: 50% slower hunger depletion.
@@ -91,17 +84,17 @@ At energy 10/10, any gem holder can claim up to 2 bonus abilities and 2 bonus pa
 - Chain Breaker: break free from roots/slows 50% faster.
 - Stone Skin: flat 1 damage reduction from all sources.
 - Arcane Barrier: absorb first hit every 30s.
-- Predator Sense: enemies below 30% HP are highlighted with glowing effect through walls.
-- Battle Medic: heal nearby trusted allies 0.5 HP/sec.
-- Last Stand: deal 50% more damage when below 25% HP.
-- Executioner: deal 30% more damage to enemies below 25% HP.
+- Predator Sense: enemies below 30% health glow through walls.
+- Battle Medic: heal nearby trusted allies by a quarter of a heart each second.
+- Last Stand: deal 50% more damage when below 25% health.
+- Executioner: deal 30% more damage to enemies below 25% health.
 - Bloodthirst: kills restore 2 hearts.
 - Steel Resolve: immune to knockback.
 - Elemental Harmony: 25% reduced damage from fire, frost, and lightning.
 - Treasure Hunter: 20% increased rare loot drop chance.
 - Counter Strike: after blocking, next hit deals 2x damage (3s window).
 - Bulwark: blocking is 50% more effective.
-- Quick Recovery: debuff durations reduced by 30%.
+- Quick Recovery: harmful effects last 30% less time.
 - Overflowing Vitality: +4 maximum hearts permanently.
 - Magnetic Pull: items attracted from 2x distance.
 - Vengeance: after being hit, next attack deals +50% damage (5s window).

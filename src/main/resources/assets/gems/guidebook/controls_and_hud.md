@@ -1,65 +1,32 @@
 # Controls and HUD
 
-## Casting and keybind modes
+## Cast a power
 
-- Cast an ability: hold Gems Modifier (default Left Alt) + press a hotbar number (1-9).
-- Controls can be switched to fully custom keybinds in the client settings (CHORD or CUSTOM).
-  - **CHORD mode** (default): Hold Gems Modifier + hotbar key. The modifier is customizable in Options -> Controls -> Gems.
-  - **CUSTOM mode**: Each ability slot has its own keybind (Gems Ability 1 through Gems Ability 9) in Options -> Controls -> Gems. These are unbound by default.
-- You can disable your own gem passives in the client settings.
+Hold Left Alt and press a hotbar number (1-9). You can change the Left Alt key in Options > Controls > Gems.
 
-## Special controls
+Prefer a separate key for each power? Choose **Custom** under Control Mode in Gems Settings, then bind Gems Ability 1-9 in Options > Controls > Gems. Those keys start unbound. You can also bind a key to switch modes while playing.
 
-- Astra Soul Release: the slot after Astra's last ability.
-- Summoner loadout UI: Gems Modifier + the hotbar key after the last ability slot (default Alt + 7) while using Summoner.
-- Loadout presets manager: press L (default) to open the loadout presets screen.
-- Guidebook: press ~ (tilde) to open the in-game docs viewer.
-- Augment/inscription screen: press U (default) while holding a gem or legendary item to manage augments or inscriptions for that specific item.
-- Title selection: press M (default) to pick your active title and view progress across unlocked titles.
-- Trophy Necklace: press P (default) to manage stolen passives.
-- Selection screen: press B (default) to open the selection screen (requires energy 10/10).
-  - Most gems: bonus ability/passive selection.
-  - Prism: Prism selection (choose from normal gem powers + bonus pool).
-- Bonus abilities: use the dedicated `Bonus Ability 1` and `Bonus Ability 2` keybinds (default C and V; customizable in Options -> Controls -> Gems).
-- Toggle control mode: optional keybind (unbound by default) to switch between CHORD and CUSTOM at runtime.
-- Chaos slots: LAlt + 1-4 to roll or use chaos abilities.
-- Spy observed menu: press O (default) to choose which observed ability Echo/Steal will use; observations persist until used (Echo consumes 1, Steal consumes 4).
-- {#FFAA00}Tip:{/} Every keybind listed here appears under Options -> Controls -> Gems for rebinding.
+## Read the HUD
 
-## Mod Menu settings
+The display shows your gem, energy, and when a power is ready again. Before you use a power, it shows the first one available. Flux charge, Astra's held soul, and your rival appear when they matter.
 
-- Open Mod Menu and select **Gems Config** to adjust balance and visuals in singleplayer.
-- Client settings include **Control Mode** and **Passives Enabled**.
-- Server owners can tune ability values, cooldowns, and special systems from the same screen.
-- **Disables** lets admins turn off specific gems, abilities, or passives without editing files.
+Your saved setup remembers where you put the display. Turn off **Compact Mode** in that setup to see every power slot.
 
-## HUD
+## Useful keys
 
-- HUD shows current gem, energy tier, cooldowns, and special states (like Flux charge, Astra soul, or Chaos slots).
+- **~:** open this guide. Search for a gem, power or item; results jump to the matching line. Use the mouse wheel or page buttons to read on.
+- **U:** inspect or remove augments and inscriptions while holding a gem or legendary item.
+- **L:** save or load a preset after reaching 6 energy.
+- **M:** choose a title and check your progress.
+- **P:** manage passives stolen with the Trophy Necklace.
+- **B:** choose bonus powers at 10 energy; Prism uses the same screen for its gem powers.
+- **C / V:** cast your two chosen bonus abilities.
+- **O:** choose the observed ability Spy will use. Echo spends 1 observation; Steal spends 4.
 
-## Loadout Presets (Energy 6+)
+Astra's Soul Release and Summoner's loadout use the slot after the last regular ability. Chaos uses Left Alt plus each slot number to roll or cast; it has six slots by default. You can rebind every key above under Options > Controls > Gems.
 
-Players with energy level 6 or higher can save and load loadout presets for each gem.
+## Presets and settings
 
-**Preset manager UI:** Open the loadout presets screen with the `Loadout Presets` keybind (default L).
+At 6 energy, you can save up to 5 setups per gem. Each remembers your ability order, passive choices, and display layout. Your current energy still decides which powers you can use.
 
-### Features
-
-- **Per-Gem Storage**: Save up to 5 presets per gem
-- **Saved Settings**:
-  - Ability order preferences
-  - Passive toggles (enabled/disabled)
-  - HUD layout (position, show cooldowns, show energy, compact mode)
-- **Energy Gating**: Switching presets respects your current ability unlocks and energy level
-
-### HUD Layout Options
-
-Each preset can store custom HUD layout preferences:
-- **Position**: TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT
-- **Show Cooldowns**: Toggle cooldown display
-- **Show Energy**: Toggle energy display
-- **Compact Mode**: Smaller HUD footprint
-
-### Settings
-
-Loadout presets can be enabled/disabled and tuned by the server. If something feels locked, check with your server owner.
+Choose **Settings** on this guide's home page for controls and passive preferences. Mod Menu opens the same screen if installed. In a local world, you can also change world rules there. On a server, its owner manages those rules.

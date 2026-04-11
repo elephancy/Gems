@@ -1,20 +1,20 @@
-# Gems — Player Guide
+# Start here
 
-This is the player-facing overview. Detailed sections are included in the Guidebook.
+You start with a random gem and 3 energy. Passives work on their own. Abilities are powers you choose when to use. If your server has Second Chance, you can play its story without fighting other players.
 
-## Start here
+## Try your gem
 
-Use the Guidebook Index to jump to any section, including Progression, Gems, Bonus Pool, Legendary Items, and more.
+- Press `~` to open this guide, then choose **See my gem** to find your powers. You can change the Guidebook key in Options > Controls > Gems.
+- Hold Left Alt and press a hotbar number to use a power. You can change those keys in Options > Controls > Gems.
+- Check the display for your gem, energy, and when a power is ready again.
+- Search for a gem, power, or item by name to jump to its entry.
 
-## Quick summary
+## Build energy
 
-- **Start:** you spawn with a random gem at 3 energy.
-- **Energy:** passives unlock at 1+, abilities unlock in order at 2-4, and all remaining abilities unlock at 5+.
-- **PvP loop:** player kills grant +1 energy; any death loses 1 energy.
-- **Endgame:** legendary items, bonus pool, and special gems (Void/Chaos/Prism) add depth and counterplay.
-- **Customization:** augments (gems) and inscriptions (legendary items) are per-item and roll rarity-based strengths.
-- **Titles:** cosmetic titles display in chat/tab and can add an aura; open Title Selection (default M).
+At 3 energy, you have your passives and first two abilities. More abilities open at 4 and 5. At 5, every ability is available. Energy 6-10 gives you a buffer if you die. At 10, press B to choose bonus powers.
 
-## Looking for server setup?
+Defeat a player who has energy to gain 1. Any death costs 1. The story has its own goals, so PvP is optional there.
 
-Ask your server owner or admin if you need configuration details.
+## What to read next
+
+Open **Gems** for powers, **Progression** for every energy level, or **Controls** for keys and display options. If you have Second Chance, **Find your path** shows where its story begins.

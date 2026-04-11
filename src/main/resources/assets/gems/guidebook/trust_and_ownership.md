@@ -1,35 +1,32 @@
 # Trust and ownership
 
-This doc describes the rules around trusting other players and owning gems.
+Trust tells your helpful powers who counts as an ally. It does not make anyone safe from PvP. Every gem item also has an owner.
 
 ## Trust
 
-- Trust only affects ally-targeted effects (buffs, heals, shared cooldowns, etc.).
-- PVP is always allowed regardless of trust status.
-- Trust is managed via commands: `/gems trust`, `/gems untrust`, `/gems trustlist`.
+- Trust a player to let your boosts and healing help them. If they trust you too, you can combine powers for team synergies.
+- Use `/gems trust <player>` to add someone, `/gems untrust <player>` to remove them, or `/gems trustlist` to see your list.
 
 ## Gem ownership
 
-### Owning multiple gems
+### More than one gem
 
-- Gems are **bound to an owner** when first picked up or crafted.
-- A player can own multiple gems, but only **one gem is active** at a time.
-- Switching your active gem:
-  - **Gem Trader**: swaps only the active gem (active gem item must be in your inventory).
-  - **Gem Purchase Token**: adds a selected gem to your owned set and activates it.
-- When you switch gems, any gem-specific state is cleared.
+- The first player to pick up or craft a gem becomes its owner.
+- You can own several gems, but use one at a time.
+- A **Gem Trader** swaps your active gem; keep its item in your inventory. A **Gem Purchase Token** adds a selected gem to your collection and activates it.
+- Changing gems clears temporary effects tied to the gem you leave.
 
 ### When someone uses your gem
 
-If another player activates a gem that belongs to you (ownership theft), severe penalties apply to **you** (the victim):
+If someone else activates a gem you own, **you** suffer all three penalties:
 
-1. **Instant death** – you are killed immediately.
-2. **No heart drop** – your heart does not drop for anyone to claim.
-3. **Max hearts reduced by 2** – your maximum health permanently decreases.
+1. You die immediately.
+2. You drop no Heart item.
+3. Your maximum health permanently falls by 2 hearts.
 
-This makes guarding your gem critical. Gems in item frames, chests, or dropped on the ground can still be stolen and activated by enemies.
+Keep track of every owned gem item, including ones in chests, item frames or on the ground.
 
-## Item ownership tags and stacking
+## Stacking owned items
 
-- Items of the same type can stack even if they have different ownership tags.
-- Moving stacks between inventories preserves ownership without creating ownerless items.
+- Items of the same type can stack even when they have different owners.
+- Moving a stack between inventories does not erase ownership.

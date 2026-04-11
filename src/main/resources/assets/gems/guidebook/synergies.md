@@ -1,6 +1,6 @@
 # Synergies
 
-Synergies trigger when multiple gems (or specific abilities) are cast within a short window (default 3 seconds). This works across **mutually trusted** allies and also for multi-gem players (Prism). Each synergy has its own cooldown (configurable in `synergies.entries`).
+Cast matching abilities within 3 seconds (by default) to create a synergy. It works with allies who trust each other and with Prism players using multiple gems. Each synergy needs time to recharge.
 
 ## Air Gem
 

@@ -1,10 +1,29 @@
 {
   "metal_pipe": {
+    "subtitle": "subtitles.gems.metal_pipe",
     "sounds": [
       {
         "name": "gems:metal_pipe",
         "stream": false
       }
+    ]
+  },
+  "arcane_chime": {
+    "subtitle": "subtitles.gems.arcane_chime",
+    "sounds": [
+      "gems:arcane_chime"
+    ]
+  },
+  "surge_pulse": {
+    "subtitle": "subtitles.gems.surge_pulse",
+    "sounds": [
+      "gems:surge_pulse"
+    ]
+  },
+  "phase_shift": {
+    "subtitle": "subtitles.gems.phase_shift",
+    "sounds": [
+      "gems:phase_shift"
     ]
   }
 }

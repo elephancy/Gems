@@ -1,0 +1,24 @@
+Gems 2.0 third-party sprite credits
+
+All 23 gem icons: original frames from Karsiori, FREE Pixel Art Gems Pack - Animated.
+CC0 1.0. https://karsiori.itch.io/free-pixel-art-gem-pack
+Source pixels were centered on transparent 32x32 canvases without redraw or recolor.
+
+Twelve legendary sprites: RunicPixels, Swordtember 2023 Collection.
+CC BY 4.0. https://runicpixels.itch.io/swordtember-2023-collection
+https://creativecommons.org/licenses/by/4.0/
+These twelve PNGs are unchanged original source files.
+
+Nine further legendary item textures: 7Soul1, OpenClipart contributors, and
+AntumDeluge's curated CC0 Ranged, Tool, Jewelry, and Stave Icons packs.
+https://opengameart.org/content/cc0-ranged-icons
+https://opengameart.org/content/cc0-tool-icons
+https://opengameart.org/content/cc0-jewelry-icons
+https://opengameart.org/content/cc0-stave-icons
+Six PNGs retain source bytes. The other three combine the original bow and
+arrow by rotation and translation for the draw states.
+
+Exact source-to-item mappings and archive checksums are in
+ tools/adventure/generate_gems_release_assets.py and
+ tools/adventure/import_legendary_source_icons.py.
+Additional CC0 art and audio credits: see project credits.md.

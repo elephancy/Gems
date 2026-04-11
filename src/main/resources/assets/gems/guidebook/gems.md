@@ -1,22 +1,17 @@
-# Gems (Abilities and Passives)
+# Gems
 
-Passives and abilities are gated by energy. See the Progression section for details.
+Each gem has abilities you cast and passives that work on their own. Energy decides which you can use; see Progression. Choose **See my gem** on this guide's first page to jump to yours, or search for a power by name.
 
 ## Gem augments
 
-- Craftable items that add modifiers to gem abilities/passives.
-- Augments require a player head and unique ingredients.
-- Gems have up to 4 augment slots (default), with 3 rarity tiers (default).
-- Augments are stored on the gem item itself, so two copies of the same gem can have different augments.
-- Rarity affects strength/roll ranges; conflicts prevent incompatible combos.
-- Slot counts, rarity tiers, roll weights, and magnitudes are configurable.
-- Apply a gem augment by right-clicking while the augment is in your hand and the gem is in your other hand.
-- Use the augment screen (default U) while holding a gem to view or remove augments on that specific item.
-- Each augment rolls a rarity on craft; the rolled rarity scales its strength.
-- Augment effects:
-  - Focus: reduces gem ability cooldowns.
-  - Persistence: increases gem ability durations.
-  - Resonance: increases passive amplifier bonuses.
+- Craft an augment with a player head and its other ingredients. Its rarity is decided when you craft it; rarer ones can be stronger.
+- A gem holds up to four augments by default. Some pairs cannot go together.
+- Augments stay on that particular gem item. Two copies of the same gem can carry different augments.
+- Hold the augment and put the gem in your other hand, then use the augment to apply it. Hold a gem and press U to inspect or remove its augments.
+- Server owners can adjust how many fit and how strong they are.
+- **Focus** shortens the wait before an ability is ready again.
+- **Persistence** makes timed abilities last longer.
+- **Resonance** strengthens some passive effects.
 
 ## Gems
 
@@ -31,7 +26,7 @@ Passives and abilities are gated by energy. See the Progression section for deta
 - Wind Jump: wind-charge style high jump.
 - Gale Slam: empower your next mace slam with a stronger wind burst.
 - Crosswind: cutting gust forward that knocks back and slows enemies.
-- Air Dash: forward dash with brief i-frames.
+- Air Dash: dash forward and briefly avoid incoming damage.
 
 ### Astra Gem
 
@@ -47,7 +42,7 @@ Passives and abilities are gated by energy. See the Progression section for deta
 - Astral Camera: scout in Spectator, then return to your start.
 - Spook: disorient nearby enemies.
 - Tag: mark a target through walls briefly.
-- Soul Release: summon the captured mob as a soul summon (no loot/XP), preserving its name/gear/attributes and restoring it to full health; follows the summon AI priority.
+- Soul Release: summon your captured mob at full health. It keeps its name, gear and stats, follows you, fights your enemies and drops no loot or XP.
 
 ### Beacon Gem
 
@@ -58,15 +53,16 @@ Passives and abilities are gated by energy. See the Progression section for deta
 
 **Abilities:**
 - Moving auras (toggle): Speed, Haste, Resistance, Jump Boost, Strength, Regeneration (only one active).
-- Aura pulses buff trusted allies and apply Slowness/Weakness to untrusted players in range.
+- Aura pulses help trusted allies and slow or weaken untrusted players nearby.
 
 ### Chaos Gem
 
 **Passives:**
-- Chaos Agent: grants access to n(4 by default) independent random ability slots.
+- Chaos Agent: grants six independent random ability slots by default (server owners can set 1-9).
 
 **Abilities:**
-- Slot 1-n (LAlt + 1-n): each slot can be rolled independently. Press a slot key when empty to roll a random ability and passive from any other gem. The rolled ability lasts 5 minutes and can be used with a 10-second cooldown. All n slots operate independently.
+- Chaos slots (Left Alt + a hotbar number): press an empty slot to roll an ability and passive from another gem. Each slot rolls on its own. The ability lasts 5 minutes and needs 10 seconds to recharge after use.
+- At 1 energy, you can roll a slot for its passive. Using the rolled ability starts at 2 energy, like other gem abilities.
 
 ### Duelist Gem
 
@@ -107,8 +103,8 @@ Passives and abilities are gated by energy. See the Progression section for deta
 - Flux Insulation: at high charge, incoming damage is reduced.
 
 **Abilities:**
-- Flux Beam: long-range beam; damage and armor shred scale with charge.
-- Static Burst: AOE burst from recent damage taken.
+- Flux Beam: long-range beam; more charge means more damage and more wear on enemy armor.
+- Static Burst: damage nearby enemies based on damage you recently took.
 - Flux Surge: spend charge for a speed/resistance burst and a close-range shockwave.
 - Flux Discharge: dump charge into a damaging knockback shockwave.
 
@@ -126,7 +122,7 @@ Passives and abilities are gated by energy. See the Progression section for deta
 - Crippling Shot: ranged attack that reduces target's movement speed by 50% for 8s.
 - Pack Tactics: nearby trusted allies deal 20% more damage to your marked target for 10s.
 - Origin Tracking: track the first owner of an item (who originally crafted or found it); works on offline targets if the server has last-known data for them.
-- Six-Pack Pain: summon 6 player clones that share a health pool (120 HP total) for 10s. They attack untrusted players and hostile mobs. When hit, you get regeneration + a random buff, and the attacker gets debuffed.
+- Six-Pack Pain: summon 6 clones for 10s. Together they have 60 hearts of health and attack untrusted players and hostile mobs. When one is hit, you gain regeneration and a random helpful effect; the attacker receives a harmful effect.
 
 ### Life Gem
 
@@ -135,7 +131,7 @@ Passives and abilities are gated by energy. See the Progression section for deta
 - Double Saturation from food.
 
 **Abilities:**
-- Vitality Vortex: adaptive pulse based on surroundings; affects nearby living entities (not you) and buffs trusted allies while debuffing enemies.
+- Vitality Vortex: a pulse that changes with your surroundings. It helps nearby trusted allies and hinders enemies, but does not affect you.
   - Aquatic (water nearby or submerged): allies heal + Regen I + Water Breathing + Dolphin's Grace; enemies Slowness II + Mining Fatigue I.
   - Infernal (Nether or lava nearby): allies heal + Regen I + Fire Resistance + Strength; enemies Wither I + Weakness I.
   - Sculk (sculk blocks nearby): allies heal + Regen I + Night Vision + Resistance; enemies Darkness + Mining Fatigue II.
@@ -152,16 +148,16 @@ Passives and abilities are gated by energy. See the Progression section for deta
 **Passives:**
 - Raider's Training: faster projectiles.
 - Shieldbreaker: melee hits can disable shields without an axe (untrusted players).
-- Illager Discipline: resistance burst at low health (cooldown).
+- Illager Discipline: a brief protection burst at low health; needs time to recharge.
 - Crossbow Mastery: auto-applies Quick Charge II to crossbows.
 - Raider's Stride: minor Speed while active.
 
 **Abilities:**
 - Fangs: evoker-fangs line at a target zone.
 - Ravage: heavy knockback hit.
-- Vindicator Break: melee buff that also disables shields.
+- Vindicator Break: strengthen your melee attacks and disable shields.
 - Volley: short arrow burst without ammo.
-- Warhorn: buff nearby allies and slow nearby enemies.
+- Warhorn: strengthen nearby allies and slow enemies.
 - Snare Shot: mark a target with glowing and slowness.
 
 ### Prism Gem
@@ -208,7 +204,7 @@ How to select:
 - Death Oath: choose a target; you take damage over time but deal bonus damage to them.
 - Retribution: incoming damage reflects to the attacker while the effect lasts.
 - Scythe Sweep: wide melee cleave in front of you.
-- Blood Charge: sacrifice health to buff your next hit or ability.
+- Blood Charge: spend some health to strengthen your next hit or ability.
 - Shadow Clone: summon multiple invulnerable decoys that vanish after 10s.
 
 ### Sentinel Gem
@@ -248,7 +244,7 @@ How to select:
 
 **Abilities:**
 - Arc Shot: lightning arc that can chain multiple targets.
-- Speed Storm: field that buffs allies and slows enemies.
+- Speed Storm: field that helps allies and slows enemies.
 - Terminal Velocity: short Speed/Haste burst.
 - Slipstream: wind lane that speeds allies and disrupts enemies.
 - Afterimage: brief invisibility + speed; breaks on hit.
@@ -264,7 +260,7 @@ How to select:
 - Quick Hands: minor Haste.
 
 **Abilities:**
-- Mimic Form: after a recent mob kill, gain invisibility + bonus health/attack + speed scaled to that mob’s base stats (tough mobs grant larger buffs).
+- Mimic Form: after a recent mob kill, turn invisible and gain health, attack and speed bonuses based on that mob. Tougher mobs give larger bonuses.
 - Echo: replay an observed ability; consumes 1 observation.
 - Steal: after observing 4 times, steal an ability; consumes 4 observations. The victim only recovers it if you swap gems or they kill you (recovery does not require them to re-select it).
 - Smoke Bomb: blind/slow nearby enemies and briefly cloak you.
@@ -303,7 +299,7 @@ Observed menu:
 Summoner UI:
 - Open the loadout editor with Gems Modifier + the hotbar key after the last ability slot (default Alt + 7) while using Summoner.
 
-Summoned/controlled AI priority (Summoner, Astra Soul Release, Hypno Staff):
+How controlled mobs choose a target (Summoner, Astra Soul Release, Hypno Staff):
 - Summoner only: Commander's Mark target overrides all other priorities.
 - Otherwise: target the last entity you attacked (player or mob) within command range.
 - If none: target whoever last attacked you or is currently hostile toward you.
@@ -319,7 +315,7 @@ Summoned/controlled AI priority (Summoner, Astra Soul Release, Hypno Staff):
 
 **Abilities:**
 - Rig: trap a block; any use, break, step, or block update triggers an explosion (five primed TNT, fuse configurable).
-- Remote Charge: arm a block within 10s, then detonate from anywhere within 1 minute (has a cooldown).
+- Remote Charge: arm a block within 10 seconds, then detonate it from anywhere within 1 minute. The power needs time to recharge.
 - Panic Ring: spawn primed TNT around you.
 - Breach Charge: immediate blast at the targeted block or entity with wither-skull style VFX.
 - Terror Trade: sacrifice yourself to attempt to kill a target (totems can save). Costs 2 max hearts and 2 permanent energy, limited to 3 uses per player.
@@ -333,7 +329,7 @@ Summoned/controlled AI priority (Summoner, Astra Soul Release, Hypno Staff):
 
 **Abilities:**
 - Shadow Swap: instantly swap places with the entity you are looking at (line-of-sight).
-- Mirage: create a single mirage clone at your aim point; it mirrors your movements and breaks on hit or timeout, granting you a brief buff.
+- Mirage: create one clone where you aim. It copies your movements, then vanishes on hit or after a short time and gives you a brief helpful effect.
 - Glitch Step: short-range teleport that leaves a damaging afterimage at your origin.
 - Puppet Master: briefly control an enemy's movement for 3s (they walk where you aim).
 - Mind Games: reverse an enemy's movement controls for 5s (left becomes right, forward becomes back).

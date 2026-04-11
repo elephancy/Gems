@@ -10,7 +10,7 @@
   "key.gems.trophy_necklace_screen": "Trophy Necklace",
   "key.gems.loadout_presets": "Loadout Presets",
   "key.gems.augment_screen": "Augments",
-  "key.gems.guidebook": "Guidebook",
+  "key.gems.guidebook": "Open Field Guide",
   "key.gems.title_screen": "Title Selection",
   "key.gems.bonus_ability_1": "Bonus Ability 1",
   "key.gems.bonus_ability_2": "Bonus Ability 2",
@@ -24,16 +24,12 @@
   "key.gems.ability_8": "Gems Ability 8",
   "key.gems.ability_9": "Gems Ability 9",
   "key.gems.toggle_control_mode": "Toggle Control Mode",
-
   "gems.screen.button.close": "Close",
-
   "gems.controls.mode.chord": "Control mode: Chord (Alt + Hotbar Keys)",
   "gems.controls.mode.custom": "Control mode: Custom Keybinds",
-
   "entity.gems.shadow_clone": "Shadow Clone",
   "entity.gems.hunter_pack": "Pack Clone",
   "entity.gems.test_dummy": "Test Dummy",
-
   "item.gems.heart": "Heart",
   "item.gems.energy_upgrade": "Energy Upgrade",
   "item.gems.gem_trader": "Gem Trader",
@@ -89,7 +85,7 @@
   "gems.screen.inscription.title": "Inscriptions",
   "gems.screen.inscription.item": "Item: %s",
   "gems.augment.need_gem_or_legendary": "Hold a gem or legendary item to manage augments.",
-  "gems.screen.guidebook.title": "Guidebook",
+  "gems.screen.guidebook.title": "Field Guide",
   "gems.book.gems.title": "Gems Overview",
   "gems.book.gems.body": "A quick overview of gem selection, energy tiers, abilities, and passives.",
   "gems.book.controls.title": "Controls & HUD",
@@ -110,7 +106,6 @@
   "gems.book.rivalry.body": "Rivalry targets, bonus damage, and reroll rules.",
   "gems.book.trust.title": "Trust & Ownership",
   "gems.book.trust.body": "Trust lists, ownership rules, and who can interact with your items.",
-
   "item.gems.astra_gem": "Astra Gem",
   "item.gems.fire_gem": "Fire Gem",
   "item.gems.flux_gem": "Flux Gem",
@@ -159,7 +154,6 @@
   "gems.item.chaos.no_active_slots": "No active slots yet.",
   "screen.gems.gem_seer.title": "Gem Seer",
   "screen.gems.gem_seer.hint": "Select a player to view their gem info.",
-  
   "gems.ability.stunned": "You are stunned.",
   "gems.ability.suppressed": "Your gem abilities are suppressed.",
   "gems.ability.no_abilities_unlocked": "No abilities unlocked at this energy.",
@@ -192,7 +186,6 @@
   "gems.screen.spy_observed.tab.echo": "Echo",
   "gems.screen.spy_observed.tab.steal": "Steal",
   "gems.screen.spy_observed.tab.stolen_cast": "Stolen Cast",
-
   "gems.ability.air.crosswind.hit": "Crosswind hit %s targets.",
   "gems.ability.astra.camera.active": "Spectator Camera active.",
   "gems.ability.astra.dimensional_void.suppressed": "Suppressed %s targets.",
@@ -317,7 +310,6 @@
   "gems.ability.wealth.hotbar_lock.activated": "Hotbar Lock activated!",
   "gems.ability.wealth.pockets.title": "Pockets",
   "gems.ability.wealth.rich_rush.active": "Rich Rush active!",
-
   "gems.message.no_target": "No target.",
   "gems.message.target_trusted": "Target is trusted.",
   "gems.message.ability_disabled_server": "That ability is disabled on this server.",
@@ -325,7 +317,6 @@
   "gems.message.no_block_target": "No block target found.",
   "gems.message.no_target_in_range": "No target in range.",
   "gems.message.no_targets": "No targets found.",
-
   "gems.trade.gem_disabled": "That gem is disabled on this server.",
   "gems.trade.gem_already_active": "That gem is already active.",
   "gems.trade.need_active_gem": "You must have your active gem in your inventory to trade.",
@@ -334,12 +325,10 @@
   "gems.trade.purchased": "Purchased %s",
   "gems.trade.traded_for": "Traded for %s",
   "gems.trade.unknown_gem": "Unknown gem '%s'",
-
   "gems.screen.gem_seer.header": "Gem Seer: %s ",
   "gems.screen.gem_seer.active_gem": "Active Gem: ",
   "gems.screen.gem_seer.energy": "Energy: ",
   "gems.screen.gem_seer.owned_gems": "Owned Gems: ",
-
   "gems.bonus.powers_released": "Your bonus powers have been released (energy below 10).",
   "gems.bonus.need_energy_access": "You need energy 10/10 to access bonus powers.",
   "gems.bonus.need_energy_claim": "You need energy 10/10 to claim bonus powers.",
@@ -354,11 +343,9 @@
   "gems.bonus.no_abilities_claimed": "You have no bonus abilities claimed.",
   "gems.bonus.invalid_slot": "Invalid bonus ability slot.",
   "gems.bonus.ability_disabled": "That bonus ability is disabled on this server.",
-
   "gems.bounty.target_offline": "Bounty: target offline",
   "gems.bounty.tracking": "Bounty: %s (%sm)",
   "gems.bounty.last_seen": "Bounty: %s last seen at %s, %s, %s (%s)",
-
   "gems.spy.no_observed_ability": "No observed ability selected.",
   "gems.spy.not_enough_observation": "Not enough observation to steal that ability.",
   "gems.spy.stolen_slots_full": "Stolen ability slots are full.",
@@ -371,14 +358,12 @@
   "gems.spy.skinshift": "Skinshift: %s",
   "gems.spy.recovered_stolen": "Recovered stolen abilities.",
   "gems.spy.cannot_chat_skinshifted": "You cannot chat while being skinshifted.",
-
   "gems.flux.charge_storage_not_active": "Charge Storage is not active.",
   "gems.flux.charge_at_100": "Flux charge is already at 100%.",
   "gems.flux.no_charge_item": "No charge item found (offhand or inventory).",
   "gems.flux.no_valid_charge_item": "No valid charge item found.",
   "gems.flux.charge_percent": "Flux charge: %s%%",
   "gems.flux.not_flux_gem": "Flux Charge: active gem is not Flux.",
-
   "gems.chaos.slot_expired": "Chaos slot %s expired!",
   "gems.chaos.slot_on_cooldown": "Slot %s ability on cooldown: %ss",
   "gems.chaos.ability_not_found": "Ability not found!",
@@ -389,7 +374,6 @@
   "gems.chaos.lets_go_gambling": "Let's go gambling!",
   "gems.chaos.rotation_not_ready": "Chaos rotation not ready yet.",
   "gems.chaos.ability_on_cooldown": "Chaos ability on cooldown: %ss",
-
   "gems.astra.soul_capture_not_active": "Soul Capture is not active.",
   "gems.astra.no_captured_soul": "No captured soul.",
   "gems.astra.soul_invalid": "Captured soul was invalid and was cleared.",
@@ -397,16 +381,12 @@
   "gems.astra.cannot_release_soul": "Cannot release soul here.",
   "gems.astra.cannot_summon": "Cannot summon: %s",
   "gems.astra.released_soul": "Released soul: %s",
-
   "gems.reaper.death_oath_tracking": "Death Oath: %s (%sm)",
   "gems.reaper.blood_charge_fizzled": "Blood Charge fizzled.",
-
   "gems.summoner.switch_to_edit": "Switch to the Summoner gem before editing its loadout.",
   "gems.summoner.must_use_summoner": "You must be using the Summoner gem to change this.",
   "gems.summoner.loadout_saved": "Saved Summoner loadout.",
-
   "gems.terror.remote_charge_armed": "Remote charge armed.",
-
   "gems.assassin.eliminated": "You have been eliminated as an assassin.",
   "gems.assassin.points_objective": "Assassin Pts",
   "gems.assassin.choice_unlocked": "You reached 10 assassin points. You can return to normal at any time.",
@@ -416,13 +396,11 @@
   "gems.assassin.choice_already_normal": "You are already a normal player.",
   "gems.assassin.choice_set_assassin": "You chose to stay an assassin.",
   "gems.assassin.choice_set_normal": "You chose to return to normal.",
-
   "gems.item.gem.penalty_applied": "Your gem was activated by another player. You paid the cost.",
   "gems.item.gem.activated": "Gem activated!",
   "gems.item.gem.not_owned": "You don't own this gem.",
   "gems.item.gem.reclaimed": "Reclaimed gem.",
   "gems.item.last_owner": "Last owner: %s",
-
   "gems.item.tracker_compass.hold_to_set": "Hold the Tracker Compass to set a target.",
   "gems.item.tracker_compass.hold_to_clear": "Hold to clear target.",
   "gems.item.tracker_compass.now_tracking": "Now tracking: %s",
@@ -435,35 +413,28 @@
   "gems.item.tracker_compass.tooltip.target_none": "Target: None",
   "gems.item.tracker_compass.tooltip.last_seen": "Last seen: %s, %s, %s (%s)",
   "gems.item.tracker_compass.tooltip.respawn": "Respawn: %s, %s, %s (%s)",
-
   "gems.item.recall_relic.mark_set": "Mark set.",
   "gems.item.recall_relic.recalled": "Recalled to mark!",
   "gems.item.recall_relic.failed": "Failed to recall.",
-
   "gems.item.hypno_staff.progress": "Hypnotizing... %s%%",
   "gems.item.hypno_staff.successful": "Target hypnotized!",
   "gems.item.hypno_staff.refreshed": "Hypnosis refreshed.",
   "gems.item.hypno_staff.failed": "Hypnosis failed.",
-
   "gems.item.earthsplitter_pick.mode": "Mining mode: %s",
-
   "gems.item.experience_blade.upgraded": "Sharpness upgraded to %s!",
   "gems.item.experience_blade.max": "Sharpness is already at max level.",
   "gems.item.experience_blade.need_xp": "Need %s XP levels to upgrade.",
   "gems.item.experience_blade.tooltip.1": "Consume XP to gain Sharpness",
   "gems.item.experience_blade.tooltip.2": "(10->II, 20->IV, 30->VI, max XX at 100 levels)",
-
   "gems.item.duelists_rapier.parry_ready": "Parry ready!",
   "gems.item.duelists_rapier.perfect_parry": "Perfect parry! Next hit is a guaranteed crit.",
   "gems.item.duelists_rapier.tooltip.1": "Right-click for parry window",
   "gems.item.duelists_rapier.tooltip.2": "Successful parry grants guaranteed crit",
   "gems.item.duelists_rapier.tooltip.3": "Parry window: 0.5s",
-
   "gems.item.reversal_mirror.activated": "Reversal Mirror activated!",
   "gems.item.reversal_mirror.tooltip.1": "Right-click to activate",
   "gems.item.reversal_mirror.tooltip.2": "Reflects all incoming damage back",
   "gems.item.reversal_mirror.tooltip.3": "Duration: 5 seconds",
-
   "gems.item.trophy_necklace.need_necklace": "You must have the Trophy Necklace.",
   "gems.item.trophy_necklace.need_kill": "You must kill that player to steal a passive.",
   "gems.item.trophy_necklace.no_session": "No recent Trophy Necklace target.",
@@ -474,24 +445,20 @@
   "gems.item.trophy_necklace.tooltip.1": "Right-click a player to steal passives",
   "gems.item.trophy_necklace.tooltip.2": "You can steal multiple passives",
   "gems.item.trophy_necklace.tooltip.3": "Stolen passives persist across gem swaps",
-
   "gems.screen.trophy_necklace.title": "Trophy Necklace",
   "gems.screen.trophy_necklace.subtitle": "Target: %s | Max stolen: %s",
   "gems.screen.trophy_necklace.tab.offered": "Available",
   "gems.screen.trophy_necklace.tab.stolen": "Stolen",
-
   "gems.item.gladiators_mark.marked": "Marked %s!",
   "gems.item.gladiators_mark.marked_victim": "You have been marked by %s!",
   "gems.item.gladiators_mark.tooltip.1": "Brand a player",
   "gems.item.gladiators_mark.tooltip.2": "Both deal 50%% more damage to each other",
   "gems.item.gladiators_mark.tooltip.3": "Duration: 60 seconds",
-
   "gems.item.soul_shackle.linked": "Linked to %s!",
   "gems.item.soul_shackle.linked_victim": "You have been shackled by %s!",
   "gems.item.soul_shackle.tooltip.1": "Link to an enemy",
   "gems.item.soul_shackle.tooltip.2": "Damage you take is split between you",
   "gems.item.soul_shackle.tooltip.3": "Duration: 10 seconds",
-
   "gems.item.challengers_gauntlet.challenged": "Challenged %s to a duel!",
   "gems.item.challengers_gauntlet.challenged_victim": "You have been challenged to a duel by %s!",
   "gems.item.challengers_gauntlet.duel_begin": "Duel begins!",
@@ -499,12 +466,9 @@
   "gems.item.challengers_gauntlet.tooltip.1": "Challenge a player to a duel arena",
   "gems.item.challengers_gauntlet.tooltip.2": "Winner gains energy",
   "gems.item.challengers_gauntlet.tooltip.3": "Loser loses energy",
-
   "gems.item.demolition_blade.no_target": "No target for demolition charge.",
-
   "gems.item.heart.assassin_blocked": "Assassins cannot use hearts directly.",
   "gems.item.heart.teammate_blocked": "Cannot give heart to teammate.",
-
   "gems.trust.always_trusted": "You are always trusted.",
   "gems.trust.trusted": "Trusted %s",
   "gems.trust.already_trusted": "%s is already trusted.",
@@ -513,7 +477,6 @@
   "gems.trust.was_not_trusted": "%s was not trusted.",
   "gems.trust.list_empty": "Trusted: -",
   "gems.trust.list_header": "Trusted (%s):",
-
   "gems.legendary.craft_started": "Legendary craft started. Return in %ss.",
   "gems.legendary.craft_complete": "Legendary craft complete: %s",
   "gems.legendary.craft_dropped": "Legendary craft complete: %s dropped at %s %s %s (%s).",
@@ -521,10 +484,8 @@
   "gems.legendary.crafting_limit": "That legendary item has reached its crafting limit.",
   "gems.legendary.craft_bossbar_title": "Legendary Craft",
   "gems.legendary.craft_bossbar": "Crafting %s @ %s %s %s (%s)",
-
   "gems.client.not_connected": "Not connected.",
   "gems.client.gem_state_not_synced": "Gem state not synced yet.",
-
   "gems.tooltip.passives": "Passives",
   "gems.tooltip.abilities": "Abilities",
   "gems.tooltip.description": "Description",
@@ -532,18 +493,14 @@
   "gems.tooltip.stolen_abilities": "Stolen abilities",
   "gems.tooltip.flux.charge_key": "%s to charge (consumes 1 item).",
   "gems.tooltip.flux.charge_items": "Charge items (per item):",
-
   "gems.screen.button.cancel": "Cancel",
-  "gems.screen.button.close": "Close",
   "gems.screen.button.save": "Save",
   "gems.screen.button.reset": "Reset",
   "gems.screen.button.clear": "Clear",
   "gems.screen.button.prev": "< Prev",
   "gems.screen.button.next": "Next >",
-
   "gems.screen.tracker_compass.title": "Tracker Compass",
   "gems.screen.tracker_compass.no_players": "No known players",
-
   "gems.screen.gem_seer.title": "Gem Seer",
   "gems.screen.gem_seer.hint": "Select a player to view their gem info",
   "gems.screen.gem_seer.no_players": "No known players",
@@ -557,7 +514,6 @@
   "gems.screen.title_selection.selected": " [Selected]",
   "gems.screen.title_selection.locked": " [Locked]",
   "gems.screen.title_selection.admin": " [Admin]",
-
   "gems.screen.bonus_selection.title": "Bonus Selection",
   "gems.screen.bonus_selection.cooldown": "Cooldown: %ss",
   "gems.screen.bonus_selection.tab_abilities": "Abilities",
@@ -568,13 +524,11 @@
   "gems.screen.bonus_selection.click_release": "Click to release",
   "gems.screen.bonus_selection.click_claim": "Click to claim",
   "gems.screen.bonus_selection.claimed_by_other": "Claimed by another player",
-
   "gems.screen.summoner_loadout.title": "Summoner Loadout",
   "gems.screen.summoner_loadout.hint": "Pick minions for each Summon ability. Slots are presets; the only limit is the active summon point cap. Cooldown starts after recall or a summon dies.",
   "gems.screen.summoner_loadout.points_cap": "Active points cap: %s",
   "gems.screen.summoner_loadout.add_row": "Add row",
   "gems.screen.summoner_loadout.none": "None",
-
   "gems.screen.prism_selection.title": "Prism Selection",
   "gems.screen.prism_selection.tab_gem_abilities": "Gem Abilities",
   "gems.screen.prism_selection.tab_bonus_abilities": "Bonus Abilities",
@@ -598,18 +552,15 @@
   "gems.prism.released_ability": "Released ability: %s",
   "gems.prism.released_passive": "Released passive: %s",
   "gems.prism.screen.title": "Prism Selection",
-
   "gems.rivalry.target_assigned": "New rival target: %s",
   "gems.rivalry.target_killed": "Rival %s eliminated! Finding new target...",
   "gems.rivalry.no_target": "No rival target assigned.",
-
   "gems.loadout.locked": "Loadout presets require energy level %s or higher.",
   "gems.loadout.max_presets": "Maximum presets reached (%s). Delete one first.",
   "gems.loadout.saved": "Loadout '%s' saved!",
   "gems.loadout.deleted": "Loadout '%s' deleted.",
   "gems.loadout.loaded": "Loadout '%s' activated!",
   "gems.loadout.not_found": "Loadout not found.",
-
   "gems.screen.bounty.title": "Bounty Board",
   "gems.screen.bounty.tab.active": "Active",
   "gems.screen.bounty.tab.place": "Place",
@@ -618,7 +569,6 @@
   "gems.screen.bounty.hearts": "Hearts",
   "gems.screen.bounty.energy": "Energy",
   "gems.screen.bounty.place": "Place Bounty",
-
   "gems.bounty.place.success": "Placed bounty on %s: %s hearts, %s energy.",
   "gems.bounty.placed_on_you": "%s placed a bounty on you: %s hearts, %s energy.",
   "gems.bounty.claimed": "Claimed bounty on %s: %s hearts, %s energy.",
@@ -627,7 +577,6 @@
   "gems.bounty.voided": "Bounty on %s was voided because they became an assassin.",
   "gems.bounty.list.empty": "No active bounties.",
   "gems.bounty.list.header": "Active bounties: %s",
-
   "gems.bounty.error.assassin_blocked": "Assassins cannot place bounties.",
   "gems.bounty.error.invalid_target": "Invalid bounty target.",
   "gems.bounty.error.invalid_amount": "Bounty must include hearts or energy.",
@@ -637,7 +586,6 @@
   "gems.bounty.error.insufficient_energy": "Not enough energy to place that bounty.",
   "gems.bounty.error.target_offline": "Target player is offline.",
   "gems.bounty.error.unknown": "Unable to place bounty.",
-
   "gems.title.general.immortal": "Immortal",
   "gems.title.general.king_slayer": "King Slayer",
   "gems.title.general.titan": "Titan",
@@ -668,168 +616,144 @@
   "gems.title.general.kills_hunter": "Hunter Slayer",
   "gems.title.general.kills_sentinel": "Sentinel Slayer",
   "gems.title.general.kills_trickster": "Trickster Slayer",
-
   "gems.mastery.title.astra.epic1": "Starweaver",
   "gems.mastery.title.astra.epic2": "Voidwalker",
   "gems.mastery.aura.astra.spark": "Astra Spark",
   "gems.mastery.aura.astra.glow": "Astra Glow",
   "gems.mastery.aura.astra.radiance": "Astra Radiance",
   "gems.mastery.aura.astra.brilliance": "Astra Brilliance",
-
   "gems.mastery.title.fire.epic1": "Pyroclast",
   "gems.mastery.title.fire.epic2": "Inferno Incarnate",
   "gems.mastery.aura.fire.spark": "Fire Spark",
   "gems.mastery.aura.fire.glow": "Fire Glow",
   "gems.mastery.aura.fire.radiance": "Fire Radiance",
   "gems.mastery.aura.fire.brilliance": "Fire Brilliance",
-
   "gems.mastery.title.flux.epic1": "Stormcaller",
   "gems.mastery.title.flux.epic2": "Tempest Eternal",
   "gems.mastery.aura.flux.spark": "Flux Spark",
   "gems.mastery.aura.flux.glow": "Flux Glow",
   "gems.mastery.aura.flux.radiance": "Flux Radiance",
   "gems.mastery.aura.flux.brilliance": "Flux Brilliance",
-
   "gems.mastery.title.life.epic1": "Lifebinder",
   "gems.mastery.title.life.epic2": "The Undying",
   "gems.mastery.aura.life.spark": "Life Spark",
   "gems.mastery.aura.life.glow": "Life Glow",
   "gems.mastery.aura.life.radiance": "Life Radiance",
   "gems.mastery.aura.life.brilliance": "Life Brilliance",
-
   "gems.mastery.title.puff.epic1": "Cloudstrider",
   "gems.mastery.title.puff.epic2": "Skyborne",
   "gems.mastery.aura.puff.spark": "Puff Spark",
   "gems.mastery.aura.puff.glow": "Puff Glow",
   "gems.mastery.aura.puff.radiance": "Puff Radiance",
   "gems.mastery.aura.puff.brilliance": "Puff Brilliance",
-
   "gems.mastery.title.speed.epic1": "Windrunner",
   "gems.mastery.title.speed.epic2": "The Blur",
   "gems.mastery.aura.speed.spark": "Speed Spark",
   "gems.mastery.aura.speed.glow": "Speed Glow",
   "gems.mastery.aura.speed.radiance": "Speed Radiance",
   "gems.mastery.aura.speed.brilliance": "Speed Brilliance",
-
   "gems.mastery.title.strength.epic1": "Ironwrought",
   "gems.mastery.title.strength.epic2": "The Unbreakable",
   "gems.mastery.aura.strength.spark": "Strength Spark",
   "gems.mastery.aura.strength.glow": "Strength Glow",
   "gems.mastery.aura.strength.radiance": "Strength Radiance",
   "gems.mastery.aura.strength.brilliance": "Strength Brilliance",
-
   "gems.mastery.title.wealth.epic1": "Goldhand",
   "gems.mastery.title.wealth.epic2": "The Midas Touch",
   "gems.mastery.aura.wealth.spark": "Wealth Spark",
   "gems.mastery.aura.wealth.glow": "Wealth Glow",
   "gems.mastery.aura.wealth.radiance": "Wealth Radiance",
   "gems.mastery.aura.wealth.brilliance": "Wealth Brilliance",
-
   "gems.mastery.title.terror.epic1": "Dreadlord",
   "gems.mastery.title.terror.epic2": "Nightmare Incarnate",
   "gems.mastery.aura.terror.spark": "Terror Spark",
   "gems.mastery.aura.terror.glow": "Terror Glow",
   "gems.mastery.aura.terror.radiance": "Terror Radiance",
   "gems.mastery.aura.terror.brilliance": "Terror Brilliance",
-
   "gems.mastery.title.summoner.epic1": "Beastmaster",
   "gems.mastery.title.summoner.epic2": "Legion Commander",
   "gems.mastery.aura.summoner.spark": "Summoner Spark",
   "gems.mastery.aura.summoner.glow": "Summoner Glow",
   "gems.mastery.aura.summoner.radiance": "Summoner Radiance",
   "gems.mastery.aura.summoner.brilliance": "Summoner Brilliance",
-
   "gems.mastery.title.space.epic1": "Riftwalker",
   "gems.mastery.title.space.epic2": "Dimension Breaker",
   "gems.mastery.aura.space.spark": "Space Spark",
   "gems.mastery.aura.space.glow": "Space Glow",
   "gems.mastery.aura.space.radiance": "Space Radiance",
   "gems.mastery.aura.space.brilliance": "Space Brilliance",
-
   "gems.mastery.title.reaper.epic1": "Soulreaver",
   "gems.mastery.title.reaper.epic2": "Death's Hand",
   "gems.mastery.aura.reaper.spark": "Reaper Spark",
   "gems.mastery.aura.reaper.glow": "Reaper Glow",
   "gems.mastery.aura.reaper.radiance": "Reaper Radiance",
   "gems.mastery.aura.reaper.brilliance": "Reaper Brilliance",
-
   "gems.mastery.title.pillager.epic1": "Warlord",
   "gems.mastery.title.pillager.epic2": "The Conqueror",
   "gems.mastery.aura.pillager.spark": "Pillager Spark",
   "gems.mastery.aura.pillager.glow": "Pillager Glow",
   "gems.mastery.aura.pillager.radiance": "Pillager Radiance",
   "gems.mastery.aura.pillager.brilliance": "Pillager Brilliance",
-
   "gems.mastery.title.spy.epic1": "Shadowblade",
   "gems.mastery.title.spy.epic2": "The Unseen",
   "gems.mastery.aura.spy.spark": "Spy Spark",
   "gems.mastery.aura.spy.glow": "Spy Glow",
   "gems.mastery.aura.spy.radiance": "Spy Radiance",
   "gems.mastery.aura.spy.brilliance": "Spy Brilliance",
-
   "gems.mastery.title.beacon.epic1": "Lightwarden",
   "gems.mastery.title.beacon.epic2": "The Radiant",
   "gems.mastery.aura.beacon.spark": "Beacon Spark",
   "gems.mastery.aura.beacon.glow": "Beacon Glow",
   "gems.mastery.aura.beacon.radiance": "Beacon Radiance",
   "gems.mastery.aura.beacon.brilliance": "Beacon Brilliance",
-
   "gems.mastery.title.air.epic1": "Galeweaver",
   "gems.mastery.title.air.epic2": "Hurricane",
   "gems.mastery.aura.air.spark": "Air Spark",
   "gems.mastery.aura.air.glow": "Air Glow",
   "gems.mastery.aura.air.radiance": "Air Radiance",
   "gems.mastery.aura.air.brilliance": "Air Brilliance",
-
   "gems.mastery.title.void.epic1": "Abyssal",
   "gems.mastery.title.void.epic2": "The Hollow",
   "gems.mastery.aura.void.spark": "Void Spark",
   "gems.mastery.aura.void.glow": "Void Glow",
   "gems.mastery.aura.void.radiance": "Void Radiance",
   "gems.mastery.aura.void.brilliance": "Void Brilliance",
-
   "gems.mastery.title.chaos.epic1": "Anarchist",
   "gems.mastery.title.chaos.epic2": "Entropy Incarnate",
   "gems.mastery.aura.chaos.spark": "Chaos Spark",
   "gems.mastery.aura.chaos.glow": "Chaos Glow",
   "gems.mastery.aura.chaos.radiance": "Chaos Radiance",
   "gems.mastery.aura.chaos.brilliance": "Chaos Brilliance",
-
   "gems.mastery.title.prism.epic1": "Chromatic",
   "gems.mastery.title.prism.epic2": "The Kaleidoscope",
   "gems.mastery.aura.prism.spark": "Prism Spark",
   "gems.mastery.aura.prism.glow": "Prism Glow",
   "gems.mastery.aura.prism.radiance": "Prism Radiance",
   "gems.mastery.aura.prism.brilliance": "Prism Brilliance",
-
   "gems.mastery.title.duelist.epic1": "Bladedancer",
   "gems.mastery.title.duelist.epic2": "The Champion",
   "gems.mastery.aura.duelist.spark": "Duelist Spark",
   "gems.mastery.aura.duelist.glow": "Duelist Glow",
   "gems.mastery.aura.duelist.radiance": "Duelist Radiance",
   "gems.mastery.aura.duelist.brilliance": "Duelist Brilliance",
-
   "gems.mastery.title.hunter.epic1": "Apex Predator",
   "gems.mastery.title.hunter.epic2": "The Huntsman",
   "gems.mastery.aura.hunter.spark": "Hunter Spark",
   "gems.mastery.aura.hunter.glow": "Hunter Glow",
   "gems.mastery.aura.hunter.radiance": "Hunter Radiance",
   "gems.mastery.aura.hunter.brilliance": "Hunter Brilliance",
-
   "gems.mastery.title.sentinel.epic1": "Bulwark",
   "gems.mastery.title.sentinel.epic2": "The Immovable",
   "gems.mastery.aura.sentinel.spark": "Sentinel Spark",
   "gems.mastery.aura.sentinel.glow": "Sentinel Glow",
   "gems.mastery.aura.sentinel.radiance": "Sentinel Radiance",
   "gems.mastery.aura.sentinel.brilliance": "Sentinel Brilliance",
-
   "gems.mastery.title.trickster.epic1": "Illusionist",
   "gems.mastery.title.trickster.epic2": "Master of Deception",
   "gems.mastery.aura.trickster.spark": "Trickster Spark",
   "gems.mastery.aura.trickster.glow": "Trickster Glow",
   "gems.mastery.aura.trickster.radiance": "Trickster Radiance",
   "gems.mastery.aura.trickster.brilliance": "Trickster Brilliance",
-
   "gems.synergy.triggered": "%s synergy triggered",
   "gems.synergy.thunderstorm": "Thunderstorm",
   "gems.synergy.thunderstorm.desc": "Fire + Flux: Lightning strikes your target location",
@@ -905,14 +829,12 @@
   "gems.synergy.iron_chorus.desc": "Beacon Resistance Aura + Rally Cry: Team fortification",
   "gems.synergy.predator_lunge": "Predator Lunge",
   "gems.synergy.predator_lunge.desc": "Pounce + Lunge: Predatory strike",
-
   "item.gems.gem_augment_focus": "Gem Augment: Focus",
   "item.gems.gem_augment_resonance": "Gem Augment: Resonance",
   "item.gems.gem_augment_persistence": "Gem Augment: Persistence",
   "item.gems.legendary_inscription_edge": "Legendary Inscription: Edge",
   "item.gems.legendary_inscription_swift": "Legendary Inscription: Swift",
   "item.gems.legendary_inscription_ward": "Legendary Inscription: Ward",
-
   "gems.augment.focus": "Focus",
   "gems.augment.focus.desc": "Reduces gem ability cooldowns",
   "gems.augment.resonance": "Resonance",
@@ -931,7 +853,6 @@
   "gems.augment.applied_gem": "Gem augment applied!",
   "gems.augment.applied_legendary": "Legendary inscription applied!",
   "gems.augment.need_legendary": "Hold a legendary item in your other hand.",
-
   "enchantment.level.11": "XI",
   "enchantment.level.12": "XII",
   "enchantment.level.13": "XIII",
@@ -941,5 +862,9 @@
   "enchantment.level.17": "XVII",
   "enchantment.level.18": "XVIII",
   "enchantment.level.19": "XIX",
-  "enchantment.level.20": "XX"
+  "enchantment.level.20": "XX",
+  "subtitles.gems.metal_pipe": "Metal clangs",
+  "subtitles.gems.arcane_chime": "A chime rings",
+  "subtitles.gems.surge_pulse": "A pulse fires",
+  "subtitles.gems.phase_shift": "A shift sounds"
 }

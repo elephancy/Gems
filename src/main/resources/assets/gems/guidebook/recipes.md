@@ -1,21 +1,18 @@
 # Recipes
 
-All recipes unlock automatically when a player joins.
+Your recipe book shows these recipes as soon as you join. In a crafting table, place the ingredients like this:
 
 ## Core progression items
 
-- Heart (`gems:heart`): shaped `NIN / IGI / NIN` where `N=netherite_scrap`, `I=iron_block`, `G=gold_block`.
-- Energy Upgrade (`gems:energy_upgrade`): shaped `NEN / EDE / NEN` where `N=netherite_scrap`, `E=emerald_block`, `D=diamond_block`.
-- Gem Trader (`gems:gem_trader`): shaped `DBD / BWB / DBD` where `D=diamond_block`, `B=dragon_breath`, `W=wither_skeleton_skull`.
-  - Use: opens a GUI to pick a new gem; consumes 1 Gem Trader and replaces only your active gem with the selected gem (which becomes active).
-  - Requirement: your **active gem item must be in your inventory** (not in chests, ender chests, or pockets) to trade.
-- Gem Purchase Token (`gems:gem_purchase`): shaped `EBE / DND / EBE` where `N=netherite_block`, `B=beacon`, `D=diamond_block`, `E=end_crystal`.
-  - Use: opens a GUI to pick any gem; consumes 1 token, adds the gem to your owned set, and sets it active.
+- Heart: Netherite Scrap in the four corners, Iron Blocks on the four sides, and a Gold Block in the center.
+- Energy Upgrade: Netherite Scrap in the corners, Emerald Blocks on the sides, and a Diamond Block in the center.
+- Gem Trader: Diamond Blocks in the corners, Dragon's Breath on the sides, and a Wither Skeleton Skull in the center. Use it to swap your active gem. Keep your current gem item in your inventory while trading.
+- Gem Purchase Token: End Crystals in the corners, Beacons at the top and bottom, Diamond Blocks at the left and right, and a Netherite Block in the center. Use it to add a gem to your collection and make it active.
 
 ## Legendary items
 
-- Discount legendary recipes are cheaper and only craftable while the matching gem is active.
+- Some legendary items have a cheaper recipe while the matching gem is active. Check the recipe book for both versions.
 
 ## Gem augments and inscriptions
 
-- All augment/inscription recipes require a player head and unique ingredients.
+- Augments and inscriptions need a player head and different ingredients. The recipe book shows each one.
