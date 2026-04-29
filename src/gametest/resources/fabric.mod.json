@@ -1,52 +1,20 @@
 {
   "schemaVersion": 1,
-  "id": "gems-gametest",
-  "version": "1.2",
-  "name": "Gems GameTests",
-  "description": "End-to-end integration tests for the Gems mod (development-only).",
+  "id": "gems-standalone-gametest",
+  "version": "1.0",
+  "name": "Standalone Gems smoke fixture",
   "environment": "*",
   "entrypoints": {
     "fabric-gametest": [
-      "com.feel.gems.gametest.ability.GemsAbilityGameTests",
-      "com.feel.gems.gametest.ability.GemsAirGameTests",
-      "com.feel.gems.gametest.ability.GemsAstraGameTests",
-      "com.feel.gems.gametest.ability.GemsBeaconGameTests",
-      "com.feel.gems.gametest.ability.GemsBonusAbilityGameTests",
-      "com.feel.gems.gametest.ability.GemsDuelistGameTests",
-      "com.feel.gems.gametest.ability.GemsFireGameTests",
-      "com.feel.gems.gametest.ability.GemsFluxGameTests",
-      "com.feel.gems.gametest.ability.GemsHunterGameTests",
-      "com.feel.gems.gametest.ability.GemsLifeGameTests",
-      "com.feel.gems.gametest.ability.GemsPillagerGameTests",
-      "com.feel.gems.gametest.ability.GemsPuffGameTests",
-      "com.feel.gems.gametest.ability.GemsReaperGameTests",
-      "com.feel.gems.gametest.ability.GemsSentinelGameTests",
-      "com.feel.gems.gametest.ability.GemsSpaceGameTests",
-      "com.feel.gems.gametest.ability.GemsSpeedGameTests",
-      "com.feel.gems.gametest.ability.GemsSpyGameTests",
-      "com.feel.gems.gametest.ability.GemsStrengthGameTests",
-      "com.feel.gems.gametest.ability.GemsSummonerGameTests",
-      "com.feel.gems.gametest.ability.GemsTerrorGameTests",
-      "com.feel.gems.gametest.ability.GemsTricksterGameTests",
-      "com.feel.gems.gametest.ability.GemsWealthGameTests",
-      "com.feel.gems.gametest.air.GemsAirMaceGameTests",
-      "com.feel.gems.gametest.bonus.GemsBonusGameTests",
-      "com.feel.gems.gametest.core.GemsCoreGameTests",
-      "com.feel.gems.gametest.gems.GemsSpecialGemsGameTests",
-      "com.feel.gems.gametest.item.GemsHeartAndAssassinGameTests",
-      "com.feel.gems.gametest.item.GemsItemGameTests",
-      "com.feel.gems.gametest.passive.GemsBonusPassiveGameTests",
-      "com.feel.gems.gametest.passive.GemsPassiveGameTests",
-      "com.feel.gems.gametest.power.GemsFluxGameTests",
-      "com.feel.gems.gametest.space.GemsSpaceMiningGameTests",
-      "com.feel.gems.gametest.terror.GemsTerrorTradeGameTests",
-      "com.feel.gems.gametest.trade.GemsTradeGameTests"
+      "com.feel.gems.gametest.StandaloneGemsServerGameTest"
+    ],
+    "fabric-client-gametest": [
+      "com.feel.gems.gametest.StandaloneGemsClientGameTest"
     ]
   },
   "depends": {
-    "minecraft": ">=1.21.1",
-    "fabricloader": ">=0.16.11",
     "gems": "*",
-    "fabric-gametest-api-v1": "*"
+    "fabric-api": "*",
+    "minecraft": "~26.3"
   }
 }
