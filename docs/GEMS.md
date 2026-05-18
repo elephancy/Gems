@@ -63,10 +63,11 @@ Abilities:
 ### Chaos Gem
 
 Passives:
-- Chaos Agent: grants access to n(4 by default) independent random ability slots.
+- Chaos Agent: grants six independent random ability slots by default (server owners can set 1-9).
 
 Abilities:
-- Slot 1-n (LAlt + 1-n): each slot can be rolled independently. Press a slot key when empty to roll a random ability and passive from any other gem. The rolled ability lasts 5 minutes and can be used with a 10-second cooldown. All n slots operate independently.
+- Each Chaos slot (Left Alt + its hotbar number): each slot can be rolled independently. Press a slot key when empty to roll a random ability and passive from any other gem. The rolled ability lasts 5 minutes and can be used with a 10-second cooldown. All n slots operate independently.
+- At 1 energy, you can roll a slot for its passive. Using the rolled ability starts at 2 energy, like other gem abilities.
 
 ### Duelist Gem
 
