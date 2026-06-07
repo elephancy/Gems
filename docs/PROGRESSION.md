@@ -1,28 +1,25 @@
-# Progression (Energy, Hearts, Swapping)
+# Progression
 
-This doc describes the core progression loop: energy, hearts, and gem swapping.
+Energy controls your gem powers. You start with a random gem at 3 energy.
 
-## Core loop
+## Energy and powers
 
-- You spawn with a random gem at 3 energy.
-- Energy tiers: Broken (0), Common (1), Rare (2), Elite (3), Mythical (4), Legendary (5), Legendary +1..+5 (6-10).
-- Passives are active at energy 1+ (unless you toggle them off in client config). At energy 0, passives and abilities are disabled.
-- Abilities unlock by energy: 2-4 unlock in order, 5+ unlock all remaining abilities.
-- Energy levels 6-10 are buffer only (no new powers).
-- Player-vs-player kills grant +1 energy if the victim has more than 0 energy. Death (any cause) loses 1 energy.
-- Legendary +5 gives a glint. If a Legendary +5 player kills a non-broken player, the victim drops an upgrade item.
-- Upgrade items cannot be used by Legendary +5 players.
+- 0 energy (Broken): your gem powers stop working.
+- 1 energy (Common): all your gem's passives are available.
+- 2-4 energy: each level unlocks the next ability in order.
+- 5 energy (Legendary): all remaining abilities unlock together.
+- 6-10 energy: no new gem powers; these levels give you room to lose energy.
 
-## Hearts, items, and swapping
+Defeat a player with energy to gain 1. Any death costs 1. Energy cannot rise above 10 or fall below 0.
 
-- Heart items drop on death and increase max hearts when consumed.
-- Minimum max hearts is configurable (default 5); maximum total hearts is 20.
-- Heart items cannot be consumed by trusted players (prevents team boosting).
-- Energy upgrade items add a level (up to Legendary +5).
-- Gem Trader swaps only your active gem and consumes the item (your active gem item must be in your inventory).
-- Gem Purchase Token adds any gem to your owned set, activates it, and consumes the token.
-- You do not respawn with your active gem item; only your first join grants a starting gem.
-- All gems recipes unlock automatically on join. Legendary discount recipes (`*_discount`) are cheaper and only craftable while the matching gem is active (`legendary.recipeGemRequirements` uses recipe ids).
-- Players drop their heads on death.
-- Test Dummy spawn egg: spawns a player-sized training dummy for item/ability testing (see `docs/TEST_DUMMY.md`).
+At 10 energy (Legendary +5), you glint. Defeating a player who is not Broken drops an energy upgrade item from them. You cannot use upgrade items at 10 energy.
 
+## Hearts and items
+
+- Death can drop a heart item. Use one to raise your maximum health, up to 20 hearts. The server sets the minimum, which is 5 by default.
+- You cannot use a heart dropped by a trusted player.
+- Energy upgrade items add 1 energy, up to 10.
+- The Gem Trader exchanges your active gem item for another gem. Keep that item in your inventory when trading.
+- A Gem Purchase Token grants a gem, adds it to your collection, and makes it active.
+
+Your starting gem is granted only once. You do not receive a new copy when you respawn. Gem and legendary recipes unlock when you join. Players also drop their heads on death.
