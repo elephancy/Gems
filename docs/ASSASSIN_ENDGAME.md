@@ -1,6 +1,6 @@
 # Assassin endgame
 
-- If you die while already at the configured assassin trigger hearts (default 5), you become an Assassin.
+- If your maximum health is down to 5 hearts (by default), dying again turns you into an Assassin.
 - Assassins are highlighted red in the player list.
 - Assassins have a configurable max hearts cap (`systems.assassinMaxHearts`), cannot consume heart items, and never drop heart items.
 - If killed by another Assassin: configurable heart loss/gain (`systems.assassinVsAssassinVictimHeartsLoss`/`systems.assassinVsAssassinKillerHeartsGain`).
