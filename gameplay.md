@@ -1,25 +1,19 @@
-# Gems — Player Guide
+# Start here
 
-This is the player-facing overview. Detailed docs are split by feature under `docs/`.
+Your gem shapes how you fight. You receive a random gem and start at 3 energy.
 
-## Start here
+## Your first fight
 
-- Feature index: `docs/README.md`
-- Progression (energy, hearts, swapping): `docs/PROGRESSION.md`
-- Gems (abilities + passives): `docs/GEMS.md`
-- Bonus abilities + passives: `docs/BONUS_POOL.md`
-- Legendary items: `docs/LEGENDARY_ITEMS.md`
-- Trust + ownership rules: `docs/TRUST_AND_OWNERSHIP.md`
-- Controls + HUD: `docs/CONTROLS_AND_HUD.md`
-- Assassin endgame: `docs/ASSASSIN_ENDGAME.md`
-- Recipes: `docs/RECIPES.md`
+- At 3 energy, your gem's passives and first two abilities are ready.
+- Hold Left Alt and press a hotbar number to cast. You can change these keys in Options > Controls > Gems.
+- Press ~ to return to this guide. The HUD shows your gem, energy, and cooldowns.
 
-## Quick summary
+## Grow stronger
 
-- You spawn with a random gem at 3 energy and gain/lose energy through PvP kills/deaths.
-- Energy gates passives (1+) and abilities (2+), with all abilities available at 5+ energy.
-- Legendary items, bonus abilities, and special gems (Void/Chaos/Prism) add endgame depth and counterplay.
+- Defeat another player who has energy to gain 1 energy. Any death costs you 1 energy.
+- At 5 energy, every ability on your gem is unlocked. Energy 6-10 protects your progress but grants no more gem abilities.
+- At 10 energy, press B to choose bonus powers. If your energy falls below 10, those choices are released.
 
-## Looking for server setup?
+## Where to go next
 
-If you run a server (or want admin commands/config), see `server-ops.md` and `balance.md`.
+Read Progression for the exact energy rules, Gems to explore powers, and Controls & HUD for every key.

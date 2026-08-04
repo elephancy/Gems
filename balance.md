@@ -1,10 +1,23 @@
 # Balance config
 
 Balancing is controlled by `config/gems/balance.json` (generated on first run).
+The file stores only values changed from the defaults, so a fresh install starts
+with `{}` rather than hundreds of unused controls. The game applies its built-in
+defaults to every missing value in memory.
+
+Mod Menu shows the main settings for each gem and system: usually two or three
+controls per section. Detailed tuning remains available in `balance.json` for
+server owners who need it. Use **Copy JSON paths** in Mod Menu to find the file.
+An existing detailed override still loads and works, even if Mod Menu does not
+show that field. **Reset section** resets every value in the selected section,
+including detailed overrides; **Reset server** resets all balance and disable
+settings. Review these changes before saving.
 
 - Apply changes without restart: `/gems reloadBalance` (requires op permission level 2+).
 - If the JSON is invalid, the reload fails and the current balance stays active (the file is not overwritten).
-- Missing keys are filled from defaults on load and the file is rewritten to include new entries when the mod updates.
+- Missing keys use built-in defaults without being written into the file.
+- Saving from Mod Menu changes only the fields edited in that session. Existing detailed overrides and unrecognized keys are kept. Values set back to their defaults are removed from the file.
+- The in-game disable list covers gems, abilities, and passives. The existing `disabledBonusAbilities` and `disabledBonusPassives` lists remain available in `config/gems/disables.json`.
 - Export the currently-applied (sanitized) values: `/gems dumpBalance` (writes `config/gems/balance.effective.json`).
 
 Player-facing behavior docs live under `docs/` (start at `docs/README.md`). This file focuses on configuration keys, units, and safety constraints.
@@ -54,5 +67,5 @@ The balance file mirrors the in-code schema in `src/main/java/com/feel/gems/conf
 
 ## Client config note
 
-Client-side settings are stored in `config/gems/client.json` (per-client, not synced to server). For keybind modes and HUD controls, see `docs/CONTROLS_AND_HUD.md`.
+Client-side settings are stored in `config/gems/client.json` (per-client, not synced to server). If this file cannot be read, the settings screen leaves it intact and shows an error; use **Reload from disk** after repairing it. Saves preserve unfamiliar keys. For keybind modes and HUD controls, see `docs/CONTROLS_AND_HUD.md`.
 
