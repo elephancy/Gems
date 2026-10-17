@@ -26,4 +26,3 @@ Astra's Soul Release and Summoner's loadout use the slot after their last regula
 At 6 energy, you can save up to 5 presets for each gem. They remember ability order, passive choices, and HUD layout. Your current energy still decides which powers you can use.
 
 Open Gems Settings through Mod Menu for control mode and passive settings. In a local world, Save + Reload applies balance changes immediately. Dedicated server operators edit the server's config files and run `/gems reloadBalance` or `/gems reloadDisables` there.
-
