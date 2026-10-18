@@ -9,14 +9,14 @@
     "feel"
   ],
   "contact": {
-    "homepage": "https://github.com/mahmoudelfeelig/Gems",
-    "sources": "https://github.com/mahmoudelfeelig/Gems",
-    "issues": "https://github.com/mahmoudelfeelig/Gems/issues"
+    "homepage": "https://github.com/elephancy/Gems",
+    "sources": "https://github.com/elephancy/Gems",
+    "issues": "https://github.com/elephancy/Gems/issues"
   },
   "custom": {
     "modmenu": {
       "links": {
-        "credits": "https://github.com/mahmoudelfeelig/Gems/blob/main/credits.md"
+        "credits": "https://github.com/elephancy/Gems/blob/main/credits.md"
       }
     }
   },
