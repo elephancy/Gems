@@ -21,3 +21,9 @@ __pycache__/
 *.pyc
 hs_err_pid*
 replay_pid*
+
+# Local release and nested campaign checkout
+/release/
+/Second-Chance/
+/assets/
+/bin/
