@@ -9,6 +9,6 @@ Build with `./gradlew build` (`gradlew.bat build` on Windows). The jar is in `bu
 CI builds the mod, compiles the GameTest source set, and reports the resolved
 runtime dependency graph on Java 25. Dedicated server and client GameTest smoke
 runs remain explicit release checks. Gradle uses patched LZ4 and a consistent
-Netty 4.2 patch family, while retaining Minecraft's newer Log4j and Commons Lang
-dependencies. A mod jar does not replace libraries supplied by a player's
+Netty 4.2 patch family and Log4j, while retaining newer upstream dependencies.
+A mod jar does not replace libraries supplied by a player's
 Minecraft launcher; keep the game installation updated separately.

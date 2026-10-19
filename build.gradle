@@ -27,11 +27,17 @@ repositories {
 
 def LZ4_VERSION = "1.11.4"
 def NETTY_VERSION = "4.2.17.Final"
+def LOG4J_VERSION = "2.26.1"
 
 configurations.configureEach {
     resolutionStrategy {
         eachDependency { details ->
             def requested = details.requested
+            if (requested.group == "org.apache.logging.log4j" && requested.version ==~ /2\.\d+\.\d+/
+                    && org.gradle.util.GradleVersion.version(requested.version) < org.gradle.util.GradleVersion.version(LOG4J_VERSION)) {
+                details.useVersion(LOG4J_VERSION)
+                details.because("Require patched Log4j without downgrading newer upstream releases")
+            }
             if (requested.group == "at.yawk.lz4" && requested.name == "lz4-java"
                     && requested.version ==~ /\d+\.\d+\.\d+/
                     && org.gradle.util.GradleVersion.version(requested.version) < org.gradle.util.GradleVersion.version(LZ4_VERSION)) {
