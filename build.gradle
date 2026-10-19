@@ -25,16 +25,27 @@ repositories {
     maven { url = "https://maven.terraformersmc.com/releases/" }
 }
 
-def LOG4J_VERSION = "2.25.3"
-def LZ4_VERSION = "1.10.1"
-def COMMONS_LANG3_VERSION = "3.18.0"
+def LZ4_VERSION = "1.11.4"
+def NETTY_VERSION = "4.2.17.Final"
 
 configurations.configureEach {
     resolutionStrategy {
-        force "org.apache.logging.log4j:log4j-core:${LOG4J_VERSION}",
-              "org.apache.logging.log4j:log4j-api:${LOG4J_VERSION}",
-              "at.yawk.lz4:lz4-java:${LZ4_VERSION}",
-              "org.apache.commons:commons-lang3:${COMMONS_LANG3_VERSION}"
+        eachDependency { details ->
+            def requested = details.requested
+            if (requested.group == "at.yawk.lz4" && requested.name == "lz4-java"
+                    && requested.version ==~ /\d+\.\d+\.\d+/
+                    && org.gradle.util.GradleVersion.version(requested.version) < org.gradle.util.GradleVersion.version(LZ4_VERSION)) {
+                details.useVersion(LZ4_VERSION)
+                details.because("Require patched LZ4 without downgrading newer upstream releases")
+            }
+            // Keep Minecraft's Netty 4.2 modules on the same security patch.
+            // Native/tcnative packages and other major families stay separate.
+            if (requested.group == "io.netty" && requested.version ==~ /4\.2\.\d+\.Final/
+                    && org.gradle.util.GradleVersion.version(requested.version - ".Final") < org.gradle.util.GradleVersion.version(NETTY_VERSION - ".Final")) {
+                details.useVersion(NETTY_VERSION)
+                details.because("Require patched Netty 4.2 without downgrading newer upstream releases")
+            }
+        }
         dependencySubstitution {
             substitute module("org.lz4:lz4-java") using module("at.yawk.lz4:lz4-java:${LZ4_VERSION}")
         }
