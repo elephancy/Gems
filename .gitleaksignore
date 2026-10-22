@@ -1,0 +1,4 @@
+# These exact historical matches are an NBT timestamp metadata key identifier,
+# used only by putLong/getLong/contains/remove; no authentication or cryptographic use.
+b849baaac7769d335950fb34a26d0dddf95bd623:src/main/java/com/blissmc/gems/power/FluxCharge.java:generic-api-key:18
+f6600c03499b239f00a7f1990dfc36f54da46dcd:src/main/java/com/blissmc/gems/power/FluxCharge.java:generic-api-key:18
